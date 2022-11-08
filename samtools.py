@@ -12,4 +12,4 @@ def tif_to_avi(filepath):
     os.system("ffmpeg -i " + filepath + "/" + cam + "/frame%d.tif -vcodec ffv1" + os.path.abspath(filepath) + ".avi")
 
 if __name__ == "__main__":
-    tif_to_avi(filepath)
+    tif_to_avi(".")
