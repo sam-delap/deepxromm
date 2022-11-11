@@ -2,7 +2,7 @@
 import os
 
 def tif_to_avi(working_dir):
-    '''Converts training data tif files to an AVI video'''
+    '''Converts training data tif files to AVI videos'''
     XMA_dir = working_dir + "/trainingdata"
     try:
         os.chdir(XMA_dir)
