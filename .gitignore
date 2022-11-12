@@ -1,3 +1,14 @@
+# Jupyter
 *.ipynb
+
+# YAML
 *.yaml
 *.yml
+
+# Video
+*.avi
+*.mp4
+
+# Training Videos
+*.tif
+*.csv
