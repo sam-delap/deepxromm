@@ -1,5 +1,32 @@
 # Import packages
 import os
+import deeplabcut
+from ruamel.yaml import YAML
+
+def create_new_project(working_dir=os.getcwd(), experimenter='Johnny Appleseed'):
+    '''Create a new xrommtools project'''
+    dirs = ["trainingdata", "trials", "XMA_files"]
+    for dir in dirs:
+        try:
+            os.mkdir(dir)
+        except FileExistsError:
+            continue
+
+    config = open("project_config.yaml", 'w')
+
+    yaml = YAML(typ="safe")
+    task = working_dir.split("/")[len(working_dir.split("/")) - 1]
+    path_config_file = deeplabcut.create_new_project(task, experimenter, list(working_dir + "/project.yaml"), working_dir + "/", copy_videos=True)
+    template = f"""
+    task: {task}
+    experimenter: {experimenter}
+    working_dir: {working_dir}
+    path_config_file: {path_config_file}
+    dataset_name: 
+    nframes:
+    """
+
+    yaml.dump(template, config)
 
 def tif_to_avi(working_dir):
     '''Converts training data tif files to AVI videos'''
@@ -38,6 +65,3 @@ def tif_to_avi(working_dir):
             print(cmd)   
             os.system(cmd)
             os.chdir("../")
-
-if __name__ == "__main__":
-    tif_to_avi(".")
