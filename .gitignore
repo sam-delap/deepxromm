@@ -9,6 +9,16 @@
 *.avi
 *.mp4
 
-# Training Videos
+# Training Images
 *.tif
+*.png
+
+# Pointsfiles
 *.csv
+*.h5
+*.mat
+*.pickle
+
+#Logs
+*.tfevents*
+*.txt

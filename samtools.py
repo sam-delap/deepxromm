@@ -6,7 +6,7 @@ import cv2
 import numpy as np
 from ruamel.yaml import YAML
 
-def create_new_project(working_dir=os.getcwd(), experimenter='Johnny Appleseed'):
+def create_new_project(working_dir=os.getcwd(), experimenter='NA'):
     '''Create a new xrommtools project'''
     dirs = ["trainingdata", "trials", "XMA_files"]
     for dir in dirs:
@@ -20,7 +20,8 @@ def create_new_project(working_dir=os.getcwd(), experimenter='Johnny Appleseed')
     # Create a fake video to pass into the deeplabcut workflow
     frame = np.zeros((480, 480, 3), np.uint8)
     out = cv2.VideoWriter('dummy.avi',cv2.VideoWriter_fourcc(*'DIVX'), 15, (480,480))
-    out.write(frame)
+    for _ in range(4000):
+        out.write(frame)
     out.release()
 
     # Create a new project
@@ -58,5 +59,25 @@ def create_new_project(working_dir=os.getcwd(), experimenter='Johnny Appleseed')
         pass
 
 def train_network(working_dir=os.getcwd()):
+    config_file = open(working_dir + "\\project_config.yaml", 'r')
     yaml = YAML()
-    project = yaml.load(working_dir + "\\project_config.yaml")
+    project = yaml.load(config_file)
+
+    # Establish project vars
+    path_config_file = project['path_config_file']
+    data_path = working_dir + "\\trainingdata"
+    dataset_name = project['dataset_name']
+    experimenter = str(project['experimenter'])
+    nframes = project['nframes']
+
+    if dataset_name is None:
+        raise Exception("Please specify a name for this dataset in the config file")
+    if nframes is None:
+        raise Exception("Please specify the number of frames in the training dataset")
+
+    try:
+        xrommtools.xma_to_dlc(path_config_file, data_path, dataset_name, experimenter, nframes)
+    except UnboundLocalError:
+        pass
+    deeplabcut.create_training_dataset(path_config_file)
+    deeplabcut.train_network(path_config_file)
