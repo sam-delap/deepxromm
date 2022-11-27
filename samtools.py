@@ -152,9 +152,10 @@ def autocorrect(working_dir,likelihood_cutoff=0.01, search_area=15, mask_size=5,
             except FileNotFoundError:
                 raise FileNotFoundError(f'Please make sure that your {cam} video file is named {trial}_{cam}.avi')
             # For each frame of video
-            for frame in 
-            # Load frame
-            frame = cv2.imread(os.path.join(cam_dirs[cam],str(im_index)))
+            for frame in int(video.get(cv2.CAP_PROP_FRAME_COUNT)):
+                # Load frame
+                # START HERE
+                # frame = cv2.imread(os.path.join(cam_dirs[cam],str(im_index)))
             print(os.path.join(cam_dirs[cam],str(im_index)))
             plt.imshow(frame)
             plt.show()
