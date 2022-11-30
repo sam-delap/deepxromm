@@ -151,7 +151,7 @@ def autocorrect(working_dir,likelihood_cutoff=0.01, search_area=15, mask_size=5,
         
         # ADD SCORER INFO
         scorer = 'TEST'
-        out_name = new_data_path + '/' + trial + '/' + 'it' + str(iteration) + '/' + trial + '-AutoCorrected2DPoints.h5'
+        out_name = new_data_path + '/' + trial + '/' + 'it' + str(iteration) + '/' + trial + '-AutoCorrected2DPoints.csv'
         # For each camera
         for cam in ['cam1','cam2']:
             # Find the raw video
@@ -160,7 +160,7 @@ def autocorrect(working_dir,likelihood_cutoff=0.01, search_area=15, mask_size=5,
             except FileNotFoundError:
                 raise FileNotFoundError(f'Please make sure that your {cam} video file is named {trial}_{cam}.avi')
             # For each frame of video
-            for frame_index in int(video.get(cv2.CAP_PROP_FRAME_COUNT)):
+            for frame_index in range(int(video.get(cv2.CAP_PROP_FRAME_COUNT))):
                 # Load frame
                 ret, frame = video.read()
                 if ret == False:
@@ -238,7 +238,8 @@ def autocorrect(working_dir,likelihood_cutoff=0.01, search_area=15, mask_size=5,
                             hdf.loc[hdf.iloc[frame_index].name, (scorer,part+'_'+cam, ['y'])]  = detected_center[1]   
                 
         print('done! saving...')
-        hdf.to_hdf(out_name, 'df_with_missing', format='table', mode='w', nan_rep='NaN')
+        # ADD delete first column (index column) before saving as a CSV
+        hdf.to_csv(out_name)
 
 def filter_image(image, krad=17, gsigma=10, img_wt=3.6, blur_wt=-2.9, gamma=0.30):
     '''Filter the image to make it easier for python to see'''
