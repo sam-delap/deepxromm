@@ -148,12 +148,13 @@ def autocorrect(working_dir,likelihood_cutoff=0.01, search_area=15, mask_size=5,
             hdf = pd.read_hdf(new_data_path + '/' + trial + '/' + 'it' + str(iteration) + '/' + trial + '-Predicted2DPoints.h5')
         except FileNotFoundError:
             raise FileNotFoundError(f'Could not find predicted 2D points file. Please check the it{iteration} folder for trial {trial}')
-        
-        # ADD SCORER INFO
+        print('Made it to trial') # DEBUG
+        # Add scorer
         scorer = 'TEST'
         out_name = new_data_path + '/' + trial + '/' + 'it' + str(iteration) + '/' + trial + '-AutoCorrected2DPoints.csv'
         # For each camera
         for cam in ['cam1','cam2']:
+            print('Made it here!')
             # Find the raw video
             try:
                 video = cv2.VideoCapture(new_data_path + '/' + trial + '/' + trial + '_' + cam)
@@ -161,6 +162,7 @@ def autocorrect(working_dir,likelihood_cutoff=0.01, search_area=15, mask_size=5,
                 raise FileNotFoundError(f'Please make sure that your {cam} video file is named {trial}_{cam}.avi')
             # For each frame of video
             for frame_index in range(int(video.get(cv2.CAP_PROP_FRAME_COUNT))):
+                print(frame_index)
                 # Load frame
                 ret, frame = video.read()
                 if ret == False:
@@ -237,9 +239,9 @@ def autocorrect(working_dir,likelihood_cutoff=0.01, search_area=15, mask_size=5,
                             hdf.loc[hdf.iloc[frame_index].name, (scorer,part+'_'+cam, ['x'])]  = detected_center[0]
                             hdf.loc[hdf.iloc[frame_index].name, (scorer,part+'_'+cam, ['y'])]  = detected_center[1]   
                 
-        print('done! saving...')
-        # ADD delete first column (index column) before saving as a CSV
-        hdf.to_csv(out_name)
+            print('done! saving...')
+            # ADD delete first column (index column) before saving as a CSV
+            hdf.to_csv(out_name)
 
 def filter_image(image, krad=17, gsigma=10, img_wt=3.6, blur_wt=-2.9, gamma=0.30):
     '''Filter the image to make it easier for python to see'''
@@ -291,16 +293,18 @@ def getBodypartsFromXmaExport(working_dir):
     
     # Establish project vars
     path_config_file = project['path_config_file']
-    data_path = working_dir + "\\trainingdata"
+    data_path = working_dir + "/trainingdata"
     try:
         dlc_config = open(path_config_file)
     except FileNotFoundError:
         raise FileNotFoundError('Oops! Looks like there\'s no deeplabcut config file inside of your deeplabcut directory.')
+    
+    # ADD support for more than one trial
     for trial in os.listdir(data_path):
         csv_path = [file for file in os.listdir(data_path + '/' + trial) if file[-4:] == '.csv']
         if len(csv_path) > 1:
             raise FileExistsError('Found more than 1 CSV file for trial: ' + trial)
-        df = pd.read_csv(csv_path, sep=',',header=0, dtype='float',na_values='NaN')
+        df = pd.read_csv(data_path + '/' + trial + '/' + csv_path[0], sep=',',header=0, dtype='float',na_values='NaN')
         names = df.columns.values
         parts = [name.rsplit('_',2)[0] for name in names]
         parts_unique = []
