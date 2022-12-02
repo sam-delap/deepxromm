@@ -86,7 +86,8 @@ def train_network(working_dir=os.getcwd()):
     nframes = project['nframes']
     maxiters = 150000 # ADD TO CONFIG
 
-    # ADD ABILITY TO PULL NFRAMES FROM VIDEO 
+    # ADD ABILITY TO PULL NFRAMES FROM VIDEO
+    # ADD ABILITY TO CHECK VIDEO NFRAMES AGAINST CSV, DROPNAS 
     # ADD ABILITY TO PULL BODYPARTS FROM CSV
     if dataset_name == 'MyData':
         raise Exception("Please specify a name for this dataset in the config file")
