@@ -84,6 +84,7 @@ def train_network(working_dir=os.getcwd()):
     dataset_name = project['dataset_name']
     experimenter = str(project['experimenter'])
     nframes = project['nframes']
+    maxiters = 150000 # ADD TO CONFIG
 
     if dataset_name is None:
         raise Exception("Please specify a name for this dataset in the config file")
@@ -95,7 +96,7 @@ def train_network(working_dir=os.getcwd()):
     except UnboundLocalError:
         pass
     deeplabcut.create_training_dataset(path_config_file)
-    deeplabcut.train_network(path_config_file)
+    deeplabcut.train_network(path_config_file, maxiters=maxiters)
 
 def analyze_videos(working_dir=os.getcwd()):
     '''Analyze videos with a pre-existing network'''
