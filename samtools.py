@@ -88,9 +88,9 @@ def train_network(working_dir=os.getcwd()):
 
     # ADD ABILITY TO PULL NFRAMES FROM VIDEO 
     # ADD ABILITY TO PULL BODYPARTS FROM CSV
-    if dataset_name is None:
+    if dataset_name == 'MyData':
         raise Exception("Please specify a name for this dataset in the config file")
-    if nframes is None:
+    if nframes == 0:
         raise Exception("Please specify the number of frames in the training dataset")
 
     try:
