@@ -44,8 +44,8 @@ def create_new_project(working_dir=os.getcwd(), experimenter='NA'):
     experimenter: {experimenter}
     working_dir: {working_dir}
     path_config_file: {path_config_file}
-    dataset_name: 
-    nframes:
+    dataset_name: MyData
+    nframes: 0
     """
 
     tmp = yaml.load(template)
@@ -80,12 +80,14 @@ def train_network(working_dir=os.getcwd()):
 
     # Establish project vars
     path_config_file = project['path_config_file']
-    data_path = working_dir + "\\trainingdata"
+    data_path = working_dir + "/trainingdata"
     dataset_name = project['dataset_name']
     experimenter = str(project['experimenter'])
     nframes = project['nframes']
     maxiters = 150000 # ADD TO CONFIG
 
+    # ADD ABILITY TO PULL NFRAMES FROM VIDEO 
+    # ADD ABILITY TO PULL BODYPARTS FROM CSV
     if dataset_name is None:
         raise Exception("Please specify a name for this dataset in the config file")
     if nframes is None:
@@ -102,7 +104,7 @@ def analyze_videos(working_dir=os.getcwd()):
     '''Analyze videos with a pre-existing network'''
     # Open the config
     try:
-        config_file = open(working_dir + "\\project_config.yaml", 'r')
+        config_file = open(working_dir + "/project_config.yaml", 'r')
     except FileNotFoundError:
         raise FileNotFoundError('Make sure that the current directory has a project already created in it.')
     yaml = YAML()
@@ -111,7 +113,7 @@ def analyze_videos(working_dir=os.getcwd()):
     
     # Establish project vars
     path_config_file = project['path_config_file']
-    new_data_path = working_dir + "\\trials"
+    new_data_path = working_dir + "/trials"
     try:
         dlc_config = open(path_config_file)
     except FileNotFoundError:
