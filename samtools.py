@@ -166,7 +166,7 @@ def autocorrect(working_dir,likelihood_cutoff=0.01, search_area=15, mask_size=5,
                 raise FileNotFoundError(f'Please make sure that your {cam} video file is named {trial}_{cam}.avi')
             # For each frame of video
             for frame_index in range(int(video.get(cv2.CAP_PROP_FRAME_COUNT))):
-                print(frame_index)
+                print(frame_index) # DEBUG
                 # Load frame
                 ret, frame = video.read()
                 if ret == False:
@@ -176,8 +176,9 @@ def autocorrect(working_dir,likelihood_cutoff=0.01, search_area=15, mask_size=5,
                 # For each marker in the frame
                 parts_unique = getBodypartsFromXmaExport(working_dir)
                 for part in parts_unique:
+                    # DEBUG
                     print('Made it to markers!')
-                # Find point and offsets
+                    # Find point and offsets
                     x_float, y_float, likelihood = hdf.xs(part+'_'+cam, level='bodyparts',axis=1).iloc[frame_index]
                     if likelihood < likelihood_cutoff:
                         print('Likelihood too low; skipping')
@@ -219,7 +220,7 @@ def autocorrect(working_dir,likelihood_cutoff=0.01, search_area=15, mask_size=5,
 
                         # Find contours
                         contours, hierarchy = cv2.findContours(subimage_gaussthresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE, offset=(x_start,y_start))
-                        # Debug contours
+                        # DEBUG contours
                         print("Detected "+str(len(contours))+" contours in "+str(search_area)+"*"+str(search_area)+" neighborhood of marker "+part+' in Camera '+cam[-1])
                         contours_im = contours.copy()
                         contours_im = [contour-[x_start, y_start] for contour in contours_im]
