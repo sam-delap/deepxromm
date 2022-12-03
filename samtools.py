@@ -158,7 +158,7 @@ def autocorrect(working_dir,likelihood_cutoff=0.01, search_area=15, mask_size=5,
         out_name = new_data_path + '/' + trial + '/' + 'it' + str(iteration) + '/' + trial + '-AutoCorrected2DPoints.csv'
         # For each camera
         for cam in ['cam1','cam2']:
-            print('Made it here!')
+            print('Made it to the camera!')
             # Find the raw video
             try:
                 video = cv2.VideoCapture(new_data_path + '/' + trial + '/' + trial + '_' + cam)
@@ -176,6 +176,7 @@ def autocorrect(working_dir,likelihood_cutoff=0.01, search_area=15, mask_size=5,
                 # For each marker in the frame
                 parts_unique = getBodypartsFromXmaExport(working_dir)
                 for part in parts_unique:
+                    print('Made it to markers!')
                 # Find point and offsets
                     x_float, y_float, likelihood = hdf.xs(part+'_'+cam, level='bodyparts',axis=1).iloc[frame_index]
                     if likelihood < likelihood_cutoff:
