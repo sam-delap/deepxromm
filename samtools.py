@@ -136,7 +136,7 @@ def autocorrect(working_dir,likelihood_cutoff=0.01, search_area=15, mask_size=5,
     
     # Establish project vars
     path_config_file = project['path_config_file']
-    new_data_path = working_dir + "\\trials"
+    new_data_path = working_dir + "/trials"
     try:
         dlc_config = open(path_config_file)
     except FileNotFoundError:
@@ -152,21 +152,18 @@ def autocorrect(working_dir,likelihood_cutoff=0.01, search_area=15, mask_size=5,
             hdf = pd.read_hdf(new_data_path + '/' + trial + '/' + 'it' + str(iteration) + '/' + trial + '-Predicted2DPoints.h5')
         except FileNotFoundError:
             raise FileNotFoundError(f'Could not find predicted 2D points file. Please check the it{iteration} folder for trial {trial}')
-        print('Made it to trial') # DEBUG
-        # Add scorer
-        scorer = 'TEST'
         out_name = new_data_path + '/' + trial + '/' + 'it' + str(iteration) + '/' + trial + '-AutoCorrected2DPoints.csv'
         # For each camera
         for cam in ['cam1','cam2']:
-            print('Made it to the camera!')
             # Find the raw video
             try:
-                video = cv2.VideoCapture(new_data_path + '/' + trial + '/' + trial + '_' + cam)
+                video = cv2.VideoCapture(new_data_path + '/' + trial + '/' + trial + '_' + cam + '.avi')
             except FileNotFoundError:
                 raise FileNotFoundError(f'Please make sure that your {cam} video file is named {trial}_{cam}.avi')
             # For each frame of video
-            for frame_index in range(int(video.get(cv2.CAP_PROP_FRAME_COUNT))):
-                print(frame_index) # DEBUG
+            print(video.get(cv2.CAP_PROP_FRAME_COUNT)) # DEBUG
+             # DEBUG switch to a single frame
+            for frame_index in [0]: #range(int(video.get(cv2.CAP_PROP_FRAME_COUNT))):
                 # Load frame
                 ret, frame = video.read()
                 if ret == False:
@@ -176,78 +173,73 @@ def autocorrect(working_dir,likelihood_cutoff=0.01, search_area=15, mask_size=5,
                 # For each marker in the frame
                 parts_unique = getBodypartsFromXmaExport(working_dir)
                 for part in parts_unique:
-                    # DEBUG
-                    print('Made it to markers!')
                     # Find point and offsets
-                    x_float, y_float, likelihood = hdf.xs(part+'_'+cam, level='bodyparts',axis=1).iloc[frame_index]
-                    if likelihood < likelihood_cutoff:
-                        print('Likelihood too low; skipping')
-                    else:
-                        x_start = int(x_float-search_area+0.5)
-                        y_start = int(y_float-search_area+0.5)
-                        x_end = int(x_float+search_area+0.5)
-                        y_end = int(y_float+search_area+0.5)
+                    x_float = hdf.loc[frame_index, part + '_' + cam + '_X']
+                    y_float = hdf.loc[frame_index, part + '_' + cam + '_Y']
+                    x_start = int(x_float-search_area+0.5)
+                    y_start = int(y_float-search_area+0.5)
+                    x_end = int(x_float+search_area+0.5)
+                    y_end = int(y_float+search_area+0.5)
 
-                        # Crop image to marker vicinity
-                        subimage = frame[y_start:y_end, x_start:x_end]
+                    # Crop image to marker vicinity
+                    subimage = frame[y_start:y_end, x_start:x_end]
 
-                        # Convert To float
-                        subimage_float = subimage.astype(np.float32)
+                    # Convert To float
+                    subimage_float = subimage.astype(np.float32)
 
-                        # Create Blurred image
-                        radius = int(1.5 * 5 + 0.5) #5 might be too high
-                        sigma = radius * math.sqrt(2 * math.log(255)) - 1
-                        subimage_blurred = cv2.GaussianBlur(subimage_float, (2 * radius + 1, radius + 1), sigma)
+                    # Create Blurred image
+                    radius = int(1.5 * 5 + 0.5) #5 might be too high
+                    sigma = radius * math.sqrt(2 * math.log(255)) - 1
+                    subimage_blurred = cv2.GaussianBlur(subimage_float, (2 * radius + 1, radius + 1), sigma)
 
-                        # Subtract Background
-                        subimage_diff = subimage_float-subimage_blurred
-                        subimage_diff = cv2.normalize(subimage_diff, None, 0,255,cv2.NORM_MINMAX).astype(np.uint8)
+                    # Subtract Background
+                    subimage_diff = subimage_float-subimage_blurred
+                    subimage_diff = cv2.normalize(subimage_diff, None, 0,255,cv2.NORM_MINMAX).astype(np.uint8)
 
-                        # Median
-                        subimage_median = cv2.medianBlur(subimage_diff, 3)
+                    # Median
+                    subimage_median = cv2.medianBlur(subimage_diff, 3)
 
-                        # LUT
-                        subimage_median = filter_image(subimage_median, krad=3)
+                    # LUT
+                    subimage_median = filter_image(subimage_median, krad=3)
 
-                        # Thresholding
-                        subimage_median = cv2.cvtColor(subimage_median, cv2.COLOR_BGR2GRAY)
-                        minVal, maxVal, minLoc, maxLoc = cv2.minMaxLoc(subimage_median)
-                        thres = 0.5 * minVal + 0.5 * np.mean(subimage_median) + threshold * 0.01 * 255
-                        ret, subimage_threshold =  cv2.threshold(subimage_median, thres, 255, cv2.THRESH_BINARY_INV)
+                    # Thresholding
+                    subimage_median = cv2.cvtColor(subimage_median, cv2.COLOR_BGR2GRAY)
+                    minVal, maxVal, minLoc, maxLoc = cv2.minMaxLoc(subimage_median)
+                    thres = 0.5 * minVal + 0.5 * np.mean(subimage_median) + threshold * 0.01 * 255
+                    ret, subimage_threshold =  cv2.threshold(subimage_median, thres, 255, cv2.THRESH_BINARY_INV)
 
-                        # Gaussian blur
-                        subimage_gaussthresh = cv2.GaussianBlur(subimage_threshold, (3,3), 1.3)
+                    # Gaussian blur
+                    subimage_gaussthresh = cv2.GaussianBlur(subimage_threshold, (3,3), 1.3)
 
-                        # Find contours
-                        contours, hierarchy = cv2.findContours(subimage_gaussthresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE, offset=(x_start,y_start))
-                        # DEBUG contours
-                        print("Detected "+str(len(contours))+" contours in "+str(search_area)+"*"+str(search_area)+" neighborhood of marker "+part+' in Camera '+cam[-1])
-                        contours_im = contours.copy()
-                        contours_im = [contour-[x_start, y_start] for contour in contours_im]
+                    # Find contours
+                    contours, hierarchy = cv2.findContours(subimage_gaussthresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE, offset=(x_start,y_start))
+                    # DEBUG contours
+                    # print("Detected "+str(len(contours))+" contours in "+str(search_area)+"*"+str(search_area)+" neighborhood of marker "+part+' in Camera '+cam[-1])
+                    contours_im = [contour-[x_start, y_start] for contour in contours]
 
-                        # Find closest contour
-                        dist = 1000
-                        best_index = -1
-                        detected_centers = {}
-                        for i in range(len(contours)):
-                            detected_center, circle_radius = cv2.minEnclosingCircle(contours[i])
-                            distTmp = math.sqrt((x_float - detected_center[0])**2 + (y_float - detected_center[1])**2)
-                            detected_centers[round(distTmp, 4)] = detected_center
-                            if distTmp < dist:
-                                best_index = i
-                                dist = distTmp
-                        if best_index >= 0:
-                            detected_center, circle_radius = cv2.minEnclosingCircle(contours[best_index])
-                            detected_center_im, circle_radius_im = cv2.minEnclosingCircle(contours_im[best_index])
-                            show_crop(subimage, center=search_area, contours = [contours_im[best_index]], detected_marker = detected_center_im)
-                            # show_crop(subimage_threshold, contours=contours_im,detected_marker = detected_center_im)
-                            # show_crop(subimage_gaussthresh, contours = [contours_im[best_index]], detected_marker = detected_center_im)
-                            hdf.loc[hdf.iloc[frame_index].name, (scorer,part+'_'+cam, ['x'])]  = detected_center[0]
-                            hdf.loc[hdf.iloc[frame_index].name, (scorer,part+'_'+cam, ['y'])]  = detected_center[1]   
+                    # Find closest contour
+                    dist = 1000
+                    best_index = -1
+                    detected_centers = {}
+                    for i in range(len(contours)):
+                        detected_center, circle_radius = cv2.minEnclosingCircle(contours[i])
+                        distTmp = math.sqrt((x_float - detected_center[0])**2 + (y_float - detected_center[1])**2)
+                        detected_centers[round(distTmp, 4)] = detected_center
+                        if distTmp < dist:
+                            best_index = i
+                            dist = distTmp
+                    if best_index >= 0:
+                        detected_center, _ = cv2.minEnclosingCircle(contours[best_index])
+                        detected_center_im, _ = cv2.minEnclosingCircle(contours_im[best_index])
+                        show_crop(subimage, center=search_area, contours = [contours_im[best_index]], detected_marker = detected_center_im)
+                        show_crop(subimage_threshold, center=search_area, contours=contours_im,detected_marker = detected_center_im)
+                        show_crop(subimage_gaussthresh, center=search_area, contours = [contours_im[best_index]], detected_marker = detected_center_im)
+                        hdf.loc[frame_index, part + '_' + cam + '_X']  = detected_center[0]
+                        hdf.loc[frame_index, part + '_' + cam + '_Y']  = detected_center[1]   
                 
             print('done! saving...')
             # ADD delete first column (index column) before saving as a CSV
-            hdf.to_csv(out_name)
+            hdf.to_csv(out_name, index=False)
 
 def filter_image(image, krad=17, gsigma=10, img_wt=3.6, blur_wt=-2.9, gamma=0.30):
     '''Filter the image to make it easier for python to see'''
