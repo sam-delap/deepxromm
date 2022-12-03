@@ -168,7 +168,6 @@ def autocorrect(working_dir,likelihood_cutoff=0.01, search_area=15, mask_size=5,
                 ret, frame = video.read()
                 if ret == False:
                     raise IOError('Error reading video frame')
-                cv2.imwrite('sample_frame.jpg', frame)
                 frame = filter_image(frame, krad=10)
 
                 # For each marker in the frame
@@ -182,60 +181,38 @@ def autocorrect(working_dir,likelihood_cutoff=0.01, search_area=15, mask_size=5,
                     x_end = int(x_float+search_area+0.5)
                     y_end = int(y_float+search_area+0.5)
 
-                    # Preprocessing
-                    # Blurred image
-                    radius = int(1.5 * 2 + 0.5) #5 might be too high
-                    sigma = radius * math.sqrt(2 * math.log(255)) - 1
-                    subimage_blurred = cv2.GaussianBlur(subimage_float, (2 * radius + 1, radius + 1), sigma)
-                    # Subtract Background
-                    subimage_diff = subimage_float-subimage_blurred
-                    subimage_diff = cv2.normalize(subimage_diff, None, 0,255,cv2.NORM_MINMAX).astype(np.uint8)
-                    # Median
-                    subimage_median = cv2.medianBlur(subimage_diff, 3)
-                    # LUT
-                    subimage_median = filter_image(subimage_median, krad=3)
                     # Crop image to marker vicinity
                     subimage = frame[y_start:y_end, x_start:x_end]
 
                     # Convert To float
                     subimage_float = subimage.astype(np.float32)
 
-                    # Convert to grayscale
-                    gray = cv2.cvtColor(subimage_float, cv2.COLOR_BGR2GRAY)
-                    
-                    # Edge detection
-                    edges = cv2.Canny(gray, threshold1=30, threshold2=100)
+                    # Create Blurred image
+                    radius = int(1.5 * 5 + 0.5) #5 might be too high
+                    sigma = radius * math.sqrt(2 * math.log(255)) - 1
+                    subimage_blurred = cv2.GaussianBlur(subimage_float, (2 * radius + 1, radius + 1), sigma)
 
-                    # Gaussian blur
-                    gaussian = cv2.GaussianBlur(edges, (3,3), 1.3)
+                    # Subtract Background
+                    subimage_diff = subimage_float-subimage_blurred
+                    subimage_diff = cv2.normalize(subimage_diff, None, 0,255,cv2.NORM_MINMAX).astype(np.uint8)
+
+                    # Median
+                    subimage_median = cv2.medianBlur(subimage_diff, 3)
+
+                    # LUT
+                    subimage_median = filter_image(subimage_median, krad=3)
 
                     # Thresholding
-                    ret, subimage_threshold =  cv2.threshold(gaussian, 0, 255, cv2.THRESH_BINARY_INV | cv2.THRESH_OTSU)
-                    
-                    
+                    subimage_median = cv2.cvtColor(subimage_median, cv2.COLOR_BGR2GRAY)
+                    minVal, maxVal, minLoc, maxLoc = cv2.minMaxLoc(subimage_median)
+                    thres = 0.5 * minVal + 0.5 * np.mean(subimage_median) + threshold * 0.01 * 255
+                    ret, subimage_threshold =  cv2.threshold(subimage_median, thres, 255, cv2.THRESH_BINARY_INV)
 
-                    # # Thresholding
-                    # # Canny
-                    # subimage_median = cv2.cvtColor(subimage_median, cv2.COLOR_BGR2GRAY)
-                    # minVal, _, _, _ = cv2.minMaxLoc(subimage_median)
-                    # thres = 0.5 * minVal + 0.5 * np.mean(subimage_median) + threshold * 0.01 * 255
-                    # edges = cv2.Canny(subimage_median, threshold1=thres, threshold2=255)
-                    
-                    # # ret, subimage_threshold =  cv2.threshold(subimage_median, 0, 255, cv2.THRESH_BINARY_INV | cv2.THRESH_OTSU)
-
-                    # # # Gaussian blur
-                    # # subimage_gaussthresh = cv2.GaussianBlur(subimage_threshold, (3,3), 1.3)
-
-                    # # # Thresholding
-                    # # minVal, _, _, _ = cv2.minMaxLoc(subimage_gaussthresh)
-                    # # thres = 0.5 * minVal + 0.5 * np.mean(subimage_gaussthresh) + (threshold -2) * 0.01 * 255
-                    # # ret, subimage_threshold2 =  cv2.threshold(subimage_gaussthresh, 0, 255, cv2.THRESH_BINARY | cv2.THRESH_OTSU)
-                    
-                    # # # Gaussian blur
-                    # # subimage_gaussthresh2 = cv2.GaussianBlur(subimage_threshold2, (3,3), 1.3)
+                    # Gaussian blur
+                    subimage_gaussthresh = cv2.GaussianBlur(subimage_threshold, (3,3), 1.3)
 
                     # Find contours
-                    contours, hierarchy = cv2.findContours(edges, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE, offset=(x_start,y_start))
+                    contours, hierarchy = cv2.findContours(subimage_gaussthresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE, offset=(x_start,y_start))
                     # DEBUG contours
                     # print("Detected "+str(len(contours))+" contours in "+str(search_area)+"*"+str(search_area)+" neighborhood of marker "+part+' in Camera '+cam[-1])
                     contours_im = [contour-[x_start, y_start] for contour in contours]
@@ -255,10 +232,8 @@ def autocorrect(working_dir,likelihood_cutoff=0.01, search_area=15, mask_size=5,
                         detected_center, _ = cv2.minEnclosingCircle(contours[best_index])
                         detected_center_im, _ = cv2.minEnclosingCircle(contours_im[best_index])
                         show_crop(subimage, center=search_area, contours = [contours_im[best_index]], detected_marker = detected_center_im)
-                        show_crop(gray, center=search_area, contours=contours_im,detected_marker = detected_center_im)
-                        show_crop(edges, center=search_area, contours=contours_im,detected_marker = detected_center_im)
-                        show_crop(gaussian, center=search_area, contours = [contours_im[best_index]], detected_marker = detected_center_im)
-                        show_crop(subimage_threshold, center=search_area, contours = [contours_im[best_index]], detected_marker = detected_center_im)
+                        show_crop(subimage_threshold, center=search_area, contours=contours_im,detected_marker = detected_center_im)
+                        show_crop(subimage_gaussthresh, center=search_area, contours = [contours_im[best_index]], detected_marker = detected_center_im)
                         hdf.loc[frame_index, part + '_' + cam + '_X']  = detected_center[0]
                         hdf.loc[frame_index, part + '_' + cam + '_Y']  = detected_center[1]   
                 
