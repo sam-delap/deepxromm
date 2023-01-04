@@ -1,16 +1,18 @@
 # Import packages
 import os
-import deeplabcut
-from deeplabcut.utils import xrommtools
-import pandas as pd
-import matplotlib.pyplot as plt
 import math
 import cv2
+import warnings
 import numpy as np
+import matplotlib.pyplot as plt
+import pandas as pd
+import deeplabcut
+from deeplabcut.utils import xrommtools
 from ruamel.yaml import YAML
 
 def create_new_project(working_dir=os.getcwd(), experimenter='NA'):
     '''Create a new xrommtools project'''
+    saved_dir=os.getcwd()
     try:
         os.chdir(working_dir)
     except FileNotFoundError:
@@ -22,8 +24,6 @@ def create_new_project(working_dir=os.getcwd(), experimenter='NA'):
             os.mkdir(dir)
         except FileExistsError:
             continue
-
-    config = open("project_config.yaml", 'w')
 
     # Create a fake video to pass into the deeplabcut workflow
     frame = np.zeros((480, 480, 3), np.uint8)
@@ -39,37 +39,42 @@ def create_new_project(working_dir=os.getcwd(), experimenter='NA'):
         task = working_dir.split('/')[len(working_dir.split('/')) - 1]
     
     path_config_file = deeplabcut.create_new_project(task, experimenter, [working_dir + "\\dummy.avi"], working_dir + "\\", copy_videos=True)
-    template = f"""
-    task: {task}
-    experimenter: {experimenter}
-    working_dir: {working_dir}
-    path_config_file: {path_config_file}
-    dataset_name: MyData
-    nframes: 0
-    """
+    
+    if type(path_config_file) is str:
+        config = open("project_config.yaml", 'w')
+        template = f"""
+        task: {task}
+        experimenter: {experimenter}
+        working_dir: {working_dir}
+        path_config_file: {path_config_file} 
+        dataset_name: MyData 
+        nframes: 0 
+        maxiters: 150000
+        """
 
-    tmp = yaml.load(template)
+        tmp = yaml.load(template)
 
-    yaml.dump(tmp, config)
-    config.close()
+        yaml.dump(tmp, config)
 
-    try:
-        os.rmdir(path_config_file[:path_config_file.find("config")] + "labeled-data\\dummy")
-    except FileNotFoundError:
-        pass
+        try:
+            os.rmdir(path_config_file[:path_config_file.find("config")] + "labeled-data\\dummy")
+        except FileNotFoundError:
+            pass
 
-    try:
-        os.remove(path_config_file[:path_config_file.find("config")] + "\\videos\\dummy.avi")
-    except FileNotFoundError:
-        pass
+        try:
+            os.remove(path_config_file[:path_config_file.find("config")] + "\\videos\\dummy.avi")
+        except FileNotFoundError:
+            pass
+
+        config.close()
 
     try:
         os.remove("dummy.avi")
     except FileNotFoundError:
         pass
+    os.chdir(saved_dir)
 
-def train_network(working_dir=os.getcwd()):
-    '''Start training xrommtools-compatible data'''
+def load_project(working_dir=os.getcwd()):
     # Open the config
     try:
         config_file = open(working_dir + "\\project_config.yaml", 'r')
@@ -77,29 +82,54 @@ def train_network(working_dir=os.getcwd()):
         raise FileNotFoundError('Make sure that the current directory has a project already created in it.')
     yaml = YAML()
     project = yaml.load(config_file)
+    config_file.close()
 
-    # Establish project vars
-    path_config_file = project['path_config_file']
-    data_path = working_dir + "/trainingdata"
-    dataset_name = project['dataset_name']
     experimenter = str(project['experimenter'])
-    nframes = project['nframes']
-    maxiters = 150000 # ADD TO CONFIG
-
-    # ADD ABILITY TO PULL NFRAMES FROM VIDEO
-    # ADD ABILITY TO CHECK VIDEO NFRAMES AGAINST CSV, DROPNAS 
-    # ADD ABILITY TO PULL BODYPARTS FROM CSV
-    if dataset_name == 'MyData':
-        raise Exception("Please specify a name for this dataset in the config file")
-    if nframes == 0:
-        raise Exception("Please specify the number of frames in the training dataset")
-
+    project['experimenter'] = experimenter
+    if project['dataset_name'] == 'MyData':
+        warnings.warn('Default project name in use', SyntaxWarning)
+    
+    # Load trial CSV
     try:
-        xrommtools.xma_to_dlc(path_config_file, data_path, dataset_name, experimenter, nframes)
+        training_data_path = os.path.join(project['working_dir'], "trainingdata")
+        trial = os.listdir(training_data_path)[0]
+        df = pd.read_csv(training_data_path + '/' + trial + '/' + trial + '.csv')
+    except FileNotFoundError:
+        raise FileNotFoundError(f'Please make sure that your trainingdata 2DPoints csv file is named {trial}.csv')
+
+    # Drop untracked frames (all NaNs)
+    df.dropna(how='all')
+
+    # Make sure there aren't any partially tracked frames
+    if df.isna().sum().sum() > 0:
+        # ADD change to warning and say how many frames you're removing
+        raise AttributeError(f'Detected {len(df) - len(df.dropna())} partially tracked frames. Please ensure that all frames are completely tracked')
+    
+    # If the user hasn't defined how many frames they tracked
+    if project['nframes'] <= 0:
+        # Save nframes 
+        project['nframes'] = len(df)
+    # If their specified nframes doesn't match the number of frames in the sheet
+    elif project['nframes'] != len(df):
+        warnings.warn('Project nframes tracked does not match 2D Points file. If this is intentional, ignore this message')
+
+    # Update changed attributes to match in the file
+    with open(os.path.join(working_dir, 'project_config.yaml'), 'w') as fp:
+        yaml.dump(project, fp)
+    
+    return project
+
+def train_network(working_dir=os.getcwd()):
+    '''Start training xrommtools-compatible data'''
+    project = load_project(working_dir=working_dir)
+    data_path = working_dir + "/trainingdata"
+    
+    try:
+        xrommtools.xma_to_dlc(project['path_config_file'], data_path, project['nframes'], project['experimenter'], project['nframes'])
     except UnboundLocalError:
         pass
-    deeplabcut.create_training_dataset(path_config_file)
-    deeplabcut.train_network(path_config_file, maxiters=maxiters)
+    deeplabcut.create_training_dataset(project['path_config_file'])
+    deeplabcut.train_network(project['path_config_file'], maxiters=project['maxiters'])
 
 def analyze_videos(working_dir=os.getcwd()):
     '''Analyze videos with a pre-existing network'''
@@ -238,7 +268,6 @@ def autocorrect(working_dir,likelihood_cutoff=0.01, search_area=15, mask_size=5,
                         hdf.loc[frame_index, part + '_' + cam + '_Y']  = detected_center[1]   
                 
             print('done! saving...')
-            # ADD delete first column (index column) before saving as a CSV
             hdf.to_csv(out_name, index=False)
 
 def filter_image(image, krad=17, gsigma=10, img_wt=3.6, blur_wt=-2.9, gamma=0.30):
