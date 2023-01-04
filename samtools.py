@@ -1,8 +1,9 @@
+'''A Complete Set of User-Friendly Tools for DeepLabCut-XMAlab marker tracking'''
 # Import packages
 import os
 import math
-import cv2
 import warnings
+import cv2
 import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
@@ -19,9 +20,9 @@ def create_new_project(working_dir=os.getcwd(), experimenter='NA'):
         os.mkdir(working_dir)
         os.chdir(working_dir)
     dirs = ["trainingdata", "trials", "XMA_files"]
-    for dir in dirs:
+    for folder in dirs:
         try:
-            os.mkdir(dir)
+            os.mkdir(folder)
         except FileExistsError:
             continue
 
@@ -37,18 +38,19 @@ def create_new_project(working_dir=os.getcwd(), experimenter='NA'):
         task = working_dir.split("\\")[len(working_dir.split("\\")) - 1]
     else:
         task = working_dir.split('/')[len(working_dir.split('/')) - 1]
-    
-    path_config_file = deeplabcut.create_new_project(task, experimenter, [working_dir + "\\dummy.avi"], working_dir + "\\", copy_videos=True)
-    
-    if type(path_config_file) is str:
+
+    path_config_file = deeplabcut.create_new_project(task, experimenter,
+        [working_dir + "\\dummy.avi"], working_dir + "\\", copy_videos=True)
+
+    if isinstance(path_config_file, str):
         config = open("project_config.yaml", 'w')
         template = f"""
         task: {task}
         experimenter: {experimenter}
         working_dir: {working_dir}
-        path_config_file: {path_config_file} 
-        dataset_name: MyData 
-        nframes: 0 
+        path_config_file: {path_config_file}
+        dataset_name: MyData
+        nframes: 0
         maxiters: 150000
         """
 
@@ -75,11 +77,12 @@ def create_new_project(working_dir=os.getcwd(), experimenter='NA'):
     os.chdir(saved_dir)
 
 def load_project(working_dir=os.getcwd()):
+    '''Load an existing project (only used internally/in testing)'''
     # Open the config
     try:
         config_file = open(working_dir + "\\project_config.yaml", 'r')
-    except FileNotFoundError:
-        raise FileNotFoundError('Make sure that the current directory has a project already created in it.')
+    except FileNotFoundError as no_file_found:
+        raise FileNotFoundError('Make sure that the current directory has a project already created in it.') from no_file_found
     yaml = YAML()
     project = yaml.load(config_file)
     config_file.close()
@@ -88,44 +91,50 @@ def load_project(working_dir=os.getcwd()):
     project['experimenter'] = experimenter
     if project['dataset_name'] == 'MyData':
         warnings.warn('Default project name in use', SyntaxWarning)
-    
+
     # Load trial CSV
     try:
         training_data_path = os.path.join(project['working_dir'], "trainingdata")
         trial = os.listdir(training_data_path)[0]
-        df = pd.read_csv(training_data_path + '/' + trial + '/' + trial + '.csv')
-    except FileNotFoundError:
-        raise FileNotFoundError(f'Please make sure that your trainingdata 2DPoints csv file is named {trial}.csv')
+        trial_csv = pd.read_csv(training_data_path + '/' + trial + '/' + trial + '.csv')
+    except FileNotFoundError as e:
+        raise FileNotFoundError(f'Please make sure that your trainingdata 2DPoints csv file is named {trial}.csv') from e
 
     # Drop untracked frames (all NaNs)
-    df.dropna(how='all')
+    trial_csv.dropna(how='all')
 
     # Make sure there aren't any partially tracked frames
-    if df.isna().sum().sum() > 0:
+    if trial_csv.isna().sum().sum() > 0:
         # ADD change to warning and say how many frames you're removing
-        raise AttributeError(f'Detected {len(df) - len(df.dropna())} partially tracked frames. Please ensure that all frames are completely tracked')
-    
+        raise AttributeError(f'Detected {len(trial_csv) - len(trial_csv.dropna())} partially tracked frames. \
+            Please ensure that all frames are completely tracked')
+
     # If the user hasn't defined how many frames they tracked
     if project['nframes'] <= 0:
-        # Save nframes 
-        project['nframes'] = len(df)
+        # Save nframes
+        project['nframes'] = len(trial_csv)
     # If their specified nframes doesn't match the number of frames in the sheet
-    elif project['nframes'] != len(df):
-        warnings.warn('Project nframes tracked does not match 2D Points file. If this is intentional, ignore this message')
+    elif project['nframes'] != len(trial_csv):
+        warnings.warn('Project nframes tracked does not match 2D Points file. \
+            If this is intentional, ignore this message')
 
     # Update changed attributes to match in the file
-    with open(os.path.join(working_dir, 'project_config.yaml'), 'w') as fp:
-        yaml.dump(project, fp)
-    
+    with open(os.path.join(working_dir, 'project_config.yaml'), 'w') as file:
+        yaml.dump(project, file)
+
     return project
 
 def train_network(working_dir=os.getcwd()):
     '''Start training xrommtools-compatible data'''
     project = load_project(working_dir=working_dir)
     data_path = working_dir + "/trainingdata"
-    
+
     try:
-        xrommtools.xma_to_dlc(project['path_config_file'], data_path, project['nframes'], project['experimenter'], project['nframes'])
+        xrommtools.xma_to_dlc(project['path_config_file'],
+        data_path,
+        project['nframes'],
+        project['experimenter'],
+        project['nframes'])
     except UnboundLocalError:
         pass
     deeplabcut.create_training_dataset(project['path_config_file'])
@@ -136,19 +145,19 @@ def analyze_videos(working_dir=os.getcwd()):
     # Open the config
     try:
         config_file = open(working_dir + "/project_config.yaml", 'r')
-    except FileNotFoundError:
-        raise FileNotFoundError('Make sure that the current directory has a project already created in it.')
+    except FileNotFoundError as e:
+        raise FileNotFoundError('Make sure that the current directory has a project already created in it.') from e
     yaml = YAML()
     project = yaml.load(config_file)
 
-    
+
     # Establish project vars
     path_config_file = project['path_config_file']
     new_data_path = working_dir + "/trials"
     try:
         dlc_config = open(path_config_file)
-    except FileNotFoundError:
-        raise FileNotFoundError('Oops! Looks like there\'s no deeplabcut config file inside of your deeplabcut directory.')
+    except FileNotFoundError as e:
+        raise FileNotFoundError('Oops! Looks like there\'s no deeplabcut config file inside of your deeplabcut directory.') from e
     dlc = yaml.load(dlc_config)
     iteration = dlc['iteration']
 
@@ -159,18 +168,18 @@ def autocorrect(working_dir,likelihood_cutoff=0.01, search_area=15, mask_size=5,
     # Open the config
     try:
         config_file = open(working_dir + "\\project_config.yaml", 'r')
-    except FileNotFoundError:
-        raise FileNotFoundError('Make sure that the current directory has a project already created in it.')
+    except FileNotFoundError as e:
+        raise FileNotFoundError('Make sure that the current directory has a project already created in it.') from e
     yaml = YAML()
     project = yaml.load(config_file)
-    
+
     # Establish project vars
     path_config_file = project['path_config_file']
     new_data_path = working_dir + "/trials"
     try:
         dlc_config = open(path_config_file)
-    except FileNotFoundError:
-        raise FileNotFoundError('Oops! Looks like there\'s no deeplabcut config file inside of your deeplabcut directory.')
+    except FileNotFoundError as e:
+        raise FileNotFoundError('Oops! Looks like there\'s no deeplabcut config file inside of your deeplabcut directory.') from e
     dlc = yaml.load(dlc_config)
     iteration = dlc['iteration']
     search_area = int(search_area + 0.5) if search_area >= 10 else 10
@@ -181,7 +190,7 @@ def autocorrect(working_dir,likelihood_cutoff=0.01, search_area=15, mask_size=5,
         try:
             hdf = pd.read_hdf(new_data_path + '/' + trial + '/' + 'it' + str(iteration) + '/' + trial + '-Predicted2DPoints.h5')
         except FileNotFoundError:
-            raise FileNotFoundError(f'Could not find predicted 2D points file. Please check the it{iteration} folder for trial {trial}')
+            raise FileNotFoundError(f'Could not find predicted 2D points file. Please check the it{iteration} folder for trial {trial}') from None
         out_name = new_data_path + '/' + trial + '/' + 'it' + str(iteration) + '/' + trial + '-AutoCorrected2DPoints.csv'
         # For each camera
         for cam in ['cam1','cam2']:
@@ -189,19 +198,19 @@ def autocorrect(working_dir,likelihood_cutoff=0.01, search_area=15, mask_size=5,
             try:
                 video = cv2.VideoCapture(new_data_path + '/' + trial + '/' + trial + '_' + cam + '.avi')
             except FileNotFoundError:
-                raise FileNotFoundError(f'Please make sure that your {cam} video file is named {trial}_{cam}.avi')
+                raise FileNotFoundError(f'Please make sure that your {cam} video file is named {trial}_{cam}.avi') from None
             # For each frame of video
             print(video.get(cv2.CAP_PROP_FRAME_COUNT)) # DEBUG
              # DEBUG switch to a single frame
             for frame_index in [0]: #range(int(video.get(cv2.CAP_PROP_FRAME_COUNT))):
                 # Load frame
                 ret, frame = video.read()
-                if ret == False:
+                if ret is False:
                     raise IOError('Error reading video frame')
                 frame = filter_image(frame, krad=10)
 
                 # For each marker in the frame
-                parts_unique = getBodypartsFromXmaExport(working_dir)
+                parts_unique = get_bodyparts_from_xma(working_dir)
                 for part in parts_unique:
                     # Find point and offsets
                     x_float = hdf.loc[frame_index, part + '_' + cam + '_X']
@@ -243,16 +252,14 @@ def autocorrect(working_dir,likelihood_cutoff=0.01, search_area=15, mask_size=5,
 
                     # Find contours
                     contours, hierarchy = cv2.findContours(subimage_gaussthresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE, offset=(x_start,y_start))
-                    # DEBUG contours
-                    # print("Detected "+str(len(contours))+" contours in "+str(search_area)+"*"+str(search_area)+" neighborhood of marker "+part+' in Camera '+cam[-1])
                     contours_im = [contour-[x_start, y_start] for contour in contours]
 
                     # Find closest contour
                     dist = 1000
                     best_index = -1
                     detected_centers = {}
-                    for i in range(len(contours)):
-                        detected_center, circle_radius = cv2.minEnclosingCircle(contours[i])
+                    for i, cnt in enumerate(contours):
+                        detected_center, circle_radius = cv2.minEnclosingCircle(cnt)
                         distTmp = math.sqrt((x_float - detected_center[0])**2 + (y_float - detected_center[1])**2)
                         detected_centers[round(distTmp, 4)] = detected_center
                         if distTmp < dist:
@@ -263,10 +270,11 @@ def autocorrect(working_dir,likelihood_cutoff=0.01, search_area=15, mask_size=5,
                         detected_center_im, _ = cv2.minEnclosingCircle(contours_im[best_index])
                         show_crop(subimage, center=search_area, contours = [contours_im[best_index]], detected_marker = detected_center_im)
                         show_crop(subimage_threshold, center=search_area, contours=contours_im,detected_marker = detected_center_im)
-                        show_crop(subimage_gaussthresh, center=search_area, contours = [contours_im[best_index]], detected_marker = detected_center_im)
+                        show_crop(subimage_gaussthresh, center=search_area,
+                            contours = [contours_im[best_index]], detected_marker = detected_center_im)
                         hdf.loc[frame_index, part + '_' + cam + '_X']  = detected_center[0]
-                        hdf.loc[frame_index, part + '_' + cam + '_Y']  = detected_center[1]   
-                
+                        hdf.loc[frame_index, part + '_' + cam + '_Y']  = detected_center[1]
+
             print('done! saving...')
             hdf.to_csv(out_name, index=False)
 
@@ -299,7 +307,13 @@ def show_crop(src, center, scale=5, contours=None, detected_marker=None):
         image = cv2.addWeighted(overlay, 0.25, image, 0.75, 0)
     cv2.drawMarker(image, (center*scale, center*scale), color = (0,255,255), markerType = cv2.MARKER_CROSS, markerSize = 10, thickness = 1)
     if detected_marker:
-        cv2.drawMarker(image, (int(detected_marker[0]*scale),int(detected_marker[1]*scale)),color = (255,0,0), markerType = cv2.MARKER_CROSS, markerSize = 10, thickness = 1)
+        cv2.drawMarker(image,
+        (int(detected_marker[0]*scale),
+        int(detected_marker[1]*scale)),
+        color = (255,0,0),
+        markerType = cv2.MARKER_CROSS,
+        markerSize = 10,
+        thickness = 1)
     plt.imshow(image)
     plt.show()
 
@@ -308,31 +322,18 @@ def show_crop(src, center, scale=5, contours=None, detected_marker=None):
 # filter contours for area then circularity
 # try blobdetector
 
-def getBodypartsFromXmaExport(working_dir):
+def get_bodyparts_from_xma(working_dir):
     '''Pull the names of the XMAlab markers from the 2Dpoints file'''
-     # Open the config
-    try:
-        config_file = open(working_dir + "\\project_config.yaml", 'r')
-    except FileNotFoundError:
-        raise FileNotFoundError('Make sure that the current directory has a project already created in it.')
-    yaml = YAML()
-    project = yaml.load(config_file)
-    
     # Establish project vars
-    path_config_file = project['path_config_file']
     data_path = working_dir + "/trainingdata"
-    try:
-        dlc_config = open(path_config_file)
-    except FileNotFoundError:
-        raise FileNotFoundError('Oops! Looks like there\'s no deeplabcut config file inside of your deeplabcut directory.')
-    
+
     # ADD support for more than one trial
     for trial in os.listdir(data_path):
         csv_path = [file for file in os.listdir(data_path + '/' + trial) if file[-4:] == '.csv']
         if len(csv_path) > 1:
             raise FileExistsError('Found more than 1 CSV file for trial: ' + trial)
-        df = pd.read_csv(data_path + '/' + trial + '/' + csv_path[0], sep=',',header=0, dtype='float',na_values='NaN')
-        names = df.columns.values
+        trial_csv = pd.read_csv(data_path + '/' + trial + '/' + csv_path[0], sep=',',header=0, dtype='float',na_values='NaN')
+        names = trial_csv.columns.values
         parts = [name.rsplit('_',2)[0] for name in names]
         parts_unique = []
         for part in parts:

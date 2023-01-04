@@ -16,12 +16,12 @@ class TestProjectCreation(unittest.TestCase):
         '''Create a sample project'''
         super(TestProjectCreation, cls).setUpClass()
         sam.create_new_project(os.path.join(os.getcwd(), 'tmp'))
-    
+
     def test_project_creates_correct_folders(self):
         '''Do we have all of the correct folders?'''
-        for dir in ["trainingdata", "trials", "XMA_files"]:
-            with self.subTest(i=dir):
-                self.assertTrue(os.path.exists(os.path.join(os.getcwd(), 'tmp', dir)))
+        for folder in ["trainingdata", "trials", "XMA_files"]:
+            with self.subTest(i=folder):
+                self.assertTrue(os.path.exists(os.path.join(os.getcwd(), 'tmp', folder)))
 
     def test_project_creates_config_file(self):
         '''Do we have a project config?'''
@@ -57,7 +57,7 @@ class TestConfigDefaults(unittest.TestCase):
         self.working_dir = os.path.join(os.getcwd(), 'tmp')
         sam.create_new_project(self.working_dir)
         frame = np.zeros((480, 480, 3), np.uint8)
-        
+
         # Make a trial directory
         os.mkdir(os.path.join(self.working_dir, 'trainingdata/dummy'))
 
@@ -70,7 +70,7 @@ class TestConfigDefaults(unittest.TestCase):
         out = cv2.VideoWriter('tmp/trainingdata/dummy/dummy_cam2.avi',cv2.VideoWriter_fourcc(*'DIVX'), 15, (480,480))
         out.write(frame)
         out.release()
-        
+
         # CSV
         df = pd.DataFrame({'foo_cam1_X': 0,
         'foo_cam1_Y': 0,
@@ -96,7 +96,7 @@ class TestConfigDefaults(unittest.TestCase):
     def test_warn_users_if_nframes_doesnt_match_csv(self):
         '''If the number of frames in the CSV doesn't match the number of frames specified, do I issue a warning?'''
         yaml = YAML()
-        
+
         # Modify the number of frames (similar to how a user would)
         config = open(os.path.join(self.working_dir, 'project_config.yaml'), 'r')
         tmp = yaml.load(config)
@@ -107,12 +107,11 @@ class TestConfigDefaults(unittest.TestCase):
 
         # Check that the user is warned
         with self.assertWarns(UserWarning):
-            project = sam.load_project(self.working_dir)
+            sam.load_project(self.working_dir)
 
     def tearDown(self):
         '''Remove the created temp project'''
-        super(TestConfigDefaults, self).tearDownClass()
         shutil.rmtree(os.path.join(os.getcwd(), 'tmp'))
-        
+
 if __name__ == "__main__":
     unittest.main()
