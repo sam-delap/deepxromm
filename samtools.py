@@ -76,7 +76,7 @@ def create_new_project(working_dir=os.getcwd(), experimenter='NA'):
         pass
     os.chdir(saved_dir)
 
-def load_project(working_dir=os.getcwd()):
+def load_project(working_dir=os.getcwd(), threshold=0.1):
     '''Load an existing project (only used internally/in testing)'''
     # Open the config
     try:
@@ -117,6 +117,9 @@ def load_project(working_dir=os.getcwd()):
     elif project['nframes'] != len(trial_csv):
         warnings.warn('Project nframes tracked does not match 2D Points file. \
             If this is intentional, ignore this message')
+
+    if project['nframes'] < len(trial_csv) * threshold:
+        warnings.warn(f'Project nframes is less than the recommended {threshold*100}% of the total frames')
 
     # Update changed attributes to match in the file
     with open(os.path.join(working_dir, 'project_config.yaml'), 'w') as file:

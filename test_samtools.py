@@ -129,9 +129,11 @@ class TestConfigDefaults(unittest.TestCase):
         # Increase the number of frames to 100 so I can test this
         df = pd.read_csv('tmp/trainingdata/dummy/dummy.csv')
         for _ in range(100):
-            df.append([0 for _ in range(12)])
+            df.loc[len(df) + 1, :] = 0
+
         df.to_csv('tmp/trainingdata/dummy/dummy.csv')
 
+        # Check that the user is warned
         with self.assertWarns(UserWarning):
             sam.load_project(self.working_dir)
 
