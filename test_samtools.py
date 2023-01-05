@@ -122,7 +122,7 @@ class TestConfigDefaults(unittest.TestCase):
         self.assertEqual(tmp['nframes'], 1, msg=f"Actual nframes: {tmp['nframes']}")
 
     def test_warn_if_user_has_tracked_less_than_threshold_frames(self):
-        '''If the user has tracked less than threshold % of their trial, 
+        '''If the user has tracked less than threshold % of their trial,
         do I give them a warning?'''
         sam.load_project(self.working_dir)
 
