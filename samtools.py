@@ -132,7 +132,7 @@ def train_network(working_dir=os.getcwd()):
     try:
         xrommtools.xma_to_dlc(project['path_config_file'],
         data_path,
-        project['nframes'],
+        project['dataset_name'],
         project['experimenter'],
         project['nframes'])
     except UnboundLocalError:
