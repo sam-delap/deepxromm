@@ -121,6 +121,19 @@ class TestConfigDefaults(unittest.TestCase):
 
         self.assertEqual(tmp['nframes'], 1, msg=f"Actual nframes: {tmp['nframes']}")
 
+    def test_warn_if_user_has_tracked_less_than_threshold_frames(self):
+        '''If the user has tracked less than threshold % of their trial, 
+        do I give them a warning?'''
+        sam.load_project(self.working_dir)
+
+        # Increase the number of frames to 100 so I can test this
+        df = pd.read_csv('tmp/trainingdata/dummy/dummy.csv')
+        for _ in range(100):
+            df.append([0 for _ in range(12)])
+        df.to_csv('tmp/trainingdata/dummy/dummy.csv')
+
+        with self.assertWarns(UserWarning):
+            sam.load_project(self.working_dir)
 
     def tearDown(self):
         '''Remove the created temp project'''
