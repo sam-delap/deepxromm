@@ -109,6 +109,19 @@ class TestConfigDefaults(unittest.TestCase):
         with self.assertWarns(UserWarning):
             sam.load_project(self.working_dir)
 
+    def test_yaml_file_updates_nframes_after_load_if_frames_is_0(self):
+        '''If the user doesn't specify how many frames they want analyzed,
+        does their YAML file get updated with how many are in the CSV?'''
+        yaml = YAML()
+
+        sam.load_project(self.working_dir)
+        config = open(os.path.join(self.working_dir, 'project_config.yaml'), 'r')
+        tmp = yaml.load(config)
+        config.close()
+
+        self.assertEqual(tmp['nframes'], 1, msg=f"Actual nframes: {tmp['nframes']}")
+
+
     def tearDown(self):
         '''Remove the created temp project'''
         shutil.rmtree(os.path.join(os.getcwd(), 'tmp'))
