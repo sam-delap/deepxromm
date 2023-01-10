@@ -101,7 +101,7 @@ def load_project(working_dir=os.getcwd(), threshold=0.1):
         raise FileNotFoundError(f'Please make sure that your trainingdata 2DPoints csv file is named {trial}.csv') from e
 
     # Drop untracked frames (all NaNs)
-    trial_csv.dropna(how='all')
+    trial_csv = trial_csv.dropna(how='all')
 
     # Make sure there aren't any partially tracked frames
     if trial_csv.isna().sum().sum() > 0:
