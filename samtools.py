@@ -107,7 +107,7 @@ def load_project(working_dir=os.getcwd(), threshold=0.1):
     if trial_csv.isna().sum().sum() > 0:
         # ADD change to warning and say how many frames you're removing
         raise AttributeError(f'Detected {len(trial_csv) - len(trial_csv.dropna())} partially tracked frames. \
-            Please ensure that all frames are completely tracked')
+        Please ensure that all frames are completely tracked')
 
     # If the user hasn't defined how many frames they tracked
     if project['nframes'] <= 0:
@@ -116,7 +116,7 @@ def load_project(working_dir=os.getcwd(), threshold=0.1):
     # If their specified nframes doesn't match the number of frames in the sheet
     elif project['nframes'] != len(trial_csv):
         warnings.warn('Project nframes tracked does not match 2D Points file. \
-            If this is intentional, ignore this message')
+        If this is intentional, ignore this message')
 
     if project['nframes'] < len(trial_csv) * threshold:
         warnings.warn(f'Project nframes is less than the recommended {threshold*100}% of the total frames')
@@ -166,7 +166,7 @@ def analyze_videos(working_dir=os.getcwd()):
 
     xrommtools.analyze_xromm_videos(path_config_file, new_data_path, iteration)
 
-def autocorrect(working_dir,likelihood_cutoff=0.01, search_area=15, mask_size=5, threshold=8): #try 0.05 also
+def autocorrect(working_dir, search_area=15, threshold=8): #try 0.05 also
     '''Do XMAlab-style autocorrect on the tracked beads'''
     # Open the config
     try:
@@ -203,9 +203,9 @@ def autocorrect(working_dir,likelihood_cutoff=0.01, search_area=15, mask_size=5,
             except FileNotFoundError:
                 raise FileNotFoundError(f'Please make sure that your {cam} video file is named {trial}_{cam}.avi') from None
             # For each frame of video
-            print(video.get(cv2.CAP_PROP_FRAME_COUNT)) # DEBUG
-             # DEBUG switch to a single frame
-            for frame_index in [0]: #range(int(video.get(cv2.CAP_PROP_FRAME_COUNT))):
+            print(f'Loading {cam} video for trial {trial}')
+            print(f'Total frames in video: {int(video.get(cv2.CAP_PROP_FRAME_COUNT))}')
+            for frame_index in range(int(video.get(cv2.CAP_PROP_FRAME_COUNT))):
                 # Load frame
                 ret, frame = video.read()
                 if ret is False:
@@ -246,39 +246,38 @@ def autocorrect(working_dir,likelihood_cutoff=0.01, search_area=15, mask_size=5,
 
                     # Thresholding
                     subimage_median = cv2.cvtColor(subimage_median, cv2.COLOR_BGR2GRAY)
-                    minVal, maxVal, minLoc, maxLoc = cv2.minMaxLoc(subimage_median)
-                    thres = 0.5 * minVal + 0.5 * np.mean(subimage_median) + threshold * 0.01 * 255
+                    min_val, _, _, _ = cv2.minMaxLoc(subimage_median)
+                    thres = 0.5 * min_val + 0.5 * np.mean(subimage_median) + threshold * 0.01 * 255
                     ret, subimage_threshold =  cv2.threshold(subimage_median, thres, 255, cv2.THRESH_BINARY_INV)
 
                     # Gaussian blur
                     subimage_gaussthresh = cv2.GaussianBlur(subimage_threshold, (3,3), 1.3)
 
                     # Find contours
-                    contours, hierarchy = cv2.findContours(subimage_gaussthresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE, offset=(x_start,y_start))
-                    contours_im = [contour-[x_start, y_start] for contour in contours]
+                    contours, _ = cv2.findContours(subimage_gaussthresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE, offset=(x_start,y_start))
 
                     # Find closest contour
                     dist = 1000
                     best_index = -1
                     detected_centers = {}
                     for i, cnt in enumerate(contours):
-                        detected_center, circle_radius = cv2.minEnclosingCircle(cnt)
-                        distTmp = math.sqrt((x_float - detected_center[0])**2 + (y_float - detected_center[1])**2)
-                        detected_centers[round(distTmp, 4)] = detected_center
-                        if distTmp < dist:
+                        detected_center, _ = cv2.minEnclosingCircle(cnt)
+                        tmp_dist = math.sqrt((x_float - detected_center[0])**2 + (y_float - detected_center[1])**2)
+                        detected_centers[round(tmp_dist, 4)] = detected_center
+                        if tmp_dist < dist:
                             best_index = i
-                            dist = distTmp
+                            dist = tmp_dist
                     if best_index >= 0:
                         detected_center, _ = cv2.minEnclosingCircle(contours[best_index])
-                        detected_center_im, _ = cv2.minEnclosingCircle(contours_im[best_index])
-                        show_crop(subimage, center=search_area, contours = [contours_im[best_index]], detected_marker = detected_center_im)
-                        show_crop(subimage_threshold, center=search_area, contours=contours_im,detected_marker = detected_center_im)
-                        show_crop(subimage_gaussthresh, center=search_area,
-                            contours = [contours_im[best_index]], detected_marker = detected_center_im)
+                        # detected_center_im, _ = cv2.minEnclosingCircle(contours_im[best_index])
+                        # show_crop(subimage, center=search_area, contours = [contours_im[best_index]], detected_marker = detected_center_im)
+                        # show_crop(subimage_threshold, center=search_area, contours=contours_im,detected_marker = detected_center_im)
+                        # show_crop(subimage_gaussthresh, center=search_area,
+                        #     contours = [contours_im[best_index]], detected_marker = detected_center_im)
                         hdf.loc[frame_index, part + '_' + cam + '_X']  = detected_center[0]
                         hdf.loc[frame_index, part + '_' + cam + '_Y']  = detected_center[1]
 
-            print('done! saving...')
+            print(f'Autocorrect done! saving to csv at {out_name}...')
             hdf.to_csv(out_name, index=False)
 
 def filter_image(image, krad=17, gsigma=10, img_wt=3.6, blur_wt=-2.9, gamma=0.30):
