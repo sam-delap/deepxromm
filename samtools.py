@@ -167,7 +167,7 @@ def analyze_videos(working_dir=os.getcwd()):
     xrommtools.analyze_xromm_videos(path_config_file, new_data_path, iteration)
 
 def autocorrect(working_dir, search_area=15, threshold=8): #try 0.05 also
-    '''Do XMAlab-style autocorrect on the tracked beads'''
+    '''Do XMAlab-style autocorrect on the tracked beads using contours'''
     # Open the config
     try:
         config_file = open(working_dir + "\\project_config.yaml", 'r')
@@ -281,7 +281,7 @@ def autocorrect(working_dir, search_area=15, threshold=8): #try 0.05 also
             hdf.to_csv(out_name, index=False)
 
 def filter_image(image, krad=17, gsigma=10, img_wt=3.6, blur_wt=-2.9, gamma=0.30):
-    '''Filter the image to make it easier for python to see'''
+    '''Filter the image to make it easier to see the bead'''
     krad = krad*2+1
     # Gaussian blur
     image_blur = cv2.GaussianBlur(image, (krad, krad), gsigma)
@@ -326,6 +326,7 @@ def show_crop(src, center, scale=5, contours=None, detected_marker=None):
 # filter contours for area then circularity
 # try blobdetector
 
+# Makes more sense for this to be trial-specific and to loop externally as-needed
 def get_bodyparts_from_xma(working_dir):
     '''Pull the names of the XMAlab markers from the 2Dpoints file'''
     # Establish project vars
