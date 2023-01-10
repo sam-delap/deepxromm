@@ -232,7 +232,7 @@ def autocorrect(working_dir,likelihood_cutoff=0.01, search_area=15, mask_size=5,
                     # Create Blurred image
                     radius = int(1.5 * 5 + 0.5) #5 might be too high
                     sigma = radius * math.sqrt(2 * math.log(255)) - 1
-                    subimage_blurred = cv2.GaussianBlur(subimage_float, (2 * radius + 1, radius + 1), sigma)
+                    subimage_blurred = cv2.GaussianBlur(subimage_float, (2 * radius + 1, 2 * radius + 1), sigma)
 
                     # Subtract Background
                     subimage_diff = subimage_float-subimage_blurred
@@ -284,7 +284,9 @@ def autocorrect(working_dir,likelihood_cutoff=0.01, search_area=15, mask_size=5,
 def filter_image(image, krad=17, gsigma=10, img_wt=3.6, blur_wt=-2.9, gamma=0.30):
     '''Filter the image to make it easier for python to see'''
     krad = krad*2+1
+    # Gaussian blur
     image_blur = cv2.GaussianBlur(image, (krad, krad), gsigma)
+    # Add to original
     image_blend = cv2.addWeighted(image, img_wt, image_blur, blur_wt, 0)
     lut = np.array([((i/255.0)**gamma)*255.0 for i in range(256)])
     image_gamma = image_blend.copy()
