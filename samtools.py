@@ -231,6 +231,7 @@ def autocorrect_video(cam, data_file, trial_name, working_dir, search_area, thre
             raise IOError('Error reading video frame')
         frame = filter_image(frame, krad=10)
 
+        print(f'Current Frame {frame_index}')
         # For each marker in the frame
         parts_unique = get_bodyparts_from_xma(new_data_path + '/' + trial_name)
         for part in parts_unique:
@@ -296,7 +297,7 @@ def autocorrect_video(cam, data_file, trial_name, working_dir, search_area, thre
                 data_file.loc[frame_index, part + '_' + cam + '_X']  = detected_center[0]
                 data_file.loc[frame_index, part + '_' + cam + '_Y']  = detected_center[1]
 
-        return data_file
+    return data_file
 
 def filter_image(image, krad=17, gsigma=10, img_wt=3.6, blur_wt=-2.9, gamma=0.30):
     '''Filter the image to make it easier to see the bead'''
