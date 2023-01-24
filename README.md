@@ -1,5 +1,6 @@
 <!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN">
-'<html><head><title>Python: module samtools</title>
+<html>
+<head><title>Python: module samtools</title>
 <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
 </head><body bgcolor="#f0f0f8">
 
@@ -43,4 +44,4 @@
  <dl><dt><a name="-show_crop"><strong>show_crop</strong></a>(src, center, scale=5, contours=None, detected_marker=None)</dt><dd><tt>Display&nbsp;a&nbsp;visual&nbsp;of&nbsp;the&nbsp;marker&nbsp;and&nbsp;Python's&nbsp;projected&nbsp;center</tt></dd></dl>
  <dl><dt><a name="-train_network"><strong>train_network</strong></a>(working_dir='C:\\Users\\sjcde\\Documents\\deadROMM-tools')</dt><dd><tt>Start&nbsp;training&nbsp;xrommtools-compatible&nbsp;data</tt></dd></dl>
 </td></tr></table>
-</body></html>'
+</body></html>
