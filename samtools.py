@@ -107,19 +107,30 @@ def load_project(working_dir=os.getcwd(), threshold=0.1):
     if trial_csv.isna().sum().sum() > 0:
         # ADD change to warning and say how many frames you're removing
         raise AttributeError(f'Detected {len(trial_csv) - len(trial_csv.dropna())} partially tracked frames. \
-        Please ensure that all frames are completely tracked')
+    Please ensure that all frames are completely tracked')
 
-    # If the user hasn't defined how many frames they tracked
     if project['nframes'] <= 0:
-        # Save nframes
         project['nframes'] = len(trial_csv)
-    # If their specified nframes doesn't match the number of frames in the sheet
+    
     elif project['nframes'] != len(trial_csv):
         warnings.warn('Project nframes tracked does not match 2D Points file. \
         If this is intentional, ignore this message')
 
     if project['nframes'] < len(trial_csv) * threshold:
         warnings.warn(f'Project nframes is less than the recommended {threshold*100}% of the total frames')
+
+    with open(project['path_config_file'], 'r') as dlc_config:
+        default_bodyparts = ['bodypart1', 'bodypart2', 'bodypart3', 'objectA']
+
+        dlc_config_loader = YAML()
+
+        dlc_yaml = dlc_config_loader.load(dlc_config)
+        if dlc_yaml['bodyparts'] == default_bodyparts:
+            trial_name = os.listdir(working_dir + '/trainingdata')[0]
+            dlc_yaml['bodyparts'] = get_bodyparts_from_xma(os.path.join(working_dir, 'trainingdata', trial_name))
+    
+    with open(project['path_config_file'], 'w') as dlc_config:
+        yaml.dump(dlc_yaml, dlc_config)
 
     # Update changed attributes to match in the file
     with open(os.path.join(working_dir, 'project_config.yaml'), 'w') as file:
@@ -221,7 +232,7 @@ def autocorrect_video(cam, data_file, trial_name, working_dir, search_area, thre
         frame = filter_image(frame, krad=10)
 
         # For each marker in the frame
-        parts_unique = get_bodyparts_from_xma(working_dir)
+        parts_unique = get_bodyparts_from_xma(new_data_path + '/' + trial_name)
         for part in parts_unique:
             # Find point and offsets
             x_float = data_file.loc[frame_index, part + '_' + cam + '_X']
@@ -334,21 +345,103 @@ def show_crop(src, center, scale=5, contours=None, detected_marker=None):
 # try blobdetector
 
 # Makes more sense for this to be trial-specific and to loop externally as-needed
-def get_bodyparts_from_xma(working_dir):
+def get_bodyparts_from_xma(path_to_trial):
     '''Pull the names of the XMAlab markers from the 2Dpoints file'''
-    # Establish project vars
-    data_path = working_dir + "/trainingdata"
 
-    # ADD support for more than one trial
-    for trial in os.listdir(data_path):
-        csv_path = [file for file in os.listdir(data_path + '/' + trial) if file[-4:] == '.csv']
-        if len(csv_path) > 1:
-            raise FileExistsError('Found more than 1 CSV file for trial: ' + trial)
-        trial_csv = pd.read_csv(data_path + '/' + trial + '/' + csv_path[0], sep=',',header=0, dtype='float',na_values='NaN')
-        names = trial_csv.columns.values
-        parts = [name.rsplit('_',2)[0] for name in names]
-        parts_unique = []
-        for part in parts:
-            if not part in parts_unique:
-                parts_unique.append(part)
-        return parts_unique
+    csv_path = [file for file in os.listdir(path_to_trial) if file[-4:] == '.csv']
+    if len(csv_path) > 1:
+        raise FileExistsError('Found more than 1 CSV file for trial: ' + path_to_trial)
+    trial_csv = pd.read_csv(path_to_trial + '/' + csv_path[0], sep=',',header=0, dtype='float',na_values='NaN')
+    names = trial_csv.columns.values
+    parts = [name.rsplit('_',2)[0] for name in names]
+    parts_unique = []
+    for part in parts:
+        if part not in parts_unique:
+            parts_unique.append(part)
+    return parts_unique
+
+# def jupyter_test_autocorrect():
+#     '''Provides end users with an easy way to test their autocorrect filtering parameters'''
+#     sample_frame = cv2.imread('sample_frame.jpg')
+
+#     x_float = 182.1416321
+#     y_float = 236.0445604
+#     x_start = int(x_float-15+0.5)
+#     y_start = int(y_float-15+0.5)
+#     x_end = int(x_float+15+0.5)
+#     y_end = int(y_float+15+0.5)
+
+#     subimage = sample_frame[y_start:y_end, x_start:x_end]
+
+#     print('Raw')
+#     show_crop(subimage, 15)
+#     krad = 17
+#     gsigma =10
+#     img_wt=3.6
+#     blur_wt=2.9
+#     gamma = 0.1
+#     subimage_filtered = filter_image(subimage, gamma=gamma)
+#     print('Filtered')
+#     show_crop(subimage_filtered, 15)
+
+#     subimage_float = subimage_filtered.astype(np.float32)
+#     radius = int(1.5 * 5 + 0.5) #5 might be too high
+#     sigma = radius * math.sqrt(2 * math.log(255)) - 1
+#     subimage_blurred = cv2.GaussianBlur(subimage_float, (2 * radius + 1, 2 * radius + 1), sigma)
+#     print(f'Blurred: {sigma}')
+#     show_crop(subimage_blurred, 15)
+
+#     subimage_diff = subimage_float-subimage_blurred
+#     subimage_diff = cv2.normalize(subimage_diff, None, 0,255,cv2.NORM_MINMAX).astype(np.uint8)
+#     print('Diff (Float - blurred)')
+#     show_crop(subimage_diff, 15)
+
+#     # Median
+#     subimage_median = cv2.medianBlur(subimage_diff, 3)
+#     print('Median')
+#     show_crop(subimage_median, 15)
+
+#     # LUT
+#     subimage_median = filter_image(subimage_median, krad=3)
+#     print('Median filtered')
+#     show_crop(subimage_median, 15)
+
+#     # Thresholding
+#     threshold=6
+#     subimage_median = cv2.cvtColor(subimage_median, cv2.COLOR_BGR2GRAY)
+#     minVal, maxVal, minLoc, maxLoc = cv2.minMaxLoc(subimage_median)
+#     thres = 0.5 * minVal + 0.5 * np.mean(subimage_median) + threshold * 0.01 * 255
+#     ret, subimage_threshold =  cv2.threshold(subimage_median, thres, 255, cv2.THRESH_BINARY_INV)
+#     print('Threshold')
+#     show_crop(subimage_threshold, 15)
+
+#     # Gaussian blur
+#     subimage_gaussthresh = cv2.GaussianBlur(subimage_threshold, (3,3), 1.3)
+#     print('Gaussian')
+#     show_crop(subimage_threshold, 15)
+
+#     # Find contours
+#     contours, hierarchy = cv2.findContours(subimage_gaussthresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE, offset=(x_start,y_start))
+#     contours_im = [contour-[x_start, y_start] for contour in contours]
+
+#     # Find closest contour
+#     dist = 1000
+#     best_index = -1
+#     detected_centers = {}
+#     for i, cnt in enumerate(contours):
+#         detected_center, circle_radius = cv2.minEnclosingCircle(cnt)
+#         distTmp = math.sqrt((x_float - detected_center[0])**2 + (y_float - detected_center[1])**2)
+#         detected_centers[round(distTmp, 4)] = detected_center
+#         if distTmp < dist:
+#             best_index = i
+#             dist = distTmp
+
+#     # Display contour on raw image
+#     if best_index >= 0:
+#         detected_center, _ = cv2.minEnclosingCircle(contours[best_index])
+#         detected_center_im, _ = cv2.minEnclosingCircle(contours_im[best_index])
+#         show_crop(subimage, 15, contours = [contours_im[best_index]], detected_marker = detected_center_im)
+
+# working_dir = 'C:/Users/sjcde/OneDrive/Documents/AxoChewing'
+
+# autocorrect(working_dir=working_dir)

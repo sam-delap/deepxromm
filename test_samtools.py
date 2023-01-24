@@ -2,6 +2,7 @@
 import unittest
 import os
 import shutil
+from datetime import datetime as dt
 import numpy as np
 import pandas as pd
 import cv2
@@ -86,7 +87,7 @@ class TestConfigDefaults(unittest.TestCase):
         'baz_cam2_Y': 0
         }, index=[1])
 
-        df.to_csv('tmp/trainingdata/dummy/dummy.csv')
+        df.to_csv('tmp/trainingdata/dummy/dummy.csv', index=False)
 
     def test_can_find_frames_from_csv(self):
         '''Can I accurately find the number of frames in the video if the user doesn't tell me?'''
@@ -136,6 +137,20 @@ class TestConfigDefaults(unittest.TestCase):
         # Check that the user is warned
         with self.assertWarns(UserWarning):
             sam.load_project(self.working_dir)
+
+    def test_bodyparts_add_from_csv_if_not_defined(self):
+        '''If the user hasn't specified the bodyparts from their trial,
+        we can pull them from the CSV'''
+        yaml = YAML()
+        date = dt.today().strftime("%Y-%m-%d")
+        sam.load_project(self.working_dir)
+        path_to_config = '/tmp-NA-' + date + '/config.yaml'
+
+        dlc_config = open(self.working_dir + path_to_config)
+        config_obj = yaml.load(dlc_config)
+        dlc_config.close()
+
+        self.assertEqual(config_obj['bodyparts'], ['foo', 'bar', 'baz'])
 
     def tearDown(self):
         '''Remove the created temp project'''
