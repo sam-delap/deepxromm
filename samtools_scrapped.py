@@ -15,14 +15,14 @@ def tif_to_avi(working_dir=os.getcwd()):
         except NotADirectoryError:
             raise Exception("Please separate your training_images directory into per-trial folders")
         try:
-            os.chdir("training_images")   
+            os.chdir("training_images")
         except:
-            raise Exception("Please create a training_images directory inside your trial directory") 
+            raise Exception("Please create a training_images directory inside your trial directory")
         # Assuming all directories within a trial are for undistorted trial images, find how many tifdirs there are
         tifdirs = [f for f in os.listdir() if os.path.isdir(f)]
         if len(tifdirs) == 0:
             raise Exception("Please export a set of undistorted trial images into this directory")
-        
+
         for tifdir in tifdirs:
             # Find filename pattern
             os.chdir(tifdir)
@@ -33,6 +33,6 @@ def tif_to_avi(working_dir=os.getcwd()):
             index2 = filename.find('_cam')
             index3 = filename.find('_UND')
             cmd = "ffmpeg -i " + pattern + "%04d.tif -r 30 -b:v 9653K " + "..\\\\..\\\\..\\\\" + pattern[:index2] + "\\\\" + pattern[:index3] + ".avi"
-            print(cmd)   
+            print(cmd)
             os.system(cmd)
             os.chdir("../")

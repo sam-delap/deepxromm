@@ -1,25 +1,30 @@
+'''A Complete Set of User-Friendly Tools for DeepLabCut-XMAlab marker tracking'''
 # Import packages
 import os
-import deeplabcut
-from deeplabcut.utils import xrommtools
-import pandas as pd
-import matplotlib.pyplot as plt
 import math
+import warnings
 import cv2
 import numpy as np
+import matplotlib.pyplot as plt
+import pandas as pd
+import deeplabcut
+from deeplabcut.utils import xrommtools
 from ruamel.yaml import YAML
 
 def create_new_project(working_dir=os.getcwd(), experimenter='NA'):
     '''Create a new xrommtools project'''
-    os.chdir(working_dir)
+    saved_dir=os.getcwd()
+    try:
+        os.chdir(working_dir)
+    except FileNotFoundError:
+        os.mkdir(working_dir)
+        os.chdir(working_dir)
     dirs = ["trainingdata", "trials", "XMA_files"]
-    for dir in dirs:
+    for folder in dirs:
         try:
-            os.mkdir(dir)
+            os.mkdir(folder)
         except FileExistsError:
             continue
-
-    config = open("project_config.yaml", 'w')
 
     # Create a fake video to pass into the deeplabcut workflow
     frame = np.zeros((480, 480, 3), np.uint8)
@@ -33,106 +38,162 @@ def create_new_project(working_dir=os.getcwd(), experimenter='NA'):
         task = working_dir.split("\\")[len(working_dir.split("\\")) - 1]
     else:
         task = working_dir.split('/')[len(working_dir.split('/')) - 1]
-    
-    path_config_file = deeplabcut.create_new_project(task, experimenter, [working_dir + "\\dummy.avi"], working_dir + "\\", copy_videos=True)
-    template = f"""
-    task: {task}
-    experimenter: {experimenter}
-    working_dir: {working_dir}
-    path_config_file: {path_config_file}
-    dataset_name: 
-    nframes:
-    """
 
-    tmp = yaml.load(template)
+    path_config_file = deeplabcut.create_new_project(task, experimenter,
+        [working_dir + "\\dummy.avi"], working_dir + "\\", copy_videos=True)
 
-    yaml.dump(tmp, config)
-    config.close()
+    if isinstance(path_config_file, str):
+        config = open("project_config.yaml", 'w')
+        template = f"""
+        task: {task}
+        experimenter: {experimenter}
+        working_dir: {working_dir}
+        path_config_file: {path_config_file}
+        dataset_name: MyData
+        nframes: 0
+        maxiters: 150000
+        """
 
-    try:
-        os.rmdir(path_config_file[:path_config_file.find("config")] + "labeled-data\\dummy")
-    except FileNotFoundError:
-        pass
+        tmp = yaml.load(template)
 
-    try:
-        os.remove(path_config_file[:path_config_file.find("config")] + "\\videos\\dummy.avi")
-    except FileNotFoundError:
-        pass
+        yaml.dump(tmp, config)
+
+        try:
+            os.rmdir(path_config_file[:path_config_file.find("config")] + "labeled-data\\dummy")
+        except FileNotFoundError:
+            pass
+
+        try:
+            os.remove(path_config_file[:path_config_file.find("config")] + "\\videos\\dummy.avi")
+        except FileNotFoundError:
+            pass
+
+        config.close()
 
     try:
         os.remove("dummy.avi")
     except FileNotFoundError:
         pass
+    os.chdir(saved_dir)
 
-def train_network(working_dir=os.getcwd()):
-    '''Start training xrommtools-compatible data'''
+def load_project(working_dir=os.getcwd(), threshold=0.1):
+    '''Load an existing project (only used internally/in testing)'''
     # Open the config
     try:
         config_file = open(working_dir + "\\project_config.yaml", 'r')
-    except FileNotFoundError:
-        raise FileNotFoundError('Make sure that the current directory has a project already created in it.')
+    except FileNotFoundError as no_file_found:
+        raise FileNotFoundError('Make sure that the current directory has a project already created in it.') from no_file_found
     yaml = YAML()
     project = yaml.load(config_file)
+    config_file.close()
 
-    # Establish project vars
-    path_config_file = project['path_config_file']
-    data_path = working_dir + "\\trainingdata"
-    dataset_name = project['dataset_name']
     experimenter = str(project['experimenter'])
-    nframes = project['nframes']
+    project['experimenter'] = experimenter
+    if project['dataset_name'] == 'MyData':
+        warnings.warn('Default project name in use', SyntaxWarning)
 
-    if dataset_name is None:
-        raise Exception("Please specify a name for this dataset in the config file")
-    if nframes is None:
-        raise Exception("Please specify the number of frames in the training dataset")
+    # Load trial CSV
+    try:
+        training_data_path = os.path.join(project['working_dir'], "trainingdata")
+        trial = os.listdir(training_data_path)[0]
+        trial_csv = pd.read_csv(training_data_path + '/' + trial + '/' + trial + '.csv')
+    except FileNotFoundError as e:
+        raise FileNotFoundError(f'Please make sure that your trainingdata 2DPoints csv file is named {trial}.csv') from e
+
+    # Drop untracked frames (all NaNs)
+    trial_csv = trial_csv.dropna(how='all')
+
+    # Make sure there aren't any partially tracked frames
+    if trial_csv.isna().sum().sum() > 0:
+        # ADD change to warning and say how many frames you're removing
+        raise AttributeError(f'Detected {len(trial_csv) - len(trial_csv.dropna())} partially tracked frames. \
+    Please ensure that all frames are completely tracked')
+
+    if project['nframes'] <= 0:
+        project['nframes'] = len(trial_csv)
+    
+    elif project['nframes'] != len(trial_csv):
+        warnings.warn('Project nframes tracked does not match 2D Points file. \
+        If this is intentional, ignore this message')
+
+    if project['nframes'] < len(trial_csv) * threshold:
+        warnings.warn(f'Project nframes is less than the recommended {threshold*100}% of the total frames')
+
+    with open(project['path_config_file'], 'r') as dlc_config:
+        default_bodyparts = ['bodypart1', 'bodypart2', 'bodypart3', 'objectA']
+
+        dlc_config_loader = YAML()
+
+        dlc_yaml = dlc_config_loader.load(dlc_config)
+        if dlc_yaml['bodyparts'] == default_bodyparts:
+            trial_name = os.listdir(working_dir + '/trainingdata')[0]
+            dlc_yaml['bodyparts'] = get_bodyparts_from_xma(os.path.join(working_dir, 'trainingdata', trial_name))
+    
+    with open(project['path_config_file'], 'w') as dlc_config:
+        yaml.dump(dlc_yaml, dlc_config)
+
+    # Update changed attributes to match in the file
+    with open(os.path.join(working_dir, 'project_config.yaml'), 'w') as file:
+        yaml.dump(project, file)
+
+    return project
+
+def train_network(working_dir=os.getcwd()):
+    '''Start training xrommtools-compatible data'''
+    project = load_project(working_dir=working_dir)
+    data_path = working_dir + "/trainingdata"
 
     try:
-        xrommtools.xma_to_dlc(path_config_file, data_path, dataset_name, experimenter, nframes)
+        xrommtools.xma_to_dlc(project['path_config_file'],
+        data_path,
+        project['dataset_name'],
+        project['experimenter'],
+        project['nframes'])
     except UnboundLocalError:
         pass
-    deeplabcut.create_training_dataset(path_config_file)
-    deeplabcut.train_network(path_config_file)
+    deeplabcut.create_training_dataset(project['path_config_file'])
+    deeplabcut.train_network(project['path_config_file'], maxiters=project['maxiters'])
 
 def analyze_videos(working_dir=os.getcwd()):
     '''Analyze videos with a pre-existing network'''
     # Open the config
     try:
-        config_file = open(working_dir + "\\project_config.yaml", 'r')
-    except FileNotFoundError:
-        raise FileNotFoundError('Make sure that the current directory has a project already created in it.')
+        config_file = open(working_dir + "/project_config.yaml", 'r')
+    except FileNotFoundError as e:
+        raise FileNotFoundError('Make sure that the current directory has a project already created in it.') from e
     yaml = YAML()
     project = yaml.load(config_file)
 
-    
+
     # Establish project vars
     path_config_file = project['path_config_file']
-    new_data_path = working_dir + "\\trials"
+    new_data_path = working_dir + "/trials"
     try:
         dlc_config = open(path_config_file)
-    except FileNotFoundError:
-        raise FileNotFoundError('Oops! Looks like there\'s no deeplabcut config file inside of your deeplabcut directory.')
+    except FileNotFoundError as e:
+        raise FileNotFoundError('Oops! Looks like there\'s no deeplabcut config file inside of your deeplabcut directory.') from e
     dlc = yaml.load(dlc_config)
     iteration = dlc['iteration']
 
     xrommtools.analyze_xromm_videos(path_config_file, new_data_path, iteration)
 
-def autocorrect(working_dir,likelihood_cutoff=0.01, search_area=15, mask_size=5, threshold=8): #try 0.05 also
-    '''Do XMAlab-style autocorrect on the tracked beads'''
+def autocorrect(working_dir, search_area=15, threshold=8): #try 0.05 also
+    '''Do XMAlab-style autocorrect on the tracked beads using contours'''
     # Open the config
     try:
         config_file = open(working_dir + "\\project_config.yaml", 'r')
-    except FileNotFoundError:
-        raise FileNotFoundError('Make sure that the current directory has a project already created in it.')
+    except FileNotFoundError as e:
+        raise FileNotFoundError('Make sure that the current directory has a project already created in it.') from e
     yaml = YAML()
     project = yaml.load(config_file)
-    
+
     # Establish project vars
     path_config_file = project['path_config_file']
-    new_data_path = working_dir + "\\trials"
+    new_data_path = working_dir + "/trials"
     try:
         dlc_config = open(path_config_file)
-    except FileNotFoundError:
-        raise FileNotFoundError('Oops! Looks like there\'s no deeplabcut config file inside of your deeplabcut directory.')
+    except FileNotFoundError as e:
+        raise FileNotFoundError('Oops! Looks like there\'s no deeplabcut config file inside of your deeplabcut directory.') from e
     dlc = yaml.load(dlc_config)
     iteration = dlc['iteration']
     search_area = int(search_area + 0.5) if search_area >= 10 else 10
@@ -143,99 +204,106 @@ def autocorrect(working_dir,likelihood_cutoff=0.01, search_area=15, mask_size=5,
         try:
             hdf = pd.read_hdf(new_data_path + '/' + trial + '/' + 'it' + str(iteration) + '/' + trial + '-Predicted2DPoints.h5')
         except FileNotFoundError:
-            raise FileNotFoundError(f'Could not find predicted 2D points file. Please check the it{iteration} folder for trial {trial}')
+            raise FileNotFoundError(f'Could not find predicted 2D points file. Please check the it{iteration} folder for trial {trial}') from None
+        out_name = new_data_path + '/' + trial + '/' + 'it' + str(iteration) + '/' + trial + '-AutoCorrected2DPoints.csv'
         # For each camera
         for cam in ['cam1','cam2']:
-            # Find the raw video
-            try:
-                video = cv2.VideoCapture(new_data_path + '/' + trial + '/' + trial + '_' + cam)
-            except FileNotFoundError:
-                raise FileNotFoundError(f'Please make sure that your {cam} video file is named {trial}_{cam}.avi')
-            # For each frame of video
-            for frame in int(video.get(cv2.CAP_PROP_FRAME_COUNT)):
-                # Load frame
-                # START HERE
-                # frame = cv2.imread(os.path.join(cam_dirs[cam],str(im_index)))
-            print(os.path.join(cam_dirs[cam],str(im_index)))
-            plt.imshow(frame)
-            plt.show()
-            frame = filter_image(frame, krad=10)
+            hdf = autocorrect_video(cam, hdf, trial, working_dir=working_dir, search_area=search_area, threshold=threshold)
 
-            # Loop through all markers for each frame
-            for part in parts_unique:
-                # Find point and offsets
-                x_float, y_float, likelihood = df.xs(part+'_'+cam, level='bodyparts',axis=1).iloc[frame_index]
-                print(part+' Camera '+cam[-1]+' Likelihood: '+str(likelihood))
-                if likelihood < likelihood_cutoff:
-                    print('Likelihood too low; skipping')
-                    continue
-                x_start = int(x_float-search_area+0.5)
-                y_start = int(y_float-search_area+0.5)
-                x_end = int(x_float+search_area+0.5)
-                y_end = int(y_float+search_area+0.5)
+            print(f'Autocorrect done! saving to csv at {out_name}...')
+            hdf.to_csv(out_name, index=False)
 
-                # Crop image to marker vicinity
-                subimage = frame[y_start:y_end, x_start:x_end]
+def autocorrect_video(cam, data_file, trial_name, working_dir, search_area, threshold):
+    '''Perform autocorrect on a single video'''
+    new_data_path = working_dir + "/trials"
+    # Find the raw video
+    try:
+        video = cv2.VideoCapture(new_data_path + '/' + trial_name + '/' + trial_name + '_' + cam + '.avi')
+    except FileNotFoundError:
+        raise FileNotFoundError(f'Please make sure that your {cam} video file is named {trial_name}_{cam}.avi') from None
+    # For each frame of video
+    print(f'Loading {cam} video for trial {trial_name}')
+    print(f'Total frames in video: {int(video.get(cv2.CAP_PROP_FRAME_COUNT))}')
+    for frame_index in range(int(video.get(cv2.CAP_PROP_FRAME_COUNT))):
+        # Load frame
+        ret, frame = video.read()
+        if ret is False:
+            raise IOError('Error reading video frame')
+        frame = filter_image(frame, krad=10)
 
-                # Convert To float
-                subimage_float = subimage.astype(np.float32)
+        # For each marker in the frame
+        parts_unique = get_bodyparts_from_xma(new_data_path + '/' + trial_name)
+        for part in parts_unique:
+            # Find point and offsets
+            x_float = data_file.loc[frame_index, part + '_' + cam + '_X']
+            y_float = data_file.loc[frame_index, part + '_' + cam + '_Y']
+            x_start = int(x_float-search_area+0.5)
+            y_start = int(y_float-search_area+0.5)
+            x_end = int(x_float+search_area+0.5)
+            y_end = int(y_float+search_area+0.5)
 
-                # Create Blurred image
-                radius = int(1.5 * 5 + 0.5) #5 might be too high
-                sigma = radius * math.sqrt(2 * math.log(255)) - 1
-                subimage_blurred = cv2.GaussianBlur(subimage_float, (2 * radius + 1, radius + 1), sigma)
+            # Crop image to marker vicinity
+            subimage = frame[y_start:y_end, x_start:x_end]
 
-                # Subtract Background
-                subimage_diff = subimage_float-subimage_blurred
-                subimage_diff = cv2.normalize(subimage_diff, None, 0,255,cv2.NORM_MINMAX).astype(np.uint8)
+            # Convert To float
+            subimage_float = subimage.astype(np.float32)
 
-                # Median
-                subimage_median = cv2.medianBlur(subimage_diff, 3)
+            # Create Blurred image
+            radius = int(1.5 * 5 + 0.5) #5 might be too high
+            sigma = radius * math.sqrt(2 * math.log(255)) - 1
+            subimage_blurred = cv2.GaussianBlur(subimage_float, (2 * radius + 1, 2 * radius + 1), sigma)
 
-                # LUT
-                subimage_median = filter_image(subimage_median, krad=3)
+            # Subtract Background
+            subimage_diff = subimage_float-subimage_blurred
+            subimage_diff = cv2.normalize(subimage_diff, None, 0,255,cv2.NORM_MINMAX).astype(np.uint8)
 
-                # Thresholding
-                subimage_median = cv2.cvtColor(subimage_median, cv2.COLOR_BGR2GRAY)
-                minVal, maxVal, minLoc, maxLoc = cv2.minMaxLoc(subimage_median)
-                thres = 0.5 * minVal + 0.5 * np.mean(subimage_median) + threshold * 0.01 * 255
-                ret, subimage_threshold =  cv2.threshold(subimage_median, thres, 255, cv2.THRESH_BINARY_INV)
+            # Median
+            subimage_median = cv2.medianBlur(subimage_diff, 3)
 
-                # Gaussian blur
-                subimage_gaussthresh = cv2.GaussianBlur(subimage_threshold, (3,3), 1.3)
+            # LUT
+            subimage_median = filter_image(subimage_median, krad=3)
 
-                ##Find contours
-                contours, hierarchy = cv2.findContours(subimage_gaussthresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE, offset=(x_start,y_start))
-                print("Detected "+str(len(contours))+" contours in "+str(search_area)+"*"+str(search_area)+" neighborhood of marker "+part+' in Camera '+cam[-1])
-                contours_im = contours.copy()
-                contours_im = [contour-[x_start, y_start] for contour in contours_im]
+            # Thresholding
+            subimage_median = cv2.cvtColor(subimage_median, cv2.COLOR_BGR2GRAY)
+            min_val, _, _, _ = cv2.minMaxLoc(subimage_median)
+            thres = 0.5 * min_val + 0.5 * np.mean(subimage_median) + threshold * 0.01 * 255
+            ret, subimage_threshold =  cv2.threshold(subimage_median, thres, 255, cv2.THRESH_BINARY_INV)
 
-                # Find closest contour
-                dist = 1000
-                best_index = -1
-                detected_centers = {}
-                for i in range(len(contours)):
-                    detected_center, circle_radius = cv2.minEnclosingCircle(contours[i])
-                    distTmp = math.sqrt((x_float - detected_center[0])**2 + (y_float - detected_center[1])**2)
-                    detected_centers[round(distTmp, 4)] = detected_center
-                    if distTmp < dist:
-                        best_index = i
-                        dist = distTmp
-                if best_index >= 0:
-                    detected_center, circle_radius = cv2.minEnclosingCircle(contours[best_index])
-                    detected_center_im, circle_radius_im = cv2.minEnclosingCircle(contours_im[best_index])
-                    show_crop(subimage, contours = [contours_im[best_index]], detected_marker = detected_center_im)
-                    # show_crop(subimage_threshold, contours=contours_im,detected_marker = detected_center_im)
-                    # show_crop(subimage_gaussthresh, contours = [contours_im[best_index]], detected_marker = detected_center_im)
-                    df.loc[df.iloc[frame_index].name, (scorer,part+'_'+cam, ['x'])]  = detected_center[0]
-                    df.loc[df.iloc[frame_index].name, (scorer,part+'_'+cam, ['y'])]  = detected_center[1]   
-                
-        print('done! saving...')
-        df.to_hdf(out_name, 'df_with_missing', format='table', mode='w', nan_rep='NaN')
+            # Gaussian blur
+            subimage_gaussthresh = cv2.GaussianBlur(subimage_threshold, (3,3), 1.3)
+
+            # Find contours
+            contours, _ = cv2.findContours(subimage_gaussthresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE, offset=(x_start,y_start))
+
+            # Find closest contour
+            dist = 1000
+            best_index = -1
+            detected_centers = {}
+            for i, cnt in enumerate(contours):
+                detected_center, _ = cv2.minEnclosingCircle(cnt)
+                tmp_dist = math.sqrt((x_float - detected_center[0])**2 + (y_float - detected_center[1])**2)
+                detected_centers[round(tmp_dist, 4)] = detected_center
+                if tmp_dist < dist:
+                    best_index = i
+                    dist = tmp_dist
+            if best_index >= 0:
+                detected_center, _ = cv2.minEnclosingCircle(contours[best_index])
+                # detected_center_im, _ = cv2.minEnclosingCircle(contours_im[best_index])
+                # show_crop(subimage, center=search_area, contours = [contours_im[best_index]], detected_marker = detected_center_im)
+                # show_crop(subimage_threshold, center=search_area, contours=contours_im,detected_marker = detected_center_im)
+                # show_crop(subimage_gaussthresh, center=search_area,
+                #     contours = [contours_im[best_index]], detected_marker = detected_center_im)
+                data_file.loc[frame_index, part + '_' + cam + '_X']  = detected_center[0]
+                data_file.loc[frame_index, part + '_' + cam + '_Y']  = detected_center[1]
+
+        return data_file
 
 def filter_image(image, krad=17, gsigma=10, img_wt=3.6, blur_wt=-2.9, gamma=0.30):
+    '''Filter the image to make it easier to see the bead'''
     krad = krad*2+1
+    # Gaussian blur
     image_blur = cv2.GaussianBlur(image, (krad, krad), gsigma)
+    # Add to original
     image_blend = cv2.addWeighted(image, img_wt, image_blur, blur_wt, 0)
     lut = np.array([((i/255.0)**gamma)*255.0 for i in range(256)])
     image_gamma = image_blend.copy()
@@ -248,7 +316,8 @@ def filter_image(image, krad=17, gsigma=10, img_wt=3.6, blur_wt=-2.9, gamma=0.30
         image_gamma[:,:,2] = lut[image_gamma[:,:,2]]
     return image_gamma
 
-def show_crop(self, src, center=search_area, scale=5, contours=None, detected_marker=None):
+def show_crop(src, center, scale=5, contours=None, detected_marker=None):
+    '''Display a visual of the marker and Python's projected center'''
     if len(src.shape) < 3:
         src = cv2.cvtColor(src, cv2.COLOR_GRAY2BGR)
     image = src.copy().astype(np.uint8)
@@ -260,7 +329,13 @@ def show_crop(self, src, center=search_area, scale=5, contours=None, detected_ma
         image = cv2.addWeighted(overlay, 0.25, image, 0.75, 0)
     cv2.drawMarker(image, (center*scale, center*scale), color = (0,255,255), markerType = cv2.MARKER_CROSS, markerSize = 10, thickness = 1)
     if detected_marker:
-        cv2.drawMarker(image, (int(detected_marker[0]*scale),int(detected_marker[1]*scale)),color = (255,0,0), markerType = cv2.MARKER_CROSS, markerSize = 10, thickness = 1)
+        cv2.drawMarker(image,
+        (int(detected_marker[0]*scale),
+        int(detected_marker[1]*scale)),
+        color = (255,0,0),
+        markerType = cv2.MARKER_CROSS,
+        markerSize = 10,
+        thickness = 1)
     plt.imshow(image)
     plt.show()
 
@@ -269,31 +344,104 @@ def show_crop(self, src, center=search_area, scale=5, contours=None, detected_ma
 # filter contours for area then circularity
 # try blobdetector
 
-def getBodypartsFromXmaExport(working_dir):
-     # Open the config
-    try:
-        config_file = open(working_dir + "\\project_config.yaml", 'r')
-    except FileNotFoundError:
-        raise FileNotFoundError('Make sure that the current directory has a project already created in it.')
-    yaml = YAML()
-    project = yaml.load(config_file)
-    
-    # Establish project vars
-    path_config_file = project['path_config_file']
-    data_path = working_dir + "\\trainingdata"
-    try:
-        dlc_config = open(path_config_file)
-    except FileNotFoundError:
-        raise FileNotFoundError('Oops! Looks like there\'s no deeplabcut config file inside of your deeplabcut directory.')
-    for trial in os.listdir(data_path):
-        csv_path = [file for file in os.listdir(data_path + '/' + trial) if file[-4:] == '.csv']
-        if len(csv_path) > 1:
-            raise FileExistsError('Found more than 1 CSV file for trial: ' + trial)
-        df = pd.read_csv(csv_path, sep=',',header=0, dtype='float',na_values='NaN')
-        names = df.columns.values
-        parts = [name.rsplit('_',2)[0] for name in names]
-        parts_unique = []
-        for part in parts:
-            if not part in parts_unique:
-                parts_unique.append(part)
-        return parts_unique
+# Makes more sense for this to be trial-specific and to loop externally as-needed
+def get_bodyparts_from_xma(path_to_trial):
+    '''Pull the names of the XMAlab markers from the 2Dpoints file'''
+
+    csv_path = [file for file in os.listdir(path_to_trial) if file[-4:] == '.csv']
+    if len(csv_path) > 1:
+        raise FileExistsError('Found more than 1 CSV file for trial: ' + path_to_trial)
+    trial_csv = pd.read_csv(path_to_trial + '/' + csv_path[0], sep=',',header=0, dtype='float',na_values='NaN')
+    names = trial_csv.columns.values
+    parts = [name.rsplit('_',2)[0] for name in names]
+    parts_unique = []
+    for part in parts:
+        if part not in parts_unique:
+            parts_unique.append(part)
+    return parts_unique
+
+# def jupyter_test_autocorrect():
+#     '''Provides end users with an easy way to test their autocorrect filtering parameters'''
+#     sample_frame = cv2.imread('sample_frame.jpg')
+
+#     x_float = 182.1416321
+#     y_float = 236.0445604
+#     x_start = int(x_float-15+0.5)
+#     y_start = int(y_float-15+0.5)
+#     x_end = int(x_float+15+0.5)
+#     y_end = int(y_float+15+0.5)
+
+#     subimage = sample_frame[y_start:y_end, x_start:x_end]
+
+#     print('Raw')
+#     show_crop(subimage, 15)
+#     krad = 17
+#     gsigma =10
+#     img_wt=3.6
+#     blur_wt=2.9
+#     gamma = 0.1
+#     subimage_filtered = filter_image(subimage, gamma=gamma)
+#     print('Filtered')
+#     show_crop(subimage_filtered, 15)
+
+#     subimage_float = subimage_filtered.astype(np.float32)
+#     radius = int(1.5 * 5 + 0.5) #5 might be too high
+#     sigma = radius * math.sqrt(2 * math.log(255)) - 1
+#     subimage_blurred = cv2.GaussianBlur(subimage_float, (2 * radius + 1, 2 * radius + 1), sigma)
+#     print(f'Blurred: {sigma}')
+#     show_crop(subimage_blurred, 15)
+
+#     subimage_diff = subimage_float-subimage_blurred
+#     subimage_diff = cv2.normalize(subimage_diff, None, 0,255,cv2.NORM_MINMAX).astype(np.uint8)
+#     print('Diff (Float - blurred)')
+#     show_crop(subimage_diff, 15)
+
+#     # Median
+#     subimage_median = cv2.medianBlur(subimage_diff, 3)
+#     print('Median')
+#     show_crop(subimage_median, 15)
+
+#     # LUT
+#     subimage_median = filter_image(subimage_median, krad=3)
+#     print('Median filtered')
+#     show_crop(subimage_median, 15)
+
+#     # Thresholding
+#     threshold=6
+#     subimage_median = cv2.cvtColor(subimage_median, cv2.COLOR_BGR2GRAY)
+#     minVal, maxVal, minLoc, maxLoc = cv2.minMaxLoc(subimage_median)
+#     thres = 0.5 * minVal + 0.5 * np.mean(subimage_median) + threshold * 0.01 * 255
+#     ret, subimage_threshold =  cv2.threshold(subimage_median, thres, 255, cv2.THRESH_BINARY_INV)
+#     print('Threshold')
+#     show_crop(subimage_threshold, 15)
+
+#     # Gaussian blur
+#     subimage_gaussthresh = cv2.GaussianBlur(subimage_threshold, (3,3), 1.3)
+#     print('Gaussian')
+#     show_crop(subimage_threshold, 15)
+
+#     # Find contours
+#     contours, hierarchy = cv2.findContours(subimage_gaussthresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE, offset=(x_start,y_start))
+#     contours_im = [contour-[x_start, y_start] for contour in contours]
+
+#     # Find closest contour
+#     dist = 1000
+#     best_index = -1
+#     detected_centers = {}
+#     for i, cnt in enumerate(contours):
+#         detected_center, circle_radius = cv2.minEnclosingCircle(cnt)
+#         distTmp = math.sqrt((x_float - detected_center[0])**2 + (y_float - detected_center[1])**2)
+#         detected_centers[round(distTmp, 4)] = detected_center
+#         if distTmp < dist:
+#             best_index = i
+#             dist = distTmp
+
+#     # Display contour on raw image
+#     if best_index >= 0:
+#         detected_center, _ = cv2.minEnclosingCircle(contours[best_index])
+#         detected_center_im, _ = cv2.minEnclosingCircle(contours_im[best_index])
+#         show_crop(subimage, 15, contours = [contours_im[best_index]], detected_marker = detected_center_im)
+
+# working_dir = 'C:/Users/sjcde/OneDrive/Documents/AxoChewing'
+
+# autocorrect(working_dir=working_dir)
