@@ -1,7 +1,5 @@
-<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN">
+# Python: module samtools
 <html>
-  <head>
-    <title>Python: module samtools</title>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
   </head>
   <body bgcolor="#f0f0f8">
