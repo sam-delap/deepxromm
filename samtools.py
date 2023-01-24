@@ -210,8 +210,8 @@ def autocorrect(working_dir, search_area=15, threshold=8): #try 0.05 also
         for cam in ['cam1','cam2']:
             hdf = autocorrect_video(cam, hdf, trial, working_dir=working_dir, search_area=search_area, threshold=threshold)
 
-            print(f'Autocorrect done! saving to csv at {out_name}...')
-            hdf.to_csv(out_name, index=False)
+        print(f'Autocorrect done! saving to csv at {out_name}...')
+        hdf.to_csv(out_name, index=False)
 
 def autocorrect_video(cam, data_file, trial_name, working_dir, search_area, threshold):
     '''Perform autocorrect on a single video'''
