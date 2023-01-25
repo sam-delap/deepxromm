@@ -216,6 +216,8 @@ def autocorrect(working_dir, search_area=15, threshold=8): #try 0.05 also
 def autocorrect_video(cam, data_file, trial_name, working_dir, search_area, threshold):
     '''Perform autocorrect on a single video'''
     new_data_path = working_dir + "/trials"
+    predicted_vid_path = new_data_path + '/' + trial_name + '/' + trial_name + '_' + cam + '.avi'
+    print(f'Analyzing video at: {predicted_vid_path}')
     # Find the raw video
     try:
         video = cv2.VideoCapture(new_data_path + '/' + trial_name + '/' + trial_name + '_' + cam + '.avi')
