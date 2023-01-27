@@ -177,7 +177,7 @@ def analyze_videos(working_dir=os.getcwd()):
 
     xrommtools.analyze_xromm_videos(path_config_file, new_data_path, iteration)
 
-def autocorrect(working_dir, search_area=15, threshold=8): #try 0.05 also
+def autocorrect(working_dir, search_area=15, threshold=8, krad=17, gsigma=10, img_wt=3.6, blur_wt=-2.9, gamma=0.1): #try 0.05 also
     '''Do XMAlab-style autocorrect on the tracked beads'''
     # Open the config
     try:
@@ -222,7 +222,6 @@ def autocorrect(working_dir, search_area=15, threshold=8): #try 0.05 also
                 ret, frame = video.read()
                 if ret is False:
                     raise IOError('Error reading video frame')
-                frame = filter_image(frame, krad=10)
 
                 # For each marker in the frame
                 parts_unique = get_bodyparts_from_xma(f'{new_data_path}/{trial}')
@@ -235,18 +234,15 @@ def autocorrect(working_dir, search_area=15, threshold=8): #try 0.05 also
                     x_end = int(x_float+search_area+0.5)
                     y_end = int(y_float+search_area+0.5)
 
-                    # Crop image to marker vicinity
                     subimage = frame[y_start:y_end, x_start:x_end]
 
-                    # Convert To float
-                    subimage_float = subimage.astype(np.float32)
+                    subimage_filtered = filter_image(subimage, krad=krad, gsigma=gsigma, img_wt=img_wt, blur_wt=blur_wt, gamma=gamma)
 
-                    # Create Blurred image
+                    subimage_float = subimage_filtered.astype(np.float32)
                     radius = int(1.5 * 5 + 0.5) #5 might be too high
                     sigma = radius * math.sqrt(2 * math.log(255)) - 1
                     subimage_blurred = cv2.GaussianBlur(subimage_float, (2 * radius + 1, 2 * radius + 1), sigma)
 
-                    # Subtract Background
                     subimage_diff = subimage_float-subimage_blurred
                     subimage_diff = cv2.normalize(subimage_diff, None, 0,255,cv2.NORM_MINMAX).astype(np.uint8)
 
@@ -267,7 +263,6 @@ def autocorrect(working_dir, search_area=15, threshold=8): #try 0.05 also
 
                     # Find contours
                     contours, _ = cv2.findContours(subimage_gaussthresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE, offset=(x_start,y_start))
-                    # contours_im = [contour-[x_start, y_start] for contour in contours]
 
                     # Find closest contour
                     dist = 1000
@@ -280,36 +275,21 @@ def autocorrect(working_dir, search_area=15, threshold=8): #try 0.05 also
                         if distTmp < dist:
                             best_index = i
                             dist = distTmp
+
+                    # Display contour on raw image
                     if best_index >= 0:
+                        print('corrected')
                         detected_center, _ = cv2.minEnclosingCircle(contours[best_index])
-                        # detected_center_im, _ = cv2.minEnclosingCircle(contours_im[best_index])
-                        # show_crop(subimage, center=search_area, contours = [contours_im[best_index]], detected_marker = detected_center_im)
-                        # show_crop(subimage_threshold, center=search_area, contours=contours_im,detected_marker = detected_center_im)
-                        # show_crop(subimage_gaussthresh, center=search_area,
-                            # contours = [contours_im[best_index]], detected_marker = detected_center_im)
                         hdf.loc[frame_index, part + '_' + cam + '_X']  = detected_center[0]
                         hdf.loc[frame_index, part + '_' + cam + '_Y']  = detected_center[1]
+                    else:
+                        print('no autocorrect')
 
+            # Print when autocorrect finishes
             print('done! saving...')
             hdf.to_csv(out_name, index=False)
 
-def filter_image(image, krad=17, gsigma=10, img_wt=3.6, blur_wt=-2.9, gamma=0.30):
-    '''Filter the image to make it easier for python to see'''
-    krad = krad*2+1
-    image_blur = cv2.GaussianBlur(image, (krad, krad), gsigma)
-    image_blend = cv2.addWeighted(image, img_wt, image_blur, blur_wt, 0)
-    lut = np.array([((i/255.0)**gamma)*255.0 for i in range(256)])
-    image_gamma = image_blend.copy()
-    im_type = len(image_gamma.shape)
-    if im_type == 2:
-        image_gamma = lut[image_gamma]
-    elif im_type == 3:
-        image_gamma[:,:,0] = lut[image_gamma[:,:,0]]
-        image_gamma[:,:,1] = lut[image_gamma[:,:,1]]
-        image_gamma[:,:,2] = lut[image_gamma[:,:,2]]
-    return image_gamma
-
-def filter_image(image, krad=17, gsigma=10, img_wt=3.6, blur_wt=-2.9, gamma=0.30):
+def filter_image(image, krad=17, gsigma=10, img_wt=3.6, blur_wt=-2.9, gamma=0.10):
     '''Filter the image to make it easier to see the bead'''
     krad = krad*2+1
     # Gaussian blur
@@ -370,3 +350,97 @@ def get_bodyparts_from_xma(path_to_trial):
         if part not in parts_unique:
             parts_unique.append(part)
     return parts_unique
+
+def jupyter_test_autocorrect(working_dir, cam, marker_name, frame_num, hdf_path, krad=17, gsigma=10, img_wt=3.6, blur_wt=-2.9, gamma=0.1, threshold=6):
+    '''Test the filtering parameters for autocorrect() from a jupyter notebook'''
+    hdf = pd.read_hdf(hdf_path)
+    new_data_path = working_dir + "/trials"
+    trial_name = os.listdir(new_data_path)[0]
+    predicted_vid_path = new_data_path + '/' + trial_name + '/' + trial_name + '_' + cam + '.avi'
+    print(f'Analyzing video at: {predicted_vid_path}')
+    # Find the raw video
+    try:
+        video = cv2.VideoCapture(predicted_vid_path)
+    except FileNotFoundError:
+        raise FileNotFoundError(f'Please make sure that your {cam} video file is named {trial_name}_{cam}.avi') from None
+    # For each frame of video
+    print(f'Loading {cam} video for trial {trial_name}')
+    print(f'Total frames in video: {int(video.get(cv2.CAP_PROP_FRAME_COUNT))}')
+
+    # Load frame
+    video.set(1, frame_num - 1)
+    ret, sample_frame = video.read()
+    if ret is False:
+        raise IOError('Error reading video frame')
+
+    x_float = hdf.loc[frame_num, marker_name + '_' + cam + '_X']
+    y_float = hdf.loc[frame_num, marker_name + '_' + cam + '_Y']
+    x_start = int(x_float-15+0.5)
+    y_start = int(y_float-15+0.5)
+    x_end = int(x_float+15+0.5)
+    y_end = int(y_float+15+0.5)
+
+    subimage = sample_frame[y_start:y_end, x_start:x_end]
+
+    print('Raw')
+    show_crop(subimage, 15)
+    subimage_filtered = filter_image(subimage, krad=krad, gsigma=gsigma, img_wt=img_wt, blur_wt=blur_wt, gamma=gamma)
+    print('Filtered')
+    show_crop(subimage_filtered, 15)
+
+    subimage_float = subimage_filtered.astype(np.float32)
+    radius = int(1.5 * 5 + 0.5) #5 might be too high
+    sigma = radius * math.sqrt(2 * math.log(255)) - 1
+    subimage_blurred = cv2.GaussianBlur(subimage_float, (2 * radius + 1, 2 * radius + 1), sigma)
+    print(f'Blurred: {sigma}')
+    show_crop(subimage_blurred, 15)
+
+    subimage_diff = subimage_float-subimage_blurred
+    subimage_diff = cv2.normalize(subimage_diff, None, 0,255,cv2.NORM_MINMAX).astype(np.uint8)
+    print('Diff (Float - blurred)')
+    show_crop(subimage_diff, 15)
+
+    # Median
+    subimage_median = cv2.medianBlur(subimage_diff, 3)
+    print('Median')
+    show_crop(subimage_median, 15)
+
+    # LUT
+    subimage_median = filter_image(subimage_median, krad=3)
+    print('Median filtered')
+    show_crop(subimage_median, 15)
+
+    # Thresholding
+    subimage_median = cv2.cvtColor(subimage_median, cv2.COLOR_BGR2GRAY)
+    minVal, maxVal, minLoc, maxLoc = cv2.minMaxLoc(subimage_median)
+    thres = 0.5 * minVal + 0.5 * np.mean(subimage_median) + threshold * 0.01 * 255
+    ret, subimage_threshold =  cv2.threshold(subimage_median, thres, 255, cv2.THRESH_BINARY_INV)
+    print('Threshold')
+    show_crop(subimage_threshold, 15)
+
+    # Gaussian blur
+    subimage_gaussthresh = cv2.GaussianBlur(subimage_threshold, (3,3), 1.3)
+    print('Gaussian')
+    show_crop(subimage_threshold, 15)
+
+    # Find contours
+    contours, _ = cv2.findContours(subimage_gaussthresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE, offset=(x_start,y_start))
+    contours_im = [contour-[x_start, y_start] for contour in contours]
+
+    # Find closest contour
+    dist = 1000
+    best_index = -1
+    detected_centers = {}
+    for i, cnt in enumerate(contours):
+        detected_center, _ = cv2.minEnclosingCircle(cnt)
+        distTmp = math.sqrt((x_float - detected_center[0])**2 + (y_float - detected_center[1])**2)
+        detected_centers[round(distTmp, 4)] = detected_center
+        if distTmp < dist:
+            best_index = i
+            dist = distTmp
+
+    # Display contour on raw image
+    if best_index >= 0:
+        detected_center, _ = cv2.minEnclosingCircle(contours[best_index])
+        detected_center_im, _ = cv2.minEnclosingCircle(contours_im[best_index])
+        show_crop(subimage, 15, contours = [contours_im[best_index]], detected_marker = detected_center_im)
