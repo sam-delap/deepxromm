@@ -278,12 +278,9 @@ def autocorrect(working_dir, search_area=15, threshold=8, krad=17, gsigma=10, im
 
                     # Display contour on raw image
                     if best_index >= 0:
-                        print('corrected')
                         detected_center, _ = cv2.minEnclosingCircle(contours[best_index])
                         hdf.loc[frame_index, part + '_' + cam + '_X']  = detected_center[0]
                         hdf.loc[frame_index, part + '_' + cam + '_Y']  = detected_center[1]
-                    else:
-                        print('no autocorrect')
 
             # Print when autocorrect finishes
             print('done! saving...')
