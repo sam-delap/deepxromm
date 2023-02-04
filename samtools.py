@@ -111,7 +111,7 @@ def load_project(working_dir=os.getcwd(), threshold=0.1):
 
     if project['nframes'] <= 0:
         project['nframes'] = len(trial_csv)
-    
+
     elif project['nframes'] != len(trial_csv):
         warnings.warn('Project nframes tracked does not match 2D Points file. \
         If this is intentional, ignore this message')
@@ -128,7 +128,7 @@ def load_project(working_dir=os.getcwd(), threshold=0.1):
         if dlc_yaml['bodyparts'] == default_bodyparts:
             trial_name = os.listdir(working_dir + '/trainingdata')[0]
             dlc_yaml['bodyparts'] = get_bodyparts_from_xma(os.path.join(working_dir, 'trainingdata', trial_name))
-    
+
     with open(project['path_config_file'], 'w') as dlc_config:
         yaml.dump(dlc_yaml, dlc_config)
 
@@ -215,7 +215,7 @@ def autocorrect(working_dir, search_area=15, threshold=8, krad=17, gsigma=10, im
                 raise FileNotFoundError(f'Please make sure that your {cam} video file is named {trial}_{cam}.avi') from None
             # For each frame of video
             print(f'Total frames in video: {video.get(cv2.CAP_PROP_FRAME_COUNT)}')
-           
+
             for frame_index in range(int(video.get(cv2.CAP_PROP_FRAME_COUNT))):
                 # Load frame
                 print(f'Current Frame: {frame_index + 1}')
