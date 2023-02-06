@@ -202,7 +202,7 @@ def autocorrect(working_dir, search_area=15, threshold=8, krad=17, gsigma=10, im
     for trial in os.listdir(new_data_path):
         # Find the appropriate pointsfile
         try:
-            hdf = pd.read_hdf(new_data_path + '/' + trial + '/' + 'it' + str(iteration) + '/' + trial + '-Predicted2DPoints.h5')
+            csv = pd.read_csv(new_data_path + '/' + trial + '/' + 'it' + str(iteration) + '/' + trial + '-Predicted2DPoints.csv')
         except FileNotFoundError:
             raise FileNotFoundError(f'Could not find predicted 2D points file. Please check the it{iteration} folder for trial {trial}') from None
         out_name = new_data_path + '/' + trial + '/' + 'it' + str(iteration) + '/' + trial + '-AutoCorrected2DPoints.csv'
@@ -227,8 +227,8 @@ def autocorrect(working_dir, search_area=15, threshold=8, krad=17, gsigma=10, im
                 parts_unique = get_bodyparts_from_xma(f'{new_data_path}/{trial}')
                 for part in parts_unique:
                     # Find point and offsets
-                    x_float = hdf.loc[frame_index, part + '_' + cam + '_X']
-                    y_float = hdf.loc[frame_index, part + '_' + cam + '_Y']
+                    x_float = csv.loc[frame_index, part + '_' + cam + '_X']
+                    y_float = csv.loc[frame_index, part + '_' + cam + '_Y']
                     x_start = int(x_float-search_area+0.5)
                     y_start = int(y_float-search_area+0.5)
                     x_end = int(x_float+search_area+0.5)
@@ -279,12 +279,12 @@ def autocorrect(working_dir, search_area=15, threshold=8, krad=17, gsigma=10, im
                     # Display contour on raw image
                     if best_index >= 0:
                         detected_center, _ = cv2.minEnclosingCircle(contours[best_index])
-                        hdf.loc[frame_index, part + '_' + cam + '_X']  = detected_center[0]
-                        hdf.loc[frame_index, part + '_' + cam + '_Y']  = detected_center[1]
+                        csv.loc[frame_index, part + '_' + cam + '_X']  = detected_center[0]
+                        csv.loc[frame_index, part + '_' + cam + '_Y']  = detected_center[1]
 
             # Print when autocorrect finishes
             print('done! saving...')
-            hdf.to_csv(out_name, index=False)
+            csv.to_csv(out_name, index=False)
 
 def filter_image(image, krad=17, gsigma=10, img_wt=3.6, blur_wt=-2.9, gamma=0.10):
     '''Filter the image to make it easier to see the bead'''
@@ -348,9 +348,9 @@ def get_bodyparts_from_xma(path_to_trial):
             parts_unique.append(part)
     return parts_unique
 
-def jupyter_test_autocorrect(working_dir, cam, marker_name, frame_num, hdf_path, krad=17, gsigma=10, img_wt=3.6, blur_wt=-2.9, gamma=0.1, threshold=6):
+def jupyter_test_autocorrect(working_dir, cam, marker_name, frame_num, csv_path, krad=17, gsigma=10, img_wt=3.6, blur_wt=-2.9, gamma=0.1, threshold=6):
     '''Test the filtering parameters for autocorrect() from a jupyter notebook'''
-    hdf = pd.read_hdf(hdf_path)
+    csv = pd.read_(csv_path)
     new_data_path = working_dir + "/trials"
     trial_name = os.listdir(new_data_path)[0]
     predicted_vid_path = new_data_path + '/' + trial_name + '/' + trial_name + '_' + cam + '.avi'
@@ -370,8 +370,8 @@ def jupyter_test_autocorrect(working_dir, cam, marker_name, frame_num, hdf_path,
     if ret is False:
         raise IOError('Error reading video frame')
 
-    x_float = hdf.loc[frame_num, marker_name + '_' + cam + '_X']
-    y_float = hdf.loc[frame_num, marker_name + '_' + cam + '_Y']
+    x_float = csv.loc[frame_num, marker_name + '_' + cam + '_X']
+    y_float = csv.loc[frame_num, marker_name + '_' + cam + '_Y']
     x_start = int(x_float-15+0.5)
     y_start = int(y_float-15+0.5)
     x_end = int(x_float+15+0.5)
