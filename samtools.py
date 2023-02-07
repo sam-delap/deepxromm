@@ -170,21 +170,16 @@ def analyze_videos(working_dir=os.getcwd()):
 def autocorrect_trial(working_dir=os.getcwd(), search_area=15, threshold=8, krad=17, gsigma=10, img_wt=3.6, blur_wt=-2.9, gamma=0.1): #try 0.05 also
     '''Do XMAlab-style autocorrect on the tracked beads'''
     # Open the config
-    try:
-        config_file = open(working_dir + "\\project_config.yaml", 'r')
-    except FileNotFoundError as e:
-        raise FileNotFoundError('Make sure that the current directory has a project already created in it.') from e
     yaml = YAML()
-    project = yaml.load(config_file)
+    with open(working_dir + "\\project_config.yaml", 'r') as config_file:
+        project = yaml.load(config_file)
 
     # Establish project vars
     path_config_file = project['path_config_file']
     new_data_path = working_dir + "/trials"
-    try:
-        dlc_config = open(path_config_file)
-    except FileNotFoundError as e:
-        raise FileNotFoundError('Oops! Looks like there\'s no deeplabcut config file inside of your deeplabcut directory.') from e
-    dlc = yaml.load(dlc_config)
+    with open(path_config_file) as dlc_config:
+        dlc = yaml.load(dlc_config)
+    
     iteration = dlc['iteration']
     search_area = int(search_area + 0.5) if search_area >= 10 else 10
 
