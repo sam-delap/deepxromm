@@ -43,7 +43,6 @@ def create_new_project(working_dir=os.getcwd(), experimenter='NA'):
         [working_dir + "\\dummy.avi"], working_dir + "\\", copy_videos=True)
 
     if isinstance(path_config_file, str):
-        config = open("project_config.yaml", 'w')
         template = f"""
         task: {task}
         experimenter: {experimenter}
@@ -56,7 +55,8 @@ def create_new_project(working_dir=os.getcwd(), experimenter='NA'):
 
         tmp = yaml.load(template)
 
-        yaml.dump(tmp, config)
+        with open("project_config.yaml", 'w') as config:
+            yaml.dump(tmp, config)
 
         try:
             os.rmdir(path_config_file[:path_config_file.find("config")] + "labeled-data\\dummy")
@@ -68,8 +68,6 @@ def create_new_project(working_dir=os.getcwd(), experimenter='NA'):
         except FileNotFoundError:
             pass
 
-        config.close()
-
     try:
         os.remove("dummy.avi")
     except FileNotFoundError:
@@ -79,13 +77,9 @@ def create_new_project(working_dir=os.getcwd(), experimenter='NA'):
 def load_project(working_dir=os.getcwd(), threshold=0.1):
     '''Load an existing project (only used internally/in testing)'''
     # Open the config
-    try:
-        config_file = open(working_dir + "\\project_config.yaml", 'r')
-    except FileNotFoundError as no_file_found:
-        raise FileNotFoundError('Make sure that the current directory has a project already created in it.') from no_file_found
-    yaml = YAML()
-    project = yaml.load(config_file)
-    config_file.close()
+    with open(working_dir + "\\project_config.yaml", 'r') as config_file:
+        yaml = YAML()
+        project = yaml.load(config_file)
 
     experimenter = str(project['experimenter'])
     project['experimenter'] = experimenter
@@ -157,44 +151,32 @@ def train_network(working_dir=os.getcwd()):
 def analyze_videos(working_dir=os.getcwd()):
     '''Analyze videos with a pre-existing network'''
     # Open the config
-    try:
-        config_file = open(working_dir + "/project_config.yaml", 'r')
-    except FileNotFoundError as e:
-        raise FileNotFoundError('Make sure that the current directory has a project already created in it.') from e
     yaml = YAML()
-    project = yaml.load(config_file)
-
+    with open(working_dir + "/project_config.yaml", 'r') as config_file:
+        project = yaml.load(config_file)
 
     # Establish project vars
     path_config_file = project['path_config_file']
     new_data_path = working_dir + "/trials"
-    try:
-        dlc_config = open(path_config_file)
-    except FileNotFoundError as e:
-        raise FileNotFoundError('Oops! Looks like there\'s no deeplabcut config file inside of your deeplabcut directory.') from e
-    dlc = yaml.load(dlc_config)
+    with open(path_config_file) as dlc_config:
+        dlc = yaml.load(dlc_config)
     iteration = dlc['iteration']
 
     xrommtools.analyze_xromm_videos(path_config_file, new_data_path, iteration)
 
-def autocorrect(working_dir, search_area=15, threshold=8, krad=17, gsigma=10, img_wt=3.6, blur_wt=-2.9, gamma=0.1): #try 0.05 also
+def autocorrect_trial(working_dir=os.getcwd(), search_area=15, threshold=8, krad=17, gsigma=10, img_wt=3.6, blur_wt=-2.9, gamma=0.1): #try 0.05 also
     '''Do XMAlab-style autocorrect on the tracked beads'''
     # Open the config
-    try:
-        config_file = open(working_dir + "\\project_config.yaml", 'r')
-    except FileNotFoundError as e:
-        raise FileNotFoundError('Make sure that the current directory has a project already created in it.') from e
     yaml = YAML()
-    project = yaml.load(config_file)
+    with open(working_dir + "\\project_config.yaml", 'r') as config_file:
+        project = yaml.load(config_file)
 
     # Establish project vars
     path_config_file = project['path_config_file']
     new_data_path = working_dir + "/trials"
-    try:
-        dlc_config = open(path_config_file)
-    except FileNotFoundError as e:
-        raise FileNotFoundError('Oops! Looks like there\'s no deeplabcut config file inside of your deeplabcut directory.') from e
-    dlc = yaml.load(dlc_config)
+    with open(path_config_file) as dlc_config:
+        dlc = yaml.load(dlc_config)
+
     iteration = dlc['iteration']
     search_area = int(search_area + 0.5) if search_area >= 10 else 10
 
@@ -206,85 +188,95 @@ def autocorrect(working_dir, search_area=15, threshold=8, krad=17, gsigma=10, im
         except FileNotFoundError:
             raise FileNotFoundError(f'Could not find predicted 2D points file. Please check the it{iteration} folder for trial {trial}') from None
         out_name = new_data_path + '/' + trial + '/' + 'it' + str(iteration) + '/' + trial + '-AutoCorrected2DPoints.csv'
+
         # For each camera
         for cam in ['cam1','cam2']:
-            # Find the raw video
-            try:
-                video = cv2.VideoCapture(new_data_path + '/' + trial + '/' + trial + '_' + cam + '.avi')
-            except FileNotFoundError:
-                raise FileNotFoundError(f'Please make sure that your {cam} video file is named {trial}_{cam}.avi') from None
-            # For each frame of video
-            print(f'Total frames in video: {video.get(cv2.CAP_PROP_FRAME_COUNT)}')
+            csv = autocorrect_video(cam, trial, csv, new_data_path, search_area, krad, gsigma, img_wt, blur_wt, gamma, threshold)
 
-            for frame_index in range(int(video.get(cv2.CAP_PROP_FRAME_COUNT))):
-                # Load frame
-                print(f'Current Frame: {frame_index + 1}')
-                ret, frame = video.read()
-                if ret is False:
-                    raise IOError('Error reading video frame')
+        # Print when autocorrect finishes
+        print('done! saving...')
+        csv.to_csv(out_name, index=False)
 
-                # For each marker in the frame
-                parts_unique = get_bodyparts_from_xma(f'{new_data_path}/{trial}')
-                for part in parts_unique:
-                    # Find point and offsets
-                    x_float = csv.loc[frame_index, part + '_' + cam + '_X']
-                    y_float = csv.loc[frame_index, part + '_' + cam + '_Y']
-                    x_start = int(x_float-search_area+0.5)
-                    y_start = int(y_float-search_area+0.5)
-                    x_end = int(x_float+search_area+0.5)
-                    y_end = int(y_float+search_area+0.5)
+def autocorrect_video(cam, trial, csv, new_data_path, search_area, krad, gsigma, img_wt, blur_wt, gamma, threshold):
+    '''Run the autocorrect function on a single video within a single trial'''
+    # Find the raw video
+    try:
+        video = cv2.VideoCapture(new_data_path + '/' + trial + '/' + trial + '_' + cam + '.avi')
+    except FileNotFoundError:
+        raise FileNotFoundError(f'Please make sure that your {cam} video file is named {trial}_{cam}.avi') from None
+    # For each frame of video
+    print(f'Total frames in video: {video.get(cv2.CAP_PROP_FRAME_COUNT)}')
 
-                    subimage = frame[y_start:y_end, x_start:x_end]
+    for frame_index in range(int(video.get(cv2.CAP_PROP_FRAME_COUNT))):
+        # Load frame
+        print(f'Current Frame: {frame_index + 1}')
+        ret, frame = video.read()
+        if ret is False:
+            raise IOError('Error reading video frame')
+        csv = autocorrect_frame(new_data_path, trial, frame, cam, frame_index, csv, search_area, krad, gsigma, img_wt, blur_wt, gamma, threshold)
+    return csv
 
-                    subimage_filtered = filter_image(subimage, krad=krad, gsigma=gsigma, img_wt=img_wt, blur_wt=blur_wt, gamma=gamma)
+def autocorrect_frame(new_data_path, trial, frame, cam, frame_index, csv, search_area, krad=17, gsigma=10, img_wt=3.6, blur_wt=-2.9, gamma=0.1, threshold=6):
+    '''Run the autocorrect function for a single frame (no output)'''
+    # For each marker in the frame
+    parts_unique = get_bodyparts_from_xma(f'{new_data_path}/{trial}')
+    for part in parts_unique:
+        # Find point and offsets
+        x_float = csv.loc[frame_index, part + '_' + cam + '_X']
+        y_float = csv.loc[frame_index, part + '_' + cam + '_Y']
+        x_start = int(x_float-search_area+0.5)
+        y_start = int(y_float-search_area+0.5)
+        x_end = int(x_float+search_area+0.5)
+        y_end = int(y_float+search_area+0.5)
 
-                    subimage_float = subimage_filtered.astype(np.float32)
-                    radius = int(1.5 * 5 + 0.5) #5 might be too high
-                    sigma = radius * math.sqrt(2 * math.log(255)) - 1
-                    subimage_blurred = cv2.GaussianBlur(subimage_float, (2 * radius + 1, 2 * radius + 1), sigma)
+        subimage = frame[y_start:y_end, x_start:x_end]
 
-                    subimage_diff = subimage_float-subimage_blurred
-                    subimage_diff = cv2.normalize(subimage_diff, None, 0,255,cv2.NORM_MINMAX).astype(np.uint8)
+        subimage_filtered = filter_image(subimage, krad=krad, gsigma=gsigma, img_wt=img_wt, blur_wt=blur_wt, gamma=gamma)
 
-                    # Median
-                    subimage_median = cv2.medianBlur(subimage_diff, 3)
+        subimage_float = subimage_filtered.astype(np.float32)
+        radius = int(1.5 * 5 + 0.5) #5 might be too high
+        sigma = radius * math.sqrt(2 * math.log(255)) - 1
+        subimage_blurred = cv2.GaussianBlur(subimage_float, (2 * radius + 1, 2 * radius + 1), sigma)
 
-                    # LUT
-                    subimage_median = filter_image(subimage_median, krad=3)
+        subimage_diff = subimage_float-subimage_blurred
+        subimage_diff = cv2.normalize(subimage_diff, None, 0,255,cv2.NORM_MINMAX).astype(np.uint8)
 
-                    # Thresholding
-                    subimage_median = cv2.cvtColor(subimage_median, cv2.COLOR_BGR2GRAY)
-                    minVal, _, _, _ = cv2.minMaxLoc(subimage_median)
-                    thres = 0.5 * minVal + 0.5 * np.mean(subimage_median) + threshold * 0.01 * 255
-                    ret, subimage_threshold =  cv2.threshold(subimage_median, thres, 255, cv2.THRESH_BINARY_INV)
+        # Median
+        subimage_median = cv2.medianBlur(subimage_diff, 3)
 
-                    # Gaussian blur
-                    subimage_gaussthresh = cv2.GaussianBlur(subimage_threshold, (3,3), 1.3)
+        # LUT
+        subimage_median = filter_image(subimage_median, krad=3)
 
-                    # Find contours
-                    contours, _ = cv2.findContours(subimage_gaussthresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE, offset=(x_start,y_start))
+        # Thresholding
+        subimage_median = cv2.cvtColor(subimage_median, cv2.COLOR_BGR2GRAY)
+        min_val, _, _, _ = cv2.minMaxLoc(subimage_median)
+        thres = 0.5 * min_val + 0.5 * np.mean(subimage_median) + threshold * 0.01 * 255
+        _, subimage_threshold =  cv2.threshold(subimage_median, thres, 255, cv2.THRESH_BINARY_INV)
 
-                    # Find closest contour
-                    dist = 1000
-                    best_index = -1
-                    detected_centers = {}
-                    for i, cnt in enumerate(contours):
-                        detected_center, _ = cv2.minEnclosingCircle(cnt)
-                        distTmp = math.sqrt((x_float - detected_center[0])**2 + (y_float - detected_center[1])**2)
-                        detected_centers[round(distTmp, 4)] = detected_center
-                        if distTmp < dist:
-                            best_index = i
-                            dist = distTmp
+        # Gaussian blur
+        subimage_gaussthresh = cv2.GaussianBlur(subimage_threshold, (3,3), 1.3)
 
-                    # Display contour on raw image
-                    if best_index >= 0:
-                        detected_center, _ = cv2.minEnclosingCircle(contours[best_index])
-                        csv.loc[frame_index, part + '_' + cam + '_X']  = detected_center[0]
-                        csv.loc[frame_index, part + '_' + cam + '_Y']  = detected_center[1]
+        # Find contours
+        contours, _ = cv2.findContours(subimage_gaussthresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE, offset=(x_start,y_start))
 
-            # Print when autocorrect finishes
-            print('done! saving...')
-            csv.to_csv(out_name, index=False)
+        # Find closest contour
+        dist = 1000
+        best_index = -1
+        detected_centers = {}
+        for i, cnt in enumerate(contours):
+            detected_center, _ = cv2.minEnclosingCircle(cnt)
+            dist_tmp = math.sqrt((x_float - detected_center[0])**2 + (y_float - detected_center[1])**2)
+            detected_centers[round(dist_tmp, 4)] = detected_center
+            if dist_tmp < dist:
+                best_index = i
+                dist = dist_tmp
+
+        # Save center of closest contour to CSV
+        if best_index >= 0:
+            detected_center, _ = cv2.minEnclosingCircle(contours[best_index])
+            csv.loc[frame_index, part + '_' + cam + '_X']  = detected_center[0]
+            csv.loc[frame_index, part + '_' + cam + '_Y']  = detected_center[1]
+    return csv
 
 def filter_image(image, krad=17, gsigma=10, img_wt=3.6, blur_wt=-2.9, gamma=0.10):
     '''Filter the image to make it easier to see the bead'''
@@ -409,8 +401,8 @@ def jupyter_test_autocorrect(working_dir, cam, marker_name, frame_num, csv_path,
 
     # Thresholding
     subimage_median = cv2.cvtColor(subimage_median, cv2.COLOR_BGR2GRAY)
-    minVal, maxVal, minLoc, maxLoc = cv2.minMaxLoc(subimage_median)
-    thres = 0.5 * minVal + 0.5 * np.mean(subimage_median) + threshold * 0.01 * 255
+    min_val, _, _, _ = cv2.minMaxLoc(subimage_median)
+    thres = 0.5 * min_val + 0.5 * np.mean(subimage_median) + threshold * 0.01 * 255
     ret, subimage_threshold =  cv2.threshold(subimage_median, thres, 255, cv2.THRESH_BINARY_INV)
     print('Threshold')
     show_crop(subimage_threshold, 15)
@@ -430,11 +422,11 @@ def jupyter_test_autocorrect(working_dir, cam, marker_name, frame_num, csv_path,
     detected_centers = {}
     for i, cnt in enumerate(contours):
         detected_center, _ = cv2.minEnclosingCircle(cnt)
-        distTmp = math.sqrt((x_float - detected_center[0])**2 + (y_float - detected_center[1])**2)
-        detected_centers[round(distTmp, 4)] = detected_center
-        if distTmp < dist:
+        dist_tmp = math.sqrt((x_float - detected_center[0])**2 + (y_float - detected_center[1])**2)
+        detected_centers[round(dist_tmp, 4)] = detected_center
+        if dist_tmp < dist:
             best_index = i
-            dist = distTmp
+            dist = dist_tmp
 
     # Display contour on raw image
     if best_index >= 0:
