@@ -179,7 +179,7 @@ def autocorrect_trial(working_dir=os.getcwd(), search_area=15, threshold=8, krad
     new_data_path = working_dir + "/trials"
     with open(path_config_file) as dlc_config:
         dlc = yaml.load(dlc_config)
-    
+
     iteration = dlc['iteration']
     search_area = int(search_area + 0.5) if search_area >= 10 else 10
 
@@ -191,11 +191,11 @@ def autocorrect_trial(working_dir=os.getcwd(), search_area=15, threshold=8, krad
         except FileNotFoundError:
             raise FileNotFoundError(f'Could not find predicted 2D points file. Please check the it{iteration} folder for trial {trial}') from None
         out_name = new_data_path + '/' + trial + '/' + 'it' + str(iteration) + '/' + trial + '-AutoCorrected2DPoints.csv'
-        
+
         # For each camera
         for cam in ['cam1','cam2']:
             csv = autocorrect_video(cam, trial, csv, new_data_path, search_area, krad, gsigma, img_wt, blur_wt, gamma, threshold)
-        
+
         # Print when autocorrect finishes
         print('done! saving...')
         csv.to_csv(out_name, index=False)
