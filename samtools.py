@@ -252,8 +252,8 @@ def autocorrect_frame(new_data_path, trial, frame, cam, frame_index, csv, search
 
         # Thresholding
         subimage_median = cv2.cvtColor(subimage_median, cv2.COLOR_BGR2GRAY)
-        minVal, _, _, _ = cv2.minMaxLoc(subimage_median)
-        thres = 0.5 * minVal + 0.5 * np.mean(subimage_median) + threshold * 0.01 * 255
+        min_val, _, _, _ = cv2.minMaxLoc(subimage_median)
+        thres = 0.5 * min_val + 0.5 * np.mean(subimage_median) + threshold * 0.01 * 255
         _, subimage_threshold =  cv2.threshold(subimage_median, thres, 255, cv2.THRESH_BINARY_INV)
 
         # Gaussian blur
@@ -268,11 +268,11 @@ def autocorrect_frame(new_data_path, trial, frame, cam, frame_index, csv, search
         detected_centers = {}
         for i, cnt in enumerate(contours):
             detected_center, _ = cv2.minEnclosingCircle(cnt)
-            distTmp = math.sqrt((x_float - detected_center[0])**2 + (y_float - detected_center[1])**2)
-            detected_centers[round(distTmp, 4)] = detected_center
-            if distTmp < dist:
+            dist_tmp = math.sqrt((x_float - detected_center[0])**2 + (y_float - detected_center[1])**2)
+            detected_centers[round(dist_tmp, 4)] = detected_center
+            if dist_tmp < dist:
                 best_index = i
-                dist = distTmp
+                dist = dist_tmp
 
         # Save center of closest contour to CSV
         if best_index >= 0:
@@ -404,8 +404,8 @@ def jupyter_test_autocorrect(working_dir, cam, marker_name, frame_num, csv_path,
 
     # Thresholding
     subimage_median = cv2.cvtColor(subimage_median, cv2.COLOR_BGR2GRAY)
-    minVal, maxVal, minLoc, maxLoc = cv2.minMaxLoc(subimage_median)
-    thres = 0.5 * minVal + 0.5 * np.mean(subimage_median) + threshold * 0.01 * 255
+    min_val, _, _, _ = cv2.minMaxLoc(subimage_median)
+    thres = 0.5 * min_val + 0.5 * np.mean(subimage_median) + threshold * 0.01 * 255
     ret, subimage_threshold =  cv2.threshold(subimage_median, thres, 255, cv2.THRESH_BINARY_INV)
     print('Threshold')
     show_crop(subimage_threshold, 15)
@@ -425,11 +425,11 @@ def jupyter_test_autocorrect(working_dir, cam, marker_name, frame_num, csv_path,
     detected_centers = {}
     for i, cnt in enumerate(contours):
         detected_center, _ = cv2.minEnclosingCircle(cnt)
-        distTmp = math.sqrt((x_float - detected_center[0])**2 + (y_float - detected_center[1])**2)
-        detected_centers[round(distTmp, 4)] = detected_center
-        if distTmp < dist:
+        dist_tmp = math.sqrt((x_float - detected_center[0])**2 + (y_float - detected_center[1])**2)
+        detected_centers[round(dist_tmp, 4)] = detected_center
+        if dist_tmp < dist:
             best_index = i
-            dist = distTmp
+            dist = dist_tmp
 
     # Display contour on raw image
     if best_index >= 0:
