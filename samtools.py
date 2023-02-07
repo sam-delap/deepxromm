@@ -43,7 +43,6 @@ def create_new_project(working_dir=os.getcwd(), experimenter='NA'):
         [working_dir + "\\dummy.avi"], working_dir + "\\", copy_videos=True)
 
     if isinstance(path_config_file, str):
-        config = open("project_config.yaml", 'w')
         template = f"""
         task: {task}
         experimenter: {experimenter}
@@ -56,7 +55,8 @@ def create_new_project(working_dir=os.getcwd(), experimenter='NA'):
 
         tmp = yaml.load(template)
 
-        yaml.dump(tmp, config)
+        with open("project_config.yaml", 'w') as config:
+            yaml.dump(tmp, config)
 
         try:
             os.rmdir(path_config_file[:path_config_file.find("config")] + "labeled-data\\dummy")
@@ -68,8 +68,6 @@ def create_new_project(working_dir=os.getcwd(), experimenter='NA'):
         except FileNotFoundError:
             pass
 
-        config.close()
-
     try:
         os.remove("dummy.avi")
     except FileNotFoundError:
@@ -79,13 +77,9 @@ def create_new_project(working_dir=os.getcwd(), experimenter='NA'):
 def load_project(working_dir=os.getcwd(), threshold=0.1):
     '''Load an existing project (only used internally/in testing)'''
     # Open the config
-    try:
-        config_file = open(working_dir + "\\project_config.yaml", 'r')
-    except FileNotFoundError as no_file_found:
-        raise FileNotFoundError('Make sure that the current directory has a project already created in it.') from no_file_found
-    yaml = YAML()
-    project = yaml.load(config_file)
-    config_file.close()
+    with open(working_dir + "\\project_config.yaml", 'r') as config_file:
+        yaml = YAML()
+        project = yaml.load(config_file)
 
     experimenter = str(project['experimenter'])
     project['experimenter'] = experimenter
@@ -164,15 +158,11 @@ def analyze_videos(working_dir=os.getcwd()):
     yaml = YAML()
     project = yaml.load(config_file)
 
-
     # Establish project vars
     path_config_file = project['path_config_file']
     new_data_path = working_dir + "/trials"
-    try:
-        dlc_config = open(path_config_file)
-    except FileNotFoundError as e:
-        raise FileNotFoundError('Oops! Looks like there\'s no deeplabcut config file inside of your deeplabcut directory.') from e
-    dlc = yaml.load(dlc_config)
+    with open(path_config_file) as dlc_config:
+        dlc = yaml.load(dlc_config)
     iteration = dlc['iteration']
 
     xrommtools.analyze_xromm_videos(path_config_file, new_data_path, iteration)
