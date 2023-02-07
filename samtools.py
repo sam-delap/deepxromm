@@ -238,7 +238,7 @@ def autocorrect_frame(new_data_path, trial, frame, cam, frame_index, csv, projec
 
         subimage = frame[y_start:y_end, x_start:x_end]
 
-        subimage_filtered = filter_image(subimage, project, gsigma=project['gsigma'], img_wt=project['img_wt'], blur_wt=project['blur_wt'], gamma=project['gamma'])
+        subimage_filtered = filter_image(subimage, project['krad'], project['gsigma'], project['img_wt'], project['blur_wt'], project['gamma'])
 
         subimage_float = subimage_filtered.astype(np.float32)
         radius = int(1.5 * 5 + 0.5) #5 might be too high
@@ -347,9 +347,10 @@ def get_bodyparts_from_xma(path_to_trial):
             parts_unique.append(part)
     return parts_unique
 
-def jupyter_test_autocorrect(working_dir, cam, marker_name, frame_num, csv_path, project):
-    '''Test the filtering parameters for autocorrect() from a jupyter notebook'''
-    csv = pd.read_(csv_path)
+def jupyter_test_autocorrect(working_dir, cam, marker_name, frame_num, csv_path):
+    '''Test the filtering parameters for autocorrect_frame() from a jupyter notebook'''
+    project = load_project(working_dir)
+    csv = pd.read_csv(csv_path)
     new_data_path = working_dir + "/trials"
     trial_name = os.listdir(new_data_path)[0]
     predicted_vid_path = new_data_path + '/' + trial_name + '/' + trial_name + '_' + cam + '.avi'
@@ -380,7 +381,7 @@ def jupyter_test_autocorrect(working_dir, cam, marker_name, frame_num, csv_path,
 
     print('Raw')
     show_crop(subimage, 15)
-    subimage_filtered = filter_image(subimage, project, gsigma=project['gsigma'], img_wt=project['img_wt'], blur_wt=project['blur_wt'], gamma=project['gamma'])
+    subimage_filtered = filter_image(subimage, project['krad'], project['gsigma'], project['img_wt'], project['blur_wt'], project['gamma'])
     print('Filtered')
     show_crop(subimage_filtered, 15)
 
