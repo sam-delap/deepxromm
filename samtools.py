@@ -201,6 +201,7 @@ def autocorrect_trial(working_dir=os.getcwd(), search_area=15, threshold=8, krad
         csv.to_csv(out_name, index=False)
 
 def autocorrect_video(cam, trial, csv, new_data_path, search_area, krad, gsigma, img_wt, blur_wt, gamma, threshold):
+    '''Run the autocorrect function on a single video within a single trial'''
     # Find the raw video
     try:
         video = cv2.VideoCapture(new_data_path + '/' + trial + '/' + trial + '_' + cam + '.avi')
@@ -219,6 +220,7 @@ def autocorrect_video(cam, trial, csv, new_data_path, search_area, krad, gsigma,
     return csv
 
 def autocorrect_frame(new_data_path, trial, frame, cam, frame_index, csv, search_area, krad=17, gsigma=10, img_wt=3.6, blur_wt=-2.9, gamma=0.1, threshold=6):
+    '''Run the autocorrect function for a single frame (no output)'''
     # For each marker in the frame
     parts_unique = get_bodyparts_from_xma(f'{new_data_path}/{trial}')
     for part in parts_unique:
