@@ -151,12 +151,9 @@ def train_network(working_dir=os.getcwd()):
 def analyze_videos(working_dir=os.getcwd()):
     '''Analyze videos with a pre-existing network'''
     # Open the config
-    try:
-        config_file = open(working_dir + "/project_config.yaml", 'r')
-    except FileNotFoundError as e:
-        raise FileNotFoundError('Make sure that the current directory has a project already created in it.') from e
     yaml = YAML()
-    project = yaml.load(config_file)
+    with open(working_dir + "/project_config.yaml", 'r') as config_file:
+        project = yaml.load(config_file)
 
     # Establish project vars
     path_config_file = project['path_config_file']
