@@ -51,6 +51,15 @@ def create_new_project(working_dir=os.getcwd(), experimenter='NA'):
         dataset_name: MyData
         nframes: 0
         maxiters: 150000
+
+        # Image Processing Vars
+        search_area: 15
+        threshold: 8
+        krad: 17
+        gsigma: 10
+        img_wt: 3.6
+        blur_wt: -2.9
+        gamma: 0.1
         """
 
         tmp = yaml.load(template)
