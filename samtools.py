@@ -51,6 +51,15 @@ def create_new_project(working_dir=os.getcwd(), experimenter='NA'):
         dataset_name: MyData
         nframes: 0
         maxiters: 150000
+
+        # Image Processing Vars
+        search_area: 15
+        threshold: 8
+        krad: 17
+        gsigma: 10
+        img_wt: 3.6
+        blur_wt: -2.9
+        gamma: 0.1
         """
 
         tmp = yaml.load(template)
@@ -93,6 +102,9 @@ def load_project(working_dir=os.getcwd(), threshold=0.1):
         trial_csv = pd.read_csv(training_data_path + '/' + trial + '/' + trial + '.csv')
     except FileNotFoundError as e:
         raise FileNotFoundError(f'Please make sure that your trainingdata 2DPoints csv file is named {trial}.csv') from e
+
+    # Give search_area a minimum of 10
+    project['search_area'] = int(project['search_area'] + 0.5) if project['search_area'] >= 10 else 10
 
     # Drop untracked frames (all NaNs)
     trial_csv = trial_csv.dropna(how='all')
@@ -151,34 +163,29 @@ def train_network(working_dir=os.getcwd()):
 def analyze_videos(working_dir=os.getcwd()):
     '''Analyze videos with a pre-existing network'''
     # Open the config
-    yaml = YAML()
-    with open(working_dir + "/project_config.yaml", 'r') as config_file:
-        project = yaml.load(config_file)
+    project = load_project(working_dir)
 
     # Establish project vars
-    path_config_file = project['path_config_file']
+    yaml = YAML()
     new_data_path = working_dir + "/trials"
-    with open(path_config_file) as dlc_config:
+    with open(project['path_config_file']) as dlc_config:
         dlc = yaml.load(dlc_config)
     iteration = dlc['iteration']
 
-    xrommtools.analyze_xromm_videos(path_config_file, new_data_path, iteration)
+    xrommtools.analyze_xromm_videos(project['path_config_file'], new_data_path, iteration)
 
-def autocorrect_trial(working_dir=os.getcwd(), search_area=15, threshold=8, krad=17, gsigma=10, img_wt=3.6, blur_wt=-2.9, gamma=0.1): #try 0.05 also
+def autocorrect_trial(working_dir=os.getcwd()): #try 0.05 also
     '''Do XMAlab-style autocorrect on the tracked beads'''
     # Open the config
-    yaml = YAML()
-    with open(working_dir + "\\project_config.yaml", 'r') as config_file:
-        project = yaml.load(config_file)
+    project = load_project(working_dir)
 
     # Establish project vars
-    path_config_file = project['path_config_file']
     new_data_path = working_dir + "/trials"
-    with open(path_config_file) as dlc_config:
+    yaml = YAML()
+    with open(project['path_config_file']) as dlc_config:
         dlc = yaml.load(dlc_config)
 
     iteration = dlc['iteration']
-    search_area = int(search_area + 0.5) if search_area >= 10 else 10
 
     # For each trial
     for trial in os.listdir(new_data_path):
@@ -191,13 +198,13 @@ def autocorrect_trial(working_dir=os.getcwd(), search_area=15, threshold=8, krad
 
         # For each camera
         for cam in ['cam1','cam2']:
-            csv = autocorrect_video(cam, trial, csv, new_data_path, search_area, krad, gsigma, img_wt, blur_wt, gamma, threshold)
+            csv = autocorrect_video(cam, trial, csv, project, new_data_path)
 
         # Print when autocorrect finishes
         print('done! saving...')
         csv.to_csv(out_name, index=False)
 
-def autocorrect_video(cam, trial, csv, new_data_path, search_area, krad, gsigma, img_wt, blur_wt, gamma, threshold):
+def autocorrect_video(cam, trial, csv, project, new_data_path):
     '''Run the autocorrect function on a single video within a single trial'''
     # Find the raw video
     try:
@@ -213,10 +220,10 @@ def autocorrect_video(cam, trial, csv, new_data_path, search_area, krad, gsigma,
         ret, frame = video.read()
         if ret is False:
             raise IOError('Error reading video frame')
-        csv = autocorrect_frame(new_data_path, trial, frame, cam, frame_index, csv, search_area, krad, gsigma, img_wt, blur_wt, gamma, threshold)
+        csv = autocorrect_frame(new_data_path, trial, frame, cam, frame_index, csv, project)
     return csv
 
-def autocorrect_frame(new_data_path, trial, frame, cam, frame_index, csv, search_area, krad=17, gsigma=10, img_wt=3.6, blur_wt=-2.9, gamma=0.1, threshold=6):
+def autocorrect_frame(new_data_path, trial, frame, cam, frame_index, csv, project):
     '''Run the autocorrect function for a single frame (no output)'''
     # For each marker in the frame
     parts_unique = get_bodyparts_from_xma(f'{new_data_path}/{trial}')
@@ -224,14 +231,14 @@ def autocorrect_frame(new_data_path, trial, frame, cam, frame_index, csv, search
         # Find point and offsets
         x_float = csv.loc[frame_index, part + '_' + cam + '_X']
         y_float = csv.loc[frame_index, part + '_' + cam + '_Y']
-        x_start = int(x_float-search_area+0.5)
-        y_start = int(y_float-search_area+0.5)
-        x_end = int(x_float+search_area+0.5)
-        y_end = int(y_float+search_area+0.5)
+        x_start = int(x_float-project['search_area']+0.5)
+        y_start = int(y_float-project['search_area']+0.5)
+        x_end = int(x_float+project['search_area']+0.5)
+        y_end = int(y_float+project['search_area']+0.5)
 
         subimage = frame[y_start:y_end, x_start:x_end]
 
-        subimage_filtered = filter_image(subimage, krad=krad, gsigma=gsigma, img_wt=img_wt, blur_wt=blur_wt, gamma=gamma)
+        subimage_filtered = filter_image(subimage, project['krad'], project['gsigma'], project['img_wt'], project['blur_wt'], project['gamma'])
 
         subimage_float = subimage_filtered.astype(np.float32)
         radius = int(1.5 * 5 + 0.5) #5 might be too high
@@ -250,7 +257,7 @@ def autocorrect_frame(new_data_path, trial, frame, cam, frame_index, csv, search
         # Thresholding
         subimage_median = cv2.cvtColor(subimage_median, cv2.COLOR_BGR2GRAY)
         min_val, _, _, _ = cv2.minMaxLoc(subimage_median)
-        thres = 0.5 * min_val + 0.5 * np.mean(subimage_median) + threshold * 0.01 * 255
+        thres = 0.5 * min_val + 0.5 * np.mean(subimage_median) + project['threshold'] * 0.01 * 255
         _, subimage_threshold =  cv2.threshold(subimage_median, thres, 255, cv2.THRESH_BINARY_INV)
 
         # Gaussian blur
@@ -340,12 +347,17 @@ def get_bodyparts_from_xma(path_to_trial):
             parts_unique.append(part)
     return parts_unique
 
-def jupyter_test_autocorrect(working_dir, cam, marker_name, frame_num, csv_path, krad=17, gsigma=10, img_wt=3.6, blur_wt=-2.9, gamma=0.1, threshold=6):
-    '''Test the filtering parameters for autocorrect() from a jupyter notebook'''
-    csv = pd.read_(csv_path)
+def jupyter_test_autocorrect(working_dir=os.getcwd(), cam='cam1', marker_name=None, frame_num=1, csv_path=None):
+    '''Test the filtering parameters for autocorrect_frame() from a jupyter notebook'''
+    project = load_project(working_dir)
     new_data_path = working_dir + "/trials"
     trial_name = os.listdir(new_data_path)[0]
     predicted_vid_path = new_data_path + '/' + trial_name + '/' + trial_name + '_' + cam + '.avi'
+    yaml = YAML()
+    with open(project['path_config_file']) as dlc_config:
+        dlc = yaml.load(dlc_config)
+
+    iteration = dlc['iteration']
     print(f'Analyzing video at: {predicted_vid_path}')
     # Find the raw video
     try:
@@ -355,6 +367,13 @@ def jupyter_test_autocorrect(working_dir, cam, marker_name, frame_num, csv_path,
     # For each frame of video
     print(f'Loading {cam} video for trial {trial_name}')
     print(f'Total frames in video: {int(video.get(cv2.CAP_PROP_FRAME_COUNT))}')
+    if csv_path is None:
+        csv_path = f'{new_data_path}/{trial_name}/it{iteration}/{trial_name}-Predicted2DPoints.csv'
+
+    try:
+        csv = pd.read_csv(csv_path)
+    except FileNotFoundError:
+        print(f'Please point to a 2DPoints csv file or put a CSV file at: {csv_path}')
 
     # Load frame
     video.set(1, frame_num - 1)
@@ -362,6 +381,9 @@ def jupyter_test_autocorrect(working_dir, cam, marker_name, frame_num, csv_path,
     if ret is False:
         raise IOError('Error reading video frame')
 
+    # Grab the name of the first marker from the CSV if the user didn't specify
+    if marker_name is None:
+        marker_name = csv.columns.values[0].rsplit('_',2)[0]
     x_float = csv.loc[frame_num, marker_name + '_' + cam + '_X']
     y_float = csv.loc[frame_num, marker_name + '_' + cam + '_Y']
     x_start = int(x_float-15+0.5)
@@ -373,7 +395,7 @@ def jupyter_test_autocorrect(working_dir, cam, marker_name, frame_num, csv_path,
 
     print('Raw')
     show_crop(subimage, 15)
-    subimage_filtered = filter_image(subimage, krad=krad, gsigma=gsigma, img_wt=img_wt, blur_wt=blur_wt, gamma=gamma)
+    subimage_filtered = filter_image(subimage, project['krad'], project['gsigma'], project['img_wt'], project['blur_wt'], project['gamma'])
     print('Filtered')
     show_crop(subimage_filtered, 15)
 
@@ -402,7 +424,7 @@ def jupyter_test_autocorrect(working_dir, cam, marker_name, frame_num, csv_path,
     # Thresholding
     subimage_median = cv2.cvtColor(subimage_median, cv2.COLOR_BGR2GRAY)
     min_val, _, _, _ = cv2.minMaxLoc(subimage_median)
-    thres = 0.5 * min_val + 0.5 * np.mean(subimage_median) + threshold * 0.01 * 255
+    thres = 0.5 * min_val + 0.5 * np.mean(subimage_median) + project['threshold'] * 0.01 * 255
     ret, subimage_threshold =  cv2.threshold(subimage_median, thres, 255, cv2.THRESH_BINARY_INV)
     print('Threshold')
     show_crop(subimage_threshold, 15)
