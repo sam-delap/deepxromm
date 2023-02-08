@@ -369,12 +369,12 @@ def jupyter_test_autocorrect(working_dir=os.getcwd(), cam='cam1', marker_name=No
     print(f'Total frames in video: {int(video.get(cv2.CAP_PROP_FRAME_COUNT))}')
     if csv_path is None:
         csv_path = f'{new_data_path}/{trial_name}/it{iteration}/{trial_name}-Predicted2DPoints.csv'
-    
+
     try:
         csv = pd.read_csv(csv_path)
     except FileNotFoundError:
         print(f'Please point to a 2DPoints csv file or put a CSV file at: {csv_path}')
-    
+
     # Load frame
     video.set(1, frame_num - 1)
     ret, sample_frame = video.read()
