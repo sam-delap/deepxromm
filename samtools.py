@@ -347,13 +347,17 @@ def get_bodyparts_from_xma(path_to_trial):
             parts_unique.append(part)
     return parts_unique
 
-def jupyter_test_autocorrect(working_dir, cam, marker_name, frame_num, csv_path):
+def jupyter_test_autocorrect(working_dir=os.getcwd(), cam='cam1', marker_name=None, frame_num=1, csv_path=None):
     '''Test the filtering parameters for autocorrect_frame() from a jupyter notebook'''
     project = load_project(working_dir)
-    csv = pd.read_csv(csv_path)
     new_data_path = working_dir + "/trials"
     trial_name = os.listdir(new_data_path)[0]
     predicted_vid_path = new_data_path + '/' + trial_name + '/' + trial_name + '_' + cam + '.avi'
+    yaml = YAML()
+    with open(project['path_config_file']) as dlc_config:
+        dlc = yaml.load(dlc_config)
+
+    iteration = dlc['iteration']
     print(f'Analyzing video at: {predicted_vid_path}')
     # Find the raw video
     try:
@@ -363,13 +367,23 @@ def jupyter_test_autocorrect(working_dir, cam, marker_name, frame_num, csv_path)
     # For each frame of video
     print(f'Loading {cam} video for trial {trial_name}')
     print(f'Total frames in video: {int(video.get(cv2.CAP_PROP_FRAME_COUNT))}')
-
+    if csv_path is None:
+        csv_path = f'{new_data_path}/{trial_name}/it{iteration}/{trial_name}-Predicted2DPoints.csv'
+    
+    try:
+        csv = pd.read_csv(csv_path)
+    except FileNotFoundError:
+        print(f'Please point to a 2DPoints csv file or put a CSV file at: {csv_path}')
+    
     # Load frame
     video.set(1, frame_num - 1)
     ret, sample_frame = video.read()
     if ret is False:
         raise IOError('Error reading video frame')
 
+    # Grab the name of the first marker from the CSV if the user didn't specify
+    if marker_name is None:
+        marker_name = csv.columns.values[0].rsplit('_',2)[0]
     x_float = csv.loc[frame_num, marker_name + '_' + cam + '_X']
     y_float = csv.loc[frame_num, marker_name + '_' + cam + '_Y']
     x_start = int(x_float-15+0.5)
