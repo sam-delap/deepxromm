@@ -1,4 +1,5 @@
 # Python: module samtools
+You need to install openh codec from: https://github.com/cisco/openh264/releases to do RGB video encoding
 <html>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
   </head>
