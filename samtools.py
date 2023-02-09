@@ -3,13 +3,16 @@
 import os
 import math
 import warnings
+from subprocess import Popen, PIPE
 import cv2
+from PIL import Image
 import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
 import deeplabcut
 from deeplabcut.utils import xrommtools
 from ruamel.yaml import YAML
+import blend_modes
 
 def create_new_project(working_dir=os.getcwd(), experimenter='NA'):
     '''Create a new xrommtools project'''
@@ -52,7 +55,7 @@ def create_new_project(working_dir=os.getcwd(), experimenter='NA'):
         nframes: 0
         maxiters: 150000
 
-        # Image Processing Vars
+# Image Processing Vars
         search_area: 15
         threshold: 8
         krad: 17
@@ -326,12 +329,6 @@ def show_crop(src, center, scale=5, contours=None, detected_marker=None):
     plt.imshow(image)
     plt.show()
 
-# play with first pass filter params
-# play with thresholding
-# filter contours for area then circularity
-# try blobdetector
-
-# Makes more sense for this to be trial-specific and to loop externally as-needed
 def get_bodyparts_from_xma(path_to_trial):
     '''Pull the names of the XMAlab markers from the 2Dpoints file'''
 
@@ -455,3 +452,116 @@ def jupyter_test_autocorrect(working_dir=os.getcwd(), cam='cam1', marker_name=No
         detected_center, _ = cv2.minEnclosingCircle(contours[best_index])
         detected_center_im, _ = cv2.minEnclosingCircle(contours_im[best_index])
         show_crop(subimage, 15, contours = [contours_im[best_index]], detected_marker = detected_center_im)
+
+
+def merge_rgb(trial_path, codec='avc1', mode=None):
+    '''Takes the path to a trial subfolder and exports a single new video with cam1 video written to the red channel and cam2 video written to the green channel. The blue channel is, depending on the value passed as "mode", either the difference blend between A and B, the multiply blend, or just a black frame. Output_path must contain extension'''
+    trial_name = trial_path.split('/')[-1]
+    try:
+        capA = cv2.VideoCapture(f'{trial_path}/{trial_name}_cam1.avi')
+    except FileNotFoundError as e:
+        raise FileNotFoundError(f'Make sure your cam1 video for trial {trial_name} is named {trial_name}_cam1.avi') from e
+    try:
+        capB = cv2.VideoCapture(f'{trial_path}/{trial_name}_cam2.avi')
+    except FileNotFoundError as e:
+        raise FileNotFoundError(f'Make sure your cam2 video for trial {trial_name} is named {trial_name}_cam2.avi') from e
+    
+    frame_width = int(capA.get(3))
+    frame_height = int(capA.get(4))
+    frame_rate = round(capA.get(5),2)
+    fourcc = cv2.VideoWriter_fourcc(*codec)
+    out = cv2.VideoWriter(f'{trial_path}/{trial_name}_rgb.avi',
+                            fourcc,
+                            frame_rate,(frame_width, frame_height))
+    i = 1
+    while(capA.isOpened()):
+        print(f'Current Frame: {i}')
+        retA, frameA = capA.read()
+        _, frameB = capB.read()
+        if retA == True:
+            frameA = cv2.cvtColor(frameA, cv2.COLOR_BGR2BGRA,4).astype(np.float32)
+            frameB = cv2.cvtColor(frameB, cv2.COLOR_BGR2BGRA,4).astype(np.float32)
+            frameA = cv2.normalize(frameA, None, 0, 255, norm_type=cv2.NORM_MINMAX)
+            frameB = cv2.normalize(frameB, None, 0, 255, norm_type=cv2.NORM_MINMAX)
+            if mode == "difference":
+                extraChannel = blend_modes.difference(frameA,frameB,1)
+            elif mode == "multiply":
+                extraChannel = blend_modes.multiply(frameA,frameB,1)
+            else:
+                extraChannel = np.zeros((frame_width, frame_height,3),np.uint8)
+                extraChannel = cv2.cvtColor(extraChannel, cv2.COLOR_BGR2BGRA,4).astype(np.float32)
+            frameA = cv2.cvtColor(frameA, cv2.COLOR_BGRA2BGR).astype(np.uint8)
+            frameB = cv2.cvtColor(frameB, cv2.COLOR_BGRA2BGR).astype(np.uint8)
+            extraChannel = cv2.cvtColor(extraChannel, cv2.COLOR_BGRA2BGR).astype(np.uint8)
+            frameA = cv2.cvtColor(frameA, cv2.COLOR_BGR2GRAY)
+            frameB = cv2.cvtColor(frameB, cv2.COLOR_BGR2GRAY)
+            extraChannel = cv2.cvtColor(extraChannel, cv2.COLOR_BGR2GRAY)
+            merged = cv2.merge((extraChannel, frameB, frameA))
+            out.write(merged)
+            if cv2.waitKey(1) & 0xFF == ord('q'):
+                break
+        else:
+            break
+
+        i = i + 1
+    capA.release()
+    capB.release()
+    out.release()
+    cv2.destroyAllWindows()
+    print(f"Merged RGB video created at {trial_path}/{trial_name}_rgb.avi!")
+
+
+def split_rgb(trial_path, codec='avc1'):
+    '''Takes a RGB video with different grayscale data written to the R, G, and B channels and splits it back into its component source videos.'''
+    trial_name = trial_path.split('/')[-1]
+    out_name = trial_name+'_split_'
+    cap = cv2.VideoCapture(f'{trial_path}/{trial_name}_rgb.avi')
+    frame_width = int(cap.get(3))
+    frame_height = int(cap.get(4))
+    frame_rate = round(cap.get(5),2)
+    if codec == 'uncompressed':
+        pix_format = 'gray'   ##change to 'yuv420p' for color or 'gray' for grayscale. 'pal8' doesn't play on macs
+        p1 = Popen(['ffmpeg', '-y', '-f', 'image2pipe', '-vcodec', 'png', '-r', str(int(frame_rate)), '-i', '-', '-vcodec', 'rawvideo','-pix_fmt',pix_format,'-r', str(int(frame_rate)), out_name+'_cam1.avi'], stdin=PIPE)
+        p2 = Popen(['ffmpeg', '-y', '-f', 'image2pipe', '-vcodec', 'png', '-r', str(int(frame_rate)), '-i', '-', '-vcodec', 'rawvideo','-pix_fmt',pix_format,'-r', str(int(frame_rate)), out_name+'_cam2.avi'], stdin=PIPE)
+    else:
+        if codec == 0:
+            fourcc = 0
+        else:
+            fourcc = cv2.VideoWriter_fourcc(*codec)
+        out1 = cv2.VideoWriter(out_name+'cam1.mp4',
+                                fourcc,
+                                frame_rate,(frame_width, frame_height))
+        out2 = cv2.VideoWriter(out_name+'cam2.mp4',
+                                fourcc,
+                                frame_rate,(frame_width, frame_height))
+
+    while(cap.isOpened()):
+        ret, frame = cap.read()
+        if ret == True:
+            _, G, R = cv2.split(frame)
+            if codec == 'uncompressed':
+                imR = Image.fromarray(R)
+                imG = Image.fromarray(G)
+                imR.save(p1.stdin, 'PNG')
+                imG.save(p2.stdin, 'PNG')
+                if cv2.waitKey(1) & 0xFF == ord('q'):
+                    break
+            else:
+                out1.write(R)
+                out2.write(G)
+                if cv2.waitKey(1) & 0xFF == ord('q'):
+                    break
+        else:
+            break
+    if codec == 'uncompressed':
+        p1.stdin.close()
+        p1.wait()
+        p2.stdin.close()
+        p2.wait()
+    cap.release()
+    if codec != 'uncompressed':
+        out1.release()
+        out2.release()
+    cv2.destroyAllWindows()
+    print("done!")
+    return [out_name+'c1.mp4', out_name+'c2.mp4']
