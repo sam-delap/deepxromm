@@ -152,6 +152,23 @@ class TestConfigDefaults(unittest.TestCase):
 
         self.assertEqual(config_obj['bodyparts'], ['foo', 'bar', 'baz'])
 
+    def test_bodyparts_error_if_different_from_csv(self):
+        '''If the user specifies different bodyparts than their CSV, raise an error'''
+        yaml = YAML()
+        date = dt.today().strftime("%Y-%m-%d")
+        path_to_config = '/tmp-NA-' + date + '/config.yaml'
+
+        with open(self.working_dir + path_to_config, 'r') as dlc_config:
+            config_dlc = yaml.load(dlc_config)
+        
+        config_dlc['bodyparts'] = ['foo', 'bar']
+        
+        with open(self.working_dir + path_to_config, 'w') as dlc_config:
+            yaml.dump(config_dlc, dlc_config)
+        
+        with self.assertRaises(SyntaxError):
+            sam.load_project(self.working_dir)
+
     def tearDown(self):
         '''Remove the created temp project'''
         shutil.rmtree(os.path.join(os.getcwd(), 'tmp'))

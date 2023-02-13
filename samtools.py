@@ -125,16 +125,21 @@ def load_project(working_dir=os.getcwd(), threshold=0.1):
     if project['nframes'] < len(trial_csv) * threshold:
         warnings.warn(f'Project nframes is less than the recommended {threshold*100}% of the total frames')
 
+    # Check DLC bodyparts (marker names)
     with open(project['path_config_file'], 'r') as dlc_config:
         default_bodyparts = ['bodypart1', 'bodypart2', 'bodypart3', 'objectA']
 
         dlc_config_loader = YAML()
 
         dlc_yaml = dlc_config_loader.load(dlc_config)
+        trial_name = os.listdir(working_dir + '/trainingdata')[0]
+
         if dlc_yaml['bodyparts'] == default_bodyparts:
-            trial_name = os.listdir(working_dir + '/trainingdata')[0]
             dlc_yaml['bodyparts'] = get_bodyparts_from_xma(os.path.join(working_dir, 'trainingdata', trial_name))
-    print(dlc_yaml['bodyparts'])
+        
+        elif dlc_yaml['bodyparts'] != get_bodyparts_from_xma(os.path.join(working_dir, 'trainingdata', trial_name)):
+            raise SyntaxError('XMAlab CSV marker names are different than DLC bodyparts.')
+    
     with open(project['path_config_file'], 'w') as dlc_config:
         yaml.dump(dlc_yaml, dlc_config)
 
