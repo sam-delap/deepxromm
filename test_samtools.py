@@ -99,9 +99,8 @@ class TestConfigDefaults(unittest.TestCase):
         yaml = YAML()
 
         # Modify the number of frames (similar to how a user would)
-        config = open(os.path.join(self.working_dir, 'project_config.yaml'), 'r')
-        tmp = yaml.load(config)
-        config.close()
+        with open(os.path.join(self.working_dir, 'project_config.yaml'), 'r') as config:
+            tmp = yaml.load(config)
         tmp['nframes'] = 2
         with open(os.path.join(self.working_dir, 'project_config.yaml'), 'w') as fp:
             yaml.dump(tmp, fp)
@@ -116,9 +115,8 @@ class TestConfigDefaults(unittest.TestCase):
         yaml = YAML()
 
         sam.load_project(self.working_dir)
-        config = open(os.path.join(self.working_dir, 'project_config.yaml'), 'r')
-        tmp = yaml.load(config)
-        config.close()
+        with open(os.path.join(self.working_dir, 'project_config.yaml'), 'r') as config:
+            tmp = yaml.load(config)
 
         self.assertEqual(tmp['nframes'], 1, msg=f"Actual nframes: {tmp['nframes']}")
 
@@ -132,7 +130,7 @@ class TestConfigDefaults(unittest.TestCase):
         for _ in range(100):
             df.loc[len(df) + 1, :] = 0
 
-        df.to_csv('tmp/trainingdata/dummy/dummy.csv')
+        df.to_csv('tmp/trainingdata/dummy/dummy.csv', index=False)
 
         # Check that the user is warned
         with self.assertWarns(UserWarning):
@@ -146,11 +144,27 @@ class TestConfigDefaults(unittest.TestCase):
         sam.load_project(self.working_dir)
         path_to_config = '/tmp-NA-' + date + '/config.yaml'
 
-        dlc_config = open(self.working_dir + path_to_config)
-        config_obj = yaml.load(dlc_config)
-        dlc_config.close()
+        with open(self.working_dir + path_to_config) as dlc_config:
+            config_obj = yaml.load(dlc_config)
 
         self.assertEqual(config_obj['bodyparts'], ['foo', 'bar', 'baz'])
+
+    def test_bodyparts_error_if_different_from_csv(self):
+        '''If the user specifies different bodyparts than their CSV, raise an error'''
+        yaml = YAML()
+        date = dt.today().strftime("%Y-%m-%d")
+        path_to_config = '/tmp-NA-' + date + '/config.yaml'
+
+        with open(self.working_dir + path_to_config, 'r') as dlc_config:
+            config_dlc = yaml.load(dlc_config)
+
+        config_dlc['bodyparts'] = ['foo', 'bar']
+
+        with open(self.working_dir + path_to_config, 'w') as dlc_config:
+            yaml.dump(config_dlc, dlc_config)
+
+        with self.assertRaises(SyntaxError):
+            sam.load_project(self.working_dir)
 
     def tearDown(self):
         '''Remove the created temp project'''

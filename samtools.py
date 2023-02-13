@@ -125,16 +125,21 @@ def load_project(working_dir=os.getcwd(), threshold=0.1):
     if project['nframes'] < len(trial_csv) * threshold:
         warnings.warn(f'Project nframes is less than the recommended {threshold*100}% of the total frames')
 
+    # Check DLC bodyparts (marker names)
     with open(project['path_config_file'], 'r') as dlc_config:
         default_bodyparts = ['bodypart1', 'bodypart2', 'bodypart3', 'objectA']
 
         dlc_config_loader = YAML()
 
         dlc_yaml = dlc_config_loader.load(dlc_config)
+        trial_name = os.listdir(working_dir + '/trainingdata')[0]
+
         if dlc_yaml['bodyparts'] == default_bodyparts:
-            trial_name = os.listdir(working_dir + '/trainingdata')[0]
             dlc_yaml['bodyparts'] = get_bodyparts_from_xma(os.path.join(working_dir, 'trainingdata', trial_name))
-    print(dlc_yaml['bodyparts'])
+
+        elif dlc_yaml['bodyparts'] != get_bodyparts_from_xma(os.path.join(working_dir, 'trainingdata', trial_name)):
+            raise SyntaxError('XMAlab CSV marker names are different than DLC bodyparts.')
+
     with open(project['path_config_file'], 'w') as dlc_config:
         yaml.dump(dlc_yaml, dlc_config)
 
@@ -338,7 +343,7 @@ def get_bodyparts_from_xma(path_to_trial):
     csv_path = [file for file in os.listdir(path_to_trial) if file[-4:] == '.csv']
     if len(csv_path) > 1:
         raise FileExistsError('Found more than 1 CSV file for trial: ' + path_to_trial)
-    elif len(csv_path) <= 0:
+    if len(csv_path) <= 0:
         raise FileNotFoundError('Couldn\'t find a CSV file for trial: ' + path_to_trial)
     trial_csv = pd.read_csv(path_to_trial + '/' + csv_path[0], sep=',',header=0, dtype='float',na_values='NaN')
     names = trial_csv.columns.values
