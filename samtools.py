@@ -523,42 +523,57 @@ def split_rgb(trial_path, codec='avc1'):
     '''Takes a RGB video with different grayscale data written to the R, G, and B channels and splits it back into its component source videos.'''
     trial_name = trial_path.split('/')[-1]
     out_name = trial_name+'_split_'
-    cap = cv2.VideoCapture(f'{trial_path}/{trial_name}_rgb.avi')
-    frame_width = int(cap.get(3))
-    frame_height = int(cap.get(4))
-    frame_rate = round(cap.get(5),2)
+
+    try:
+        rgb_video = cv2.VideoCapture(f'{trial_path}/{trial_name}_rgb.avi')
+    except FileNotFoundError as e:
+        raise FileNotFoundError(f'Couldn\'t find video at {trial_path}/{trial_name}_rgb.avi') from e 
+    frame_width = int(rgb_video.get(3))
+    frame_height = int(rgb_video.get(4))
+    frame_rate = round(rgb_video.get(5),2)
     if codec == 'uncompressed':
         pix_format = 'gray'   ##change to 'yuv420p' for color or 'gray' for grayscale. 'pal8' doesn't play on macs
         cam1_split_ffmpeg = Popen(['ffmpeg', '-y', '-f', 'image2pipe', '-vcodec', 'png', '-r', str(int(frame_rate)),
-        '-i', '-', '-vcodec', 'rawvideo','-pix_fmt',pix_format,'-r', str(int(frame_rate)), out_name+'_cam1.avi'], stdin=PIPE)
+        '-i', '-', '-vcodec', 'rawvideo','-pix_fmt',pix_format,'-r', str(int(frame_rate)), f'{trial_path}/{out_name}'+'cam1.avi'], stdin=PIPE)
         cam2_split_ffmpeg = Popen(['ffmpeg', '-y', '-f', 'image2pipe', '-vcodec', 'png', '-r', str(int(frame_rate)),
-        '-i', '-', '-vcodec', 'rawvideo','-pix_fmt',pix_format,'-r', str(int(frame_rate)), out_name+'_cam2.avi'], stdin=PIPE)
+        '-i', '-', '-vcodec', 'rawvideo','-pix_fmt',pix_format,'-r', str(int(frame_rate)), f'{trial_path}/{out_name}'+'cam2.avi'], stdin=PIPE)
+        blue_split_ffmpeg = Popen(['ffmpeg', '-y', '-f', 'image2pipe', '-vcodec', 'png', '-r', str(int(frame_rate)),
+        '-i', '-', '-vcodec', 'rawvideo','-pix_fmt',pix_format,'-r', str(int(frame_rate)), f'{trial_path}/{out_name}'+'blue.avi'], stdin=PIPE)
     else:
         if codec == 0:
             fourcc = 0
         else:
             fourcc = cv2.VideoWriter_fourcc(*codec)
-        out1 = cv2.VideoWriter(out_name+'cam1.mp4',
+        cam1 = cv2.VideoWriter(f'{trial_path}/{out_name}'+'cam1.avi',
                                 fourcc,
                                 frame_rate,(frame_width, frame_height))
-        out2 = cv2.VideoWriter(out_name+'cam2.mp4',
+        cam2 = cv2.VideoWriter(f'{trial_path}/{out_name}'+'cam2.avi',
+                                fourcc,
+                                frame_rate,(frame_width, frame_height))
+        blue_channel = cv2.VideoWriter(f'{trial_path}/{out_name}'+'blue.avi',
                                 fourcc,
                                 frame_rate,(frame_width, frame_height))
 
-    while cap.isOpened():
-        ret, frame = cap.read()
+    i = 1
+    while rgb_video.isOpened():
+        ret, frame = rgb_video.read()
+        print(f'Current Frame: {i}')
+        i = i + 1
         if ret:
-            _, G, R = cv2.split(frame)
+            B, G, R = cv2.split(frame)
             if codec == 'uncompressed':
                 im_r = Image.fromarray(R)
                 im_g = Image.fromarray(G)
+                im_b = Image.fromarray(B)
                 im_r.save(cam1_split_ffmpeg.stdin, 'PNG')
                 im_g.save(cam2_split_ffmpeg.stdin, 'PNG')
+                im_b.save(blue_split_ffmpeg.stdin, 'PNG')
                 if cv2.waitKey(1) & 0xFF == ord('q'):
                     break
             else:
-                out1.write(R)
-                out2.write(G)
+                cam1.write(R)
+                cam2.write(G)
+                blue_channel.write(B)
                 if cv2.waitKey(1) & 0xFF == ord('q'):
                     break
         else:
@@ -568,10 +583,14 @@ def split_rgb(trial_path, codec='avc1'):
         cam1_split_ffmpeg.wait()
         cam2_split_ffmpeg.stdin.close()
         cam2_split_ffmpeg.wait()
-    cap.release()
-    if codec != 'uncompressed':
-        out1.release()
-        out2.release()
+        blue_split_ffmpeg.stdin.close()
+        blue_split_ffmpeg.wait()
+    else:
+        cam1.release()
+        cam2.release()
+        blue_channel.release()
+    rgb_video.release()
     cv2.destroyAllWindows()
-    print("done!")
-    return [out_name+'c1.mp4', out_name+'c2.mp4']
+    print(f"Cam1 grayscale video created at {trial_path}/{out_name}cam1.avi!")
+    print(f"Cam2 grayscale video created at {trial_path}/{out_name}cam2.avi!")
+    print(f"Blue channel grayscale video created at {trial_path}/{out_name}blue.avi!")
