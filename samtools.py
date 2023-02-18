@@ -596,13 +596,20 @@ def split_rgb(trial_path, codec='avc1'):
     print(f"Cam2 grayscale video created at {trial_path}/{out_name}cam2.avi!")
     print(f"Blue channel grayscale video created at {trial_path}/{out_name}blue.avi!")
 
-def splice_xma_to_dlc(working_dir, substitute_video, csv_path, outlier_mode=False, swap=True, cross=False):
+def splice_xma_to_dlc(working_dir, outlier_mode=False, swap=True, cross=False):
     '''Takes csv of XMALab 2D XY coordinates from 2 cameras, outputs spliced hdf+csv data for DeepLabCut'''
     project = load_project(working_dir)
     substitute_data_relpath = os.path.join("labeled-data",project['dataset_name'])
-    substitute_data_abspath = os.path.join(project['path_config_file'].split('\\')[:-1],substitute_data_relpath)
+    substitute_data_abspath = os.path.join('\\'.join(project['path_config_file'].split('\\')[:-1]),substitute_data_relpath)
     trial_name = os.listdir(f'{working_dir}/trials')[0]
     markers = get_bodyparts_from_xma(f'{working_dir}/trials/{trial_name}')
+     # Load trial CSV
+    try:
+        training_data_path = os.path.join(project['working_dir'], "trainingdata")
+        trial = os.listdir(training_data_path)[0]
+        df = pd.read_csv(training_data_path + '/' + trial + '/' + trial + '.csv')
+    except FileNotFoundError as e:
+        raise FileNotFoundError(f'Please make sure that your trainingdata 2DPoints csv file is named {trial}.csv') from e
     if swap:
         print("Creating cam1Y-cam2Y-swapped synthetic markers")
         swaps = []
@@ -642,11 +649,11 @@ def splice_xma_to_dlc(working_dir, substitute_video, csv_path, outlier_mode=Fals
     print("Importing markers: ")
     print(markers)
     unique_frames_set = {}
-    unique_frames_set = {index for index in range(project['nframes']) if index not in unique_frames_set}
+    unique_frames_set = {index for index in range(1, project['nframes'] + 1) if index not in unique_frames_set}
     unique_frames = sorted(unique_frames_set)
     print("Importing frames: ")
     print(unique_frames)
-    df['frame_index']=[os.path.join(substitute_data_relpath,'img'+str(index).zfill(4)+'.png') for index in unique_frames]
+    df['frame_index']=[os.path.join(substitute_data_relpath,f'{trial_name}'+str(index).zfill(4)+'.png') for index in unique_frames]
     df['scorer']=project['experimenter']
     df = df.melt(id_vars=['frame_index','scorer'])
     new = df['variable'].str.rsplit("_",n=1,expand=True)
@@ -657,17 +664,16 @@ def splice_xma_to_dlc(working_dir, substitute_video, csv_path, outlier_mode=Fals
     df['bodyparts']=df['bodyparts'].str.lstrip(" ").astype(cat_type)
     newdf = df.pivot_table(columns=['scorer', 'bodyparts', 'coords'],index='frame_index',values='value',aggfunc='first',dropna=False)
     newdf.index.name=None
-    ts = datetime.datetime.now().strftime("%d%b%y_%Hh%Mm%Ss")
     if not os.path.exists(substitute_data_abspath):
         os.makedirs(substitute_data_abspath)
     if outlier_mode:
         data_name = os.path.join(substitute_data_abspath,"MachineLabelsRefine.h5")
-        tracked_hdf = os.path.join(substitute_data_abspath,("MachineLabelsRefine_"+ts+".h5"))
+        tracked_hdf = os.path.join(substitute_data_abspath,("MachineLabelsRefine_"+".h5"))
     else:
         data_name = os.path.join(substitute_data_abspath,("CollectedData_"+project['experimenter']+".h5"))
-        tracked_hdf = os.path.join(substitute_data_abspath,("CollectedData_"+project['experimenter']+"_"+ts+".h5"))
+        tracked_hdf = os.path.join(substitute_data_abspath,("CollectedData_"+project['experimenter']+".h5"))
     newdf.to_hdf(data_name, 'df_with_missing', format='table', mode='w')
     newdf.to_hdf(tracked_hdf, 'df_with_missing', format='table', mode='w')
-    tracked_csv = data_name.split('.h5')[0]+'_'+ts+'.csv'
+    tracked_csv = data_name.split('.h5')[0]+'.csv'
     newdf.to_csv(tracked_csv, na_rep='NaN')
-    print("Successfully spliced XMALab 2D points to DLC format; saved "+str(data_name)+", "+str(tracked_hdf)+", and "+str(tracked_csv))
+    print("Successfully spliced XMALab 2D points to DLC format", "saved "+str(data_name), "saved "+str(tracked_hdf), "saved "+str(tracked_csv), sep='\n')
