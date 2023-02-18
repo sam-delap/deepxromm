@@ -712,6 +712,7 @@ def vid_to_pngs(video_path, output_dir=None, indices_to_match=[], name_from_fold
                 continue
             else:
                 print(f'Extracting frame {frame_index}')
+                print(type(frame))
                 png_name = out_name+str(frame_index).zfill(4)+'.png'
                 png_path = os.path.join(output_dir, png_name)
                 png_list.append(png_path)
