@@ -694,4 +694,52 @@ def splice_xma_to_dlc(working_dir, outlier_mode=False, swap=True, cross=False):
     newdf.to_hdf(tracked_hdf, 'df_with_missing', format='table', mode='w')
     tracked_csv = data_name.split('.h5')[0]+'.csv'
     newdf.to_csv(tracked_csv, na_rep='NaN')
+    extract_matched_frames_rgb(project, substitute_data_abspath, range(1, project['nframes'] + 1), f'{working_dir}/trainingdata/{trial_name}')
     print("Successfully spliced XMALab 2D points to DLC format", "saved "+str(data_name), "saved "+str(tracked_hdf), "saved "+str(tracked_csv), sep='\n')
+
+def extract_matched_frames_rgb(project, labeled_data_path, indices, compression=1):
+    '''Given a list of frame indices and a project path, produce a folder (in labeled-data) of matching frame pngs per source video.
+    Optionally, compress the output PNGs. Factor ranges from 0 (no compression) to 9 (most compression)'''
+    extracted_frames = []
+    new_dirs = []
+    trainingdata_path = project['working_dir'] + '/trainingdata'
+    trials = [trial for trial in os.listdir(trainingdata_path) if os.path.isdir(os.path.join(trainingdata_path, trial))]
+    for trial in trials:
+        video_path = f'{trainingdata_path}/{trial}/{trial}_rgb.avi'
+        frames_from_vid = vid_to_pngs(video_path, labeled_data_path, indices_to_match=indices, name_from_folder=True, compression=compression)
+        extracted_frames.append(frames_from_vid)
+        print("Extracted "+str(len(indices))+f" matching frames from {video_path}")
+
+def vid_to_pngs(video_path, output_dir=None, indices_to_match=[], name_from_folder=True, compression=0):
+    '''Takes a list of frame numbers and exports matching frames from a video as pngs. 
+    Optionally, compress the output PNGs. Factor ranges from 0 (no compression) to 9 (most compression)'''
+    frame_index = 1
+    png_list = []
+    if name_from_folder:
+        out_name = os.path.splitext(os.path.basename(video_path))[0]
+    else:
+        out_name = 'img'
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
+    cap = cv2.VideoCapture(video_path)
+    while(cap.isOpened()):
+        ret, frame = cap.read()
+        if ret == True:
+            if indices_to_match and not frame_index in indices_to_match:
+                frame_index += 1
+                continue
+            else:
+                print(f'Extracting frame {frame_index}')
+                png_name = out_name+str(frame_index).zfill(4)+'.png'
+                png_path = os.path.join(output_dir, png_name)
+                png_list.append(png_path)
+                cv2.imwrite(png_path, frame, [cv2.IMWRITE_PNG_COMPRESSION, compression])
+                if cv2.waitKey(1) & 0xFF == ord('q'):
+                        break
+                frame_index += 1
+        else:
+            break
+    cap.release()
+    cv2.destroyAllWindows()
+    print("Finished extracting .pngs from "+str(os.path.basename(video_path)))
+    return png_list
