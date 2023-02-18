@@ -2,6 +2,7 @@
 # Import packages
 import os
 import math
+import datetime
 import warnings
 from subprocess import Popen, PIPE
 import cv2
@@ -594,3 +595,79 @@ def split_rgb(trial_path, codec='avc1'):
     print(f"Cam1 grayscale video created at {trial_path}/{out_name}cam1.avi!")
     print(f"Cam2 grayscale video created at {trial_path}/{out_name}cam2.avi!")
     print(f"Blue channel grayscale video created at {trial_path}/{out_name}blue.avi!")
+
+def splice_xma_to_dlc(working_dir, substitute_video, csv_path, outlier_mode=False, swap=True, cross=False):
+    '''Takes csv of XMALab 2D XY coordinates from 2 cameras, outputs spliced hdf+csv data for DeepLabCut'''
+    project = load_project(working_dir)
+    substitute_data_relpath = os.path.join("labeled-data",project['dataset_name'])
+    substitute_data_abspath = os.path.join(project['path_config_file'].split('\\')[:-1],substitute_data_relpath)
+    trial_name = os.listdir(f'{working_dir}/trials')[0]
+    markers = get_bodyparts_from_xma(f'{working_dir}/trials/{trial_name}')
+    if swap:
+        print("Creating cam1Y-cam2Y-swapped synthetic markers")
+        swaps = []
+        df_sw = pd.DataFrame()
+        for marker in markers:
+            name_x1 = marker+'_cam1_X'
+            name_x2 = marker+'_cam2_X'
+            name_y1 = marker+'_cam1_Y'
+            name_y2 = marker+'_cam2_Y'
+            swap_name_x1 = 'sw'+name_x1
+            swap_name_x2 = 'sw'+name_x2
+            swap_name_y1 = 'sw'+name_y1
+            swap_name_y2 = 'sw'+name_y2
+            df_sw[swap_name_x1] = df[name_x1]
+            df_sw[swap_name_y1] = df[name_y2]
+            df_sw[swap_name_x2] = df[name_x2]
+            df_sw[swap_name_y2] = df[name_y1]
+            swaps.extend([swap_name_x1,swap_name_y1,swap_name_x2,swap_name_y2])
+        df = df.join(df_sw)
+        print(swaps)
+    if cross:
+        print("Creating cam1-cam2-crossed synthetic markers")
+        crosses = []
+        df_cx = pd.DataFrame()
+        for marker in markers:
+            name_x1 = marker+'_cam1_X'
+            name_x2 = marker+'_cam2_X'
+            name_y1 = marker+'_cam1_Y'
+            name_y2 = marker+'_cam2_Y'
+            cross_name_x = 'cx_'+marker+'_cam1x2_X'
+            cross_name_y = 'cx_'+marker+'_cam1x2_Y'
+            df_cx[cross_name_x] = df[name_x1]*df[name_x2]
+            df_cx[cross_name_y] = df[name_y1]*df[name_y2]
+            crosses.extend([cross_name_x,cross_name_y])
+        df = df.join(df_cx)
+        print(crosses)
+    print("Importing markers: ")
+    print(markers)
+    unique_frames_set = {}
+    unique_frames_set = {index for index in range(project['nframes']) if index not in unique_frames_set}
+    unique_frames = sorted(unique_frames_set)
+    print("Importing frames: ")
+    print(unique_frames)
+    df['frame_index']=[os.path.join(substitute_data_relpath,'img'+str(index).zfill(4)+'.png') for index in unique_frames]
+    df['scorer']=project['experimenter']
+    df = df.melt(id_vars=['frame_index','scorer'])
+    new = df['variable'].str.rsplit("_",n=1,expand=True)
+    df['variable'],df['coords'] = new[0], new[1]
+    df=df.rename(columns={'variable':'bodyparts'})
+    df['coords']=df['coords'].str.rstrip(" ").str.lower()
+    cat_type = pd.api.types.CategoricalDtype(categories=markers,ordered=True)
+    df['bodyparts']=df['bodyparts'].str.lstrip(" ").astype(cat_type)
+    newdf = df.pivot_table(columns=['scorer', 'bodyparts', 'coords'],index='frame_index',values='value',aggfunc='first',dropna=False)
+    newdf.index.name=None
+    ts = datetime.datetime.now().strftime("%d%b%y_%Hh%Mm%Ss")
+    if not os.path.exists(substitute_data_abspath):
+        os.makedirs(substitute_data_abspath)
+    if outlier_mode:
+        data_name = os.path.join(substitute_data_abspath,"MachineLabelsRefine.h5")
+        tracked_hdf = os.path.join(substitute_data_abspath,("MachineLabelsRefine_"+ts+".h5"))
+    else:
+        data_name = os.path.join(substitute_data_abspath,("CollectedData_"+project['experimenter']+".h5"))
+        tracked_hdf = os.path.join(substitute_data_abspath,("CollectedData_"+project['experimenter']+"_"+ts+".h5"))
+    newdf.to_hdf(data_name, 'df_with_missing', format='table', mode='w')
+    newdf.to_hdf(tracked_hdf, 'df_with_missing', format='table', mode='w')
+    tracked_csv = data_name.split('.h5')[0]+'_'+ts+'.csv'
+    newdf.to_csv(tracked_csv, na_rep='NaN')
+    print("Successfully spliced XMALab 2D points to DLC format; saved "+str(data_name)+", "+str(tracked_hdf)+", and "+str(tracked_csv))
