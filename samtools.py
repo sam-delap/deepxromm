@@ -660,8 +660,8 @@ def splice_xma_to_dlc(working_dir, outlier_mode=False, swap=False, cross=True):
 
     dlc_proj['bodyparts'] = parts_unique_final
 
-    with open(project['path_config_file'], 'w'):
-        yaml.dump(dlc_proj)
+    with open(project['path_config_file'], 'w') as dlc_config:
+        yaml.dump(dlc_proj, dlc_config)
 
     unique_frames_set = {}
     unique_frames_set = {index for index in range(1, project['nframes'] + 1) if index not in unique_frames_set}
