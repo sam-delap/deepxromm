@@ -596,10 +596,10 @@ def split_rgb(trial_path, codec='avc1'):
     print(f"Cam2 grayscale video created at {trial_path}/{out_name}cam2.avi!")
     print(f"Blue channel grayscale video created at {trial_path}/{out_name}blue.avi!")
 
-def splice_xma_to_dlc(working_dir, outlier_mode=False, swap=True, cross=False):
+def splice_xma_to_dlc(working_dir, outlier_mode=False, swap=False, cross=True):
     '''Takes csv of XMALab 2D XY coordinates from 2 cameras, outputs spliced hdf+csv data for DeepLabCut'''
     project = load_project(working_dir)
-    substitute_data_relpath = os.path.join("labeled-data",project['dataset_name'])
+    substitute_data_relpath = "labeled-data/" + project['dataset_name']
     substitute_data_abspath = os.path.join('\\'.join(project['path_config_file'].split('\\')[:-1]),substitute_data_relpath)
     trial_name = os.listdir(f'{working_dir}/trials')[0]
     markers = get_bodyparts_from_xma(f'{working_dir}/trials/{trial_name}')
@@ -646,21 +646,36 @@ def splice_xma_to_dlc(working_dir, outlier_mode=False, swap=True, cross=False):
             crosses.extend([cross_name_x,cross_name_y])
         df = df.join(df_cx)
         print(crosses)
+    names_final = df.columns.values
+    parts_final = [name.rsplit('_',1)[0] for name in names_final]
+    parts_unique_final = []
+    for part in parts_final:
+        if not part in parts_unique_final:
+            parts_unique_final.append(part)
     print("Importing markers: ")
-    print(markers)
+    print(parts_unique_final)
+    with open(project['path_config_file'], 'r') as dlc_config:
+        yaml = YAML()
+        dlc_proj = yaml.load(dlc_config)
+
+    dlc_proj['bodyparts'] = parts_unique_final
+
+    with open(project['path_config_file'], 'w'):
+        yaml.dump(dlc_proj)
+
     unique_frames_set = {}
     unique_frames_set = {index for index in range(1, project['nframes'] + 1) if index not in unique_frames_set}
     unique_frames = sorted(unique_frames_set)
     print("Importing frames: ")
     print(unique_frames)
-    df['frame_index']=[os.path.join(substitute_data_relpath,f'{trial_name}'+str(index).zfill(4)+'.png') for index in unique_frames]
+    df['frame_index']=[substitute_data_relpath + f'/{trial_name}_rgb_'+str(index).zfill(4)+'.png' for index in unique_frames]
     df['scorer']=project['experimenter']
     df = df.melt(id_vars=['frame_index','scorer'])
     new = df['variable'].str.rsplit("_",n=1,expand=True)
     df['variable'],df['coords'] = new[0], new[1]
     df=df.rename(columns={'variable':'bodyparts'})
     df['coords']=df['coords'].str.rstrip(" ").str.lower()
-    cat_type = pd.api.types.CategoricalDtype(categories=markers,ordered=True)
+    cat_type = pd.api.types.CategoricalDtype(categories=parts_unique_final,ordered=True)
     df['bodyparts']=df['bodyparts'].str.lstrip(" ").astype(cat_type)
     newdf = df.pivot_table(columns=['scorer', 'bodyparts', 'coords'],index='frame_index',values='value',aggfunc='first',dropna=False)
     newdf.index.name=None
@@ -676,14 +691,13 @@ def splice_xma_to_dlc(working_dir, outlier_mode=False, swap=True, cross=False):
     newdf.to_hdf(tracked_hdf, 'df_with_missing', format='table', mode='w')
     tracked_csv = data_name.split('.h5')[0]+'.csv'
     newdf.to_csv(tracked_csv, na_rep='NaN')
-    extract_matched_frames_rgb(project, substitute_data_abspath, range(1, project['nframes'] + 1), f'{working_dir}/trainingdata/{trial_name}')
+    extract_matched_frames_rgb(project, substitute_data_abspath, range(1, project['nframes'] + 1))
     print("Successfully spliced XMALab 2D points to DLC format", "saved "+str(data_name), "saved "+str(tracked_hdf), "saved "+str(tracked_csv), sep='\n')
 
 def extract_matched_frames_rgb(project, labeled_data_path, indices, compression=1):
     '''Given a list of frame indices and a project path, produce a folder (in labeled-data) of matching frame pngs per source video.
     Optionally, compress the output PNGs. Factor ranges from 0 (no compression) to 9 (most compression)'''
     extracted_frames = []
-    new_dirs = []
     trainingdata_path = project['working_dir'] + '/trainingdata'
     trials = [trial for trial in os.listdir(trainingdata_path) if os.path.isdir(os.path.join(trainingdata_path, trial))]
     for trial in trials:
@@ -712,8 +726,7 @@ def vid_to_pngs(video_path, output_dir=None, indices_to_match=[], name_from_fold
                 continue
             else:
                 print(f'Extracting frame {frame_index}')
-                print(type(frame))
-                png_name = out_name+str(frame_index).zfill(4)+'.png'
+                png_name = out_name+'_'+str(frame_index).zfill(4)+'.png'
                 png_path = os.path.join(output_dir, png_name)
                 png_list.append(png_path)
                 cv2.imwrite(png_path, frame, [cv2.IMWRITE_PNG_COMPRESSION, compression])
@@ -724,5 +737,28 @@ def vid_to_pngs(video_path, output_dir=None, indices_to_match=[], name_from_fold
             break
     cap.release()
     cv2.destroyAllWindows()
-    print("Finished extracting .pngs from "+str(os.path.basename(video_path)))
     return png_list
+
+def split_dlc_to_xma(project, save_hdf=True):
+    bodyparts_XY = []
+    dlc_path = project['path_config_file'].split('config')[0]
+    csv_path = dlc_path + 'labeled-data/' + project['dataset_name'] + '/CollectedData_' + project['experimenter'] + '.csv'
+    trial_name = os.listdir(project['working_dir'] + '/trainingdata')[0]
+    for part in get_bodyparts_from_xma(project['working_dir'] + '/trainingdata/' + trial_name):
+        bodyparts_XY.append(part+'_X')
+        bodyparts_XY.append(part+'_Y')
+    df = pd.read_csv(csv_path)
+    print(df.columns)
+    if save_hdf:
+        tracked_hdf = os.path.splitext(csv_path)[0]+'-Predicted2DPoints.h5'
+        df.to_hdf(tracked_hdf, 'df_with_missing', format='table', mode='w', nan_rep='NaN')
+    df = df.reset_index().melt(id_vars=['index'])
+    print(df.columns)
+    df = df[df['coords'] != 'likelihood']
+    df['id'] = df['bodyparts']+'_'+df['coords'].str.upper()
+    df[['index','value','id']]
+    df = df.pivot(index='index',columns='id',values='value')
+    df = df.reindex(columns=bodyparts_XY)
+    tracked_csv = os.path.splitext(csv_path)[0]+'-Predicted2DPoints.csv'
+    df.to_csv(tracked_csv,index=False, na_rep='NaN')
+    print("Successfully split DLC format to XMALab 2D points; saved "+str(tracked_csv))
