@@ -93,6 +93,14 @@ class TestConfigDefaults(unittest.TestCase):
         '''Can I accurately find the number of frames in the video if the user doesn't tell me?'''
         project = sam.load_project(self.working_dir)
         self.assertEqual(project['nframes'], 1, msg=f"Actual nframes: {project['nframes']}")
+    
+    def test_analyze_errors_if_no_folders_in_trials_dir(self):
+        with self.assertRaises(FileNotFoundError):
+            sam.analyze_videos(self.working_dir)
+
+    def test_autocorrect_errors_if_no_folders_in_trials_dir(self):
+        with self.assertRaises(FileNotFoundError):
+            sam.autocorrect_trial(self.working_dir)
 
     def test_warn_users_if_nframes_doesnt_match_csv(self):
         '''If the number of frames in the CSV doesn't match the number of frames specified, do I issue a warning?'''

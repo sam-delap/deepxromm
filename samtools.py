@@ -111,7 +111,6 @@ def load_project(working_dir=os.getcwd(), threshold=0.1):
 
     # Make sure there aren't any partially tracked frames
     if trial_csv.isna().sum().sum() > 0:
-        # ADD change to warning and say how many frames you're removing
         raise AttributeError(f'Detected {len(trial_csv) - len(trial_csv.dropna())} partially tracked frames. \
     Please ensure that all frames are completely tracked')
 
@@ -142,7 +141,7 @@ def load_project(working_dir=os.getcwd(), threshold=0.1):
 
     with open(project['path_config_file'], 'w') as dlc_config:
         yaml.dump(dlc_yaml, dlc_config)
-
+    
     # Update changed attributes to match in the file
     with open(os.path.join(working_dir, 'project_config.yaml'), 'w') as file:
         yaml.dump(project, file)
@@ -170,6 +169,10 @@ def analyze_videos(working_dir=os.getcwd()):
     # Open the config
     project = load_project(working_dir)
 
+    # Error if trials directory is empty
+    if len(os.listdir(f'{working_dir}/trials')) <= 0:
+        raise FileNotFoundError(f'Empty trials directory found. Please put trials to be analyzed after training into the {working_dir}/trials folder')
+    
     # Establish project vars
     yaml = YAML()
     new_data_path = working_dir + "/trials"
@@ -184,6 +187,10 @@ def autocorrect_trial(working_dir=os.getcwd()): #try 0.05 also
     # Open the config
     project = load_project(working_dir)
 
+    # Error if trials directory is empty
+    if len(os.listdir(f'{working_dir}/trials')) <= 0:
+        raise FileNotFoundError(f'Empty trials directory found. Please put trials to be analyzed after training into the {working_dir}/trials folder')
+    
     # Establish project vars
     new_data_path = working_dir + "/trials"
     yaml = YAML()
