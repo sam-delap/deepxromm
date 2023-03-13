@@ -66,7 +66,7 @@ class TestConfigDefaults(unittest.TestCase):
         '''Create a sample project where the user only inputs XMAlab data'''
         self.working_dir = os.path.join(os.getcwd(), 'tmp')
         sam.create_new_project(self.working_dir)
-        frame = cv2.VideoCapture('sample_frame.jpg')
+        frame = cv2.imread('sample_frame.jpg')
 
         # Make a trial directory
         os.mkdir(os.path.join(self.working_dir, 'trainingdata/dummy'))
@@ -143,7 +143,7 @@ class TestConfigDefaults(unittest.TestCase):
         sam.load_project(self.working_dir)
 
         # Increase the number of frames in the video to 100 so I can test this
-        frame = cv2.VideoCapture('sample_frame.jpg')
+        frame = cv2.imread('sample_frame.jpg')
         out = cv2.VideoWriter('tmp/trainingdata/dummy/dummy_cam1.avi',cv2.VideoWriter_fourcc(*'DIVX'), 15, (1024,512))
         
         for _ in range(100):
