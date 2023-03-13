@@ -9,7 +9,6 @@
 # Training Images
 *.tif
 *.png
-*.jpg
 
 # Pointsfiles
 *.csv
