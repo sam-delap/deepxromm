@@ -38,7 +38,6 @@ class TestProjectCreation(unittest.TestCase):
         'dataset_name',
         'nframes',
         'maxiters',
-        'network_arch',
         'search_area',
         'threshold',
         'krad',
