@@ -37,7 +37,16 @@ class TestProjectCreation(unittest.TestCase):
         'path_config_file',
         'dataset_name',
         'nframes',
-        'maxiters']
+        'maxiters',
+        'network_arch',
+        'search_area',
+        'threshold',
+        'krad',
+        'gsigma',
+        'img_wt',
+        'blur_wt',
+        'gamma']
+
 
         with open(os.path.join(os.getcwd(), 'tmp/project_config.yaml')) as config:
             project = yaml.load(config)
