@@ -51,6 +51,7 @@ def create_new_project(working_dir=os.getcwd(), experimenter='NA'):
         dataset_name: MyData
         nframes: 0
         maxiters: 150000
+        tracking_threshold: 0.1 # Fraction of total frames included in training sample
 
         # Image Processing Vars
         search_area: 15
@@ -83,7 +84,7 @@ def create_new_project(working_dir=os.getcwd(), experimenter='NA'):
         pass
     os.chdir(saved_dir)
 
-def load_project(working_dir=os.getcwd(), threshold=0.1):
+def load_project(working_dir=os.getcwd()):
     '''Load an existing project (only used internally/in testing)'''
     # Open the config
     with open(working_dir + "\\project_config.yaml", 'r') as config_file:
@@ -114,15 +115,24 @@ def load_project(working_dir=os.getcwd(), threshold=0.1):
         raise AttributeError(f'Detected {len(trial_csv) - len(trial_csv.dropna())} partially tracked frames. \
     Please ensure that all frames are completely tracked')
 
+    # Check/set the default value for tracked frames
     if project['nframes'] <= 0:
         project['nframes'] = len(trial_csv)
 
     elif project['nframes'] != len(trial_csv):
         warnings.warn('Project nframes tracked does not match 2D Points file. \
         If this is intentional, ignore this message')
-
-    if project['nframes'] < len(trial_csv) * threshold:
-        warnings.warn(f'Project nframes is less than the recommended {threshold*100}% of the total frames')
+    
+    # Check the current nframes against the threshold value * the number of frames in the cam1 video
+    cam1_video_path = f'{training_data_path}/{trial}/{trial}_cam1.avi'
+    try:
+        video = cv2.VideoCapture(cam1_video_path)
+    except FileNotFoundError:
+        raise FileNotFoundError(f'Please make sure that your cam 1 video file is named {trial}_cam1.avi') from None
+    
+    if project['nframes'] < int(video.get(cv2.CAP_PROP_FRAME_COUNT)) * project['threshold']:
+        tracking_threshold = project['threshold']
+        warnings.warn(f'Project nframes is less than the recommended {tracking_threshold * 100}% of the total frames')
 
     # Check DLC bodyparts (marker names)
     with open(project['path_config_file'], 'r') as dlc_config:

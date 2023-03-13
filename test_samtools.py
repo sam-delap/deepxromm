@@ -38,6 +38,7 @@ class TestProjectCreation(unittest.TestCase):
         'dataset_name',
         'nframes',
         'maxiters',
+        'tracking_threshold',
         'search_area',
         'threshold',
         'krad',
@@ -141,12 +142,14 @@ class TestConfigDefaults(unittest.TestCase):
         do I give them a warning?'''
         sam.load_project(self.working_dir)
 
-        # Increase the number of frames to 100 so I can test this
-        df = pd.read_csv('tmp/trainingdata/dummy/dummy.csv')
+        # Increase the number of frames in the video to 100 so I can test this
+        frame = np.zeros((480, 480, 3), np.uint8)
+        out = cv2.VideoWriter('tmp/trainingdata/dummy/dummy_cam1.avi',cv2.VideoWriter_fourcc(*'DIVX'), 15, (480,480))
+        
         for _ in range(100):
-            df.loc[len(df) + 1, :] = 0
-
-        df.to_csv('tmp/trainingdata/dummy/dummy.csv', index=False)
+            out.write(frame)
+                
+        out.release()
 
         # Check that the user is warned
         with self.assertWarns(UserWarning):
