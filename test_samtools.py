@@ -66,18 +66,18 @@ class TestConfigDefaults(unittest.TestCase):
         '''Create a sample project where the user only inputs XMAlab data'''
         self.working_dir = os.path.join(os.getcwd(), 'tmp')
         sam.create_new_project(self.working_dir)
-        frame = np.zeros((480, 480, 3), np.uint8)
+        frame = cv2.VideoCapture('sample_frame.jpg')
 
         # Make a trial directory
         os.mkdir(os.path.join(self.working_dir, 'trainingdata/dummy'))
 
         # Cam 1
-        out = cv2.VideoWriter('tmp/trainingdata/dummy/dummy_cam1.avi',cv2.VideoWriter_fourcc(*'DIVX'), 15, (480,480))
+        out = cv2.VideoWriter('tmp/trainingdata/dummy/dummy_cam1.avi',cv2.VideoWriter_fourcc(*'DIVX'), 15, (1024,512))
         out.write(frame)
         out.release()
 
         # Cam 2
-        out = cv2.VideoWriter('tmp/trainingdata/dummy/dummy_cam2.avi',cv2.VideoWriter_fourcc(*'DIVX'), 15, (480,480))
+        out = cv2.VideoWriter('tmp/trainingdata/dummy/dummy_cam2.avi',cv2.VideoWriter_fourcc(*'DIVX'), 15, (1024,512))
         out.write(frame)
         out.release()
 
@@ -143,8 +143,8 @@ class TestConfigDefaults(unittest.TestCase):
         sam.load_project(self.working_dir)
 
         # Increase the number of frames in the video to 100 so I can test this
-        frame = np.zeros((480, 480, 3), np.uint8)
-        out = cv2.VideoWriter('tmp/trainingdata/dummy/dummy_cam1.avi',cv2.VideoWriter_fourcc(*'DIVX'), 15, (480,480))
+        frame = cv2.VideoCapture('sample_frame.jpg')
+        out = cv2.VideoWriter('tmp/trainingdata/dummy/dummy_cam1.avi',cv2.VideoWriter_fourcc(*'DIVX'), 15, (1024,512))
         
         for _ in range(100):
             out.write(frame)
