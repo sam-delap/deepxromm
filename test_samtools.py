@@ -60,7 +60,7 @@ class TestProjectCreation(unittest.TestCase):
         super(TestProjectCreation, cls).tearDownClass()
         shutil.rmtree(os.path.join(os.getcwd(), 'tmp'))
 
-class TestConfigDefaults(unittest.TestCase):
+class TestDefaultsPerformance(unittest.TestCase):
     '''Test that the config will still be configured properly if the user only provides XMAlab input'''
     def setUp(self):
         '''Create a sample project where the user only inputs XMAlab data'''
@@ -184,6 +184,24 @@ class TestConfigDefaults(unittest.TestCase):
 
         with self.assertRaises(SyntaxError):
             sam.load_project(self.working_dir)
+    
+    def test_autocorrect_still_working(self):
+        '''Make sure that autocorrect still works properly after making changes'''
+        # Move sample frame input
+        shutil.copyfile('sample_frame_input.csv', f'{self.working_dir}/tmp/trials/test/it0/test-Predicted2DPoints.csv')
+        # Run autocorrect on the sample frame
+        sam.autocorrect_trial(self.working_dir)
+        
+        # Load CSVs
+        function_output = pd.read_csv(f'{self.working_dir}/tmp/trials/test/it0/test-AutoCorrected2DPoints.csv', index=False)
+        sample_output = pd.read_csv('sample_autocorrect_output.csv', index = False)
+
+        # Drop cam2 markers
+        columns_to_drop = function_output.columns[function_output.columns.str.contains('cam2', case = False)]
+        function_output.drop(columns_to_drop, axis = 1, inplace = True)
+
+        # Make sure the output hasn't changed
+        self.assertTrue(function_output.equals(sample_output))
 
     def tearDown(self):
         '''Remove the created temp project'''
