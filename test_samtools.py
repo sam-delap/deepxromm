@@ -184,17 +184,56 @@ class TestDefaultsPerformance(unittest.TestCase):
 
         with self.assertRaises(SyntaxError):
             sam.load_project(self.working_dir)
-    
-    def test_autocorrect_still_working(self):
+
+    def tearDown(self):
+        '''Remove the created temp project'''
+        shutil.rmtree(os.path.join(os.getcwd(), 'tmp'))
+
+class TestSampleTrial(unittest.TestCase):
+    def setUp(self):
+        self.working_dir = os.path.join(os.getcwd(), 'tmp')
+        sam.create_new_project(self.working_dir)
+        frame = cv2.imread('sample_frame.jpg')
+
+        # Make a trial directory
+        os.mkdir(os.path.join(self.working_dir, 'trainingdata/test'))
+
+        # Move sample frame input to trainingdata
+        shutil.copy('sample_frame_input.csv', f'{self.working_dir}/trainingdata/test/test.csv')
+
+        # Cam 1 trainingdata
+        out = cv2.VideoWriter('tmp/trainingdata/test/test_cam1.avi',cv2.VideoWriter_fourcc(*'DIVX'), 15, (1024,512))
+        out.write(frame)
+        out.release()
+
+        # Cam 2 trainingdata
+        out = cv2.VideoWriter('tmp/trainingdata/test/test_cam2.avi',cv2.VideoWriter_fourcc(*'DIVX'), 15, (1024,512))
+        out.write(frame)
+        out.release()
+
+        # Move sample frame input to trials (it0 and trials)
+        os.makedirs(f'{self.working_dir}/trials/test/it0', exist_ok=True)
+        shutil.copy('sample_frame_input.csv', f'{self.working_dir}/trials/test/test.csv')
+        shutil.copy('sample_frame_input.csv', f'{self.working_dir}/trials/test/it0/test-Predicted2DPoints.csv')
+
+        # Cam 1 trials
+        out = cv2.VideoWriter('tmp/trials/test/test_cam1.avi',cv2.VideoWriter_fourcc(*'DIVX'), 15, (1024,512))
+        out.write(frame)
+        out.release()
+
+        # Cam 2 trials
+        out = cv2.VideoWriter('tmp/trials/test/test_cam2.avi',cv2.VideoWriter_fourcc(*'DIVX'), 15, (1024,512))
+        out.write(frame)
+        out.release()
+
+    def test_autocorrect_is_working(self):
         '''Make sure that autocorrect still works properly after making changes'''
-        # Move sample frame input
-        shutil.copyfile('sample_frame_input.csv', f'{self.working_dir}/tmp/trials/test/it0/test-Predicted2DPoints.csv')
         # Run autocorrect on the sample frame
         sam.autocorrect_trial(self.working_dir)
         
         # Load CSVs
-        function_output = pd.read_csv(f'{self.working_dir}/tmp/trials/test/it0/test-AutoCorrected2DPoints.csv', index=False)
-        sample_output = pd.read_csv('sample_autocorrect_output.csv', index = False)
+        function_output = pd.read_csv(f'{self.working_dir}/tmp/trials/test/it0/test-AutoCorrected2DPoints.csv')
+        sample_output = pd.read_csv('sample_autocorrect_output.csv')
 
         # Drop cam2 markers
         columns_to_drop = function_output.columns[function_output.columns.str.contains('cam2', case = False)]
@@ -206,6 +245,5 @@ class TestDefaultsPerformance(unittest.TestCase):
     def tearDown(self):
         '''Remove the created temp project'''
         shutil.rmtree(os.path.join(os.getcwd(), 'tmp'))
-
 if __name__ == "__main__":
     unittest.main()

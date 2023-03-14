@@ -223,16 +223,17 @@ def autocorrect_trial(working_dir=os.getcwd()): #try 0.05 also
             csv = autocorrect_video(cam, trial, csv, project, new_data_path)
 
         # Print when autocorrect finishes
-        print('done! saving...')
+        print(f'Done! Saving to {out_name}')
         csv.to_csv(out_name, index=False)
 
 def autocorrect_video(cam, trial, csv, project, new_data_path):
     '''Run the autocorrect function on a single video within a single trial'''
     # Find the raw video
-    try:
-        video = cv2.VideoCapture(new_data_path + '/' + trial + '/' + trial + '_' + cam + '.avi')
-    except FileNotFoundError:
-        raise FileNotFoundError(f'Please make sure that your {cam} video file is named {trial}_{cam}.avi') from None
+    video_path = new_data_path + '/' + trial + '/' + trial + '_' + cam + '.avi'
+    video = cv2.VideoCapture(video_path)
+    if not video.isOpened():
+        raise FileNotFoundError(f'Couldn\'t find a video at file path: {video_path}') from None
+    
     # For each frame of video
     print(f'Total frames in video: {video.get(cv2.CAP_PROP_FRAME_COUNT)}')
 
