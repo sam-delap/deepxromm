@@ -122,14 +122,14 @@ def load_project(working_dir=os.getcwd()):
     elif project['nframes'] != len(trial_csv):
         warnings.warn('Project nframes tracked does not match 2D Points file. \
         If this is intentional, ignore this message')
-    
+
     # Check the current nframes against the threshold value * the number of frames in the cam1 video
     cam1_video_path = f'{training_data_path}/{trial}/{trial}_cam1.avi'
     try:
         video = cv2.VideoCapture(cam1_video_path)
     except FileNotFoundError:
         raise FileNotFoundError(f'Please make sure that your cam 1 video file is named {trial}_cam1.avi') from None
-    
+
     if project['nframes'] < int(video.get(cv2.CAP_PROP_FRAME_COUNT)) * project['tracking_threshold']:
         tracking_threshold = project['tracking_threshold']
         warnings.warn(f'Project nframes is less than the recommended {tracking_threshold * 100}% of the total frames')
@@ -151,7 +151,7 @@ def load_project(working_dir=os.getcwd()):
 
     with open(project['path_config_file'], 'w') as dlc_config:
         yaml.dump(dlc_yaml, dlc_config)
-    
+
     # Update changed attributes to match in the file
     with open(os.path.join(working_dir, 'project_config.yaml'), 'w') as file:
         yaml.dump(project, file)
@@ -182,7 +182,7 @@ def analyze_videos(working_dir=os.getcwd()):
     # Error if trials directory is empty
     if len(os.listdir(f'{working_dir}/trials')) <= 0:
         raise FileNotFoundError(f'Empty trials directory found. Please put trials to be analyzed after training into the {working_dir}/trials folder')
-    
+
     # Establish project vars
     yaml = YAML()
     new_data_path = working_dir + "/trials"
@@ -200,7 +200,7 @@ def autocorrect_trial(working_dir=os.getcwd()): #try 0.05 also
     # Error if trials directory is empty
     if len(os.listdir(f'{working_dir}/trials')) <= 0:
         raise FileNotFoundError(f'Empty trials directory found. Please put trials to be analyzed after training into the {working_dir}/trials folder')
-    
+
     # Establish project vars
     new_data_path = working_dir + "/trials"
     yaml = YAML()
@@ -233,7 +233,7 @@ def autocorrect_video(cam, trial, csv, project, new_data_path):
     video = cv2.VideoCapture(video_path)
     if not video.isOpened():
         raise FileNotFoundError(f'Couldn\'t find a video at file path: {video_path}') from None
-    
+
     # For each frame of video
     print(f'Total frames in video: {video.get(cv2.CAP_PROP_FRAME_COUNT)}')
 

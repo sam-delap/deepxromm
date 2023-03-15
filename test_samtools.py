@@ -3,7 +3,6 @@ import unittest
 import os
 import shutil
 from datetime import datetime as dt
-import numpy as np
 import pandas as pd
 import cv2
 from ruamel.yaml import YAML
@@ -102,12 +101,14 @@ class TestDefaultsPerformance(unittest.TestCase):
         '''Can I accurately find the number of frames in the video if the user doesn't tell me?'''
         project = sam.load_project(self.working_dir)
         self.assertEqual(project['nframes'], 1, msg=f"Actual nframes: {project['nframes']}")
-    
+
     def test_analyze_errors_if_no_folders_in_trials_dir(self):
+        '''If there are no trials to analyze, do we return an error?'''
         with self.assertRaises(FileNotFoundError):
             sam.analyze_videos(self.working_dir)
 
     def test_autocorrect_errors_if_no_folders_in_trials_dir(self):
+        '''If there are no trials to autocorrect, do we return an error?'''
         with self.assertRaises(FileNotFoundError):
             sam.autocorrect_trial(self.working_dir)
 
@@ -145,10 +146,10 @@ class TestDefaultsPerformance(unittest.TestCase):
         # Increase the number of frames in the video to 100 so I can test this
         frame = cv2.imread('sample_frame.jpg')
         out = cv2.VideoWriter('tmp/trainingdata/dummy/dummy_cam1.avi',cv2.VideoWriter_fourcc(*'DIVX'), 15, (1024,512))
-        
+
         for _ in range(100):
             out.write(frame)
-                
+
         out.release()
 
         # Check that the user is warned
@@ -190,7 +191,9 @@ class TestDefaultsPerformance(unittest.TestCase):
         shutil.rmtree(os.path.join(os.getcwd(), 'tmp'))
 
 class TestSampleTrial(unittest.TestCase):
+    '''Test function behaviors using a frame from an actual trial'''
     def setUp(self):
+        '''Create trial'''
         self.working_dir = os.path.join(os.getcwd(), 'tmp')
         sam.create_new_project(self.working_dir)
         frame = cv2.imread('sample_frame.jpg')
@@ -230,7 +233,7 @@ class TestSampleTrial(unittest.TestCase):
         '''Make sure that autocorrect still works properly after making changes'''
         # Run autocorrect on the sample frame
         sam.autocorrect_trial(self.working_dir)
-        
+
         # Load CSVs
         function_output = pd.read_csv(f'{self.working_dir}/trials/test/it0/test-AutoCorrected2DPoints.csv', dtype='float64')
         sample_output = pd.read_csv('sample_autocorrect_output.csv', dtype='float64')
