@@ -202,12 +202,12 @@ class TestSampleTrial(unittest.TestCase):
         shutil.copy('sample_frame_input.csv', f'{self.working_dir}/trainingdata/test/test.csv')
 
         # Cam 1 trainingdata
-        out = cv2.VideoWriter('tmp/trainingdata/test/test_cam1.avi',cv2.VideoWriter_fourcc(*'DIVX'), 15, (1024,512))
+        out = cv2.VideoWriter('tmp/trainingdata/test/test_cam1.avi',cv2.VideoWriter_fourcc(*'DIVX'), 30, (1024,512))
         out.write(frame)
         out.release()
 
         # Cam 2 trainingdata
-        out = cv2.VideoWriter('tmp/trainingdata/test/test_cam2.avi',cv2.VideoWriter_fourcc(*'DIVX'), 15, (1024,512))
+        out = cv2.VideoWriter('tmp/trainingdata/test/test_cam2.avi',cv2.VideoWriter_fourcc(*'DIVX'), 30, (1024,512))
         out.write(frame)
         out.release()
 
@@ -217,12 +217,12 @@ class TestSampleTrial(unittest.TestCase):
         shutil.copy('sample_frame_input.csv', f'{self.working_dir}/trials/test/it0/test-Predicted2DPoints.csv')
 
         # Cam 1 trials
-        out = cv2.VideoWriter('tmp/trials/test/test_cam1.avi',cv2.VideoWriter_fourcc(*'DIVX'), 15, (1024,512))
+        out = cv2.VideoWriter('tmp/trials/test/test_cam1.avi',cv2.VideoWriter_fourcc(*'DIVX'), 30, (1024,512))
         out.write(frame)
         out.release()
 
         # Cam 2 trials
-        out = cv2.VideoWriter('tmp/trials/test/test_cam2.avi',cv2.VideoWriter_fourcc(*'DIVX'), 15, (1024,512))
+        out = cv2.VideoWriter('tmp/trials/test/test_cam2.avi',cv2.VideoWriter_fourcc(*'DIVX'), 30, (1024,512))
         out.write(frame)
         out.release()
 
@@ -232,12 +232,16 @@ class TestSampleTrial(unittest.TestCase):
         sam.autocorrect_trial(self.working_dir)
         
         # Load CSVs
-        function_output = pd.read_csv(f'{self.working_dir}/tmp/trials/test/it0/test-AutoCorrected2DPoints.csv')
-        sample_output = pd.read_csv('sample_autocorrect_output.csv')
+        function_output = pd.read_csv(f'{self.working_dir}/trials/test/it0/test-AutoCorrected2DPoints.csv', dtype='float64')
+        sample_output = pd.read_csv('sample_autocorrect_output.csv', dtype='float64')
 
         # Drop cam2 markers
         columns_to_drop = function_output.columns[function_output.columns.str.contains('cam2', case = False)]
         function_output.drop(columns_to_drop, axis = 1, inplace = True)
+
+        # Round the pixel measurements to the nearest millionth (pixel measurements get a bit imprecise beyond this)
+        function_output = function_output.round(6)
+        sample_output = sample_output.round(6)
 
         # Make sure the output hasn't changed
         self.assertTrue(function_output.equals(sample_output))
@@ -245,5 +249,6 @@ class TestSampleTrial(unittest.TestCase):
     def tearDown(self):
         '''Remove the created temp project'''
         shutil.rmtree(os.path.join(os.getcwd(), 'tmp'))
+
 if __name__ == "__main__":
     unittest.main()

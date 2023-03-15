@@ -130,8 +130,8 @@ def load_project(working_dir=os.getcwd()):
     except FileNotFoundError:
         raise FileNotFoundError(f'Please make sure that your cam 1 video file is named {trial}_cam1.avi') from None
     
-    if project['nframes'] < int(video.get(cv2.CAP_PROP_FRAME_COUNT)) * project['threshold']:
-        tracking_threshold = project['threshold']
+    if project['nframes'] < int(video.get(cv2.CAP_PROP_FRAME_COUNT)) * project['tracking_threshold']:
+        tracking_threshold = project['tracking_threshold']
         warnings.warn(f'Project nframes is less than the recommended {tracking_threshold * 100}% of the total frames')
 
     # Check DLC bodyparts (marker names)
