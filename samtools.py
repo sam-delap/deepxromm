@@ -739,15 +739,19 @@ def vid_to_pngs(video_path, output_dir=None, indices_to_match=[], name_from_fold
     cv2.destroyAllWindows()
     return png_list
 
-def split_dlc_to_xma(project, save_hdf=True):
+def split_dlc_to_xma(project, trial, save_hdf=True):
     bodyparts_XY = []
-    dlc_path = project['path_config_file'].split('config')[0]
-    csv_path = dlc_path + 'labeled-data/' + project['dataset_name'] + '/CollectedData_' + project['experimenter'] + '.csv'
-    trial_name = os.listdir(project['working_dir'] + '/trainingdata')[0]
-    for part in get_bodyparts_from_xma(project['working_dir'] + '/trainingdata/' + trial_name):
+    yaml = YAML()
+    with open(project['path_config_file']) as dlc_config:
+        dlc = yaml.load(dlc_config)
+    iteration = dlc['iteration']
+    trial_path = project['working_dir'] + f'/trainingdata/{trial}'
+    for part in get_bodyparts_from_xma(trial_path):
         bodyparts_XY.append(part+'_X')
         bodyparts_XY.append(part+'_Y')
-    df = pd.read_csv(csv_path)
+
+    csv_path = f'{trial_path}/it{iteration}/{trial}-Predicted2DPoints.csv'
+    df = pd.read_csv(f'trial_path/')
     print(df.columns)
     if save_hdf:
         tracked_hdf = os.path.splitext(csv_path)[0]+'-Predicted2DPoints.h5'
