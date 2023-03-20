@@ -70,9 +70,10 @@ def create_new_project(working_dir=os.getcwd(), experimenter='NA'):
 
         # Jupyter Testing Vars
         cam: cam1
-        frame: 1
+        frame_num: 1
+        trial_name
         marker: marker_name
-        test_autocorrect: false
+        test_autocorrect: false # Set to true if you want to see autocorrect's output in Jupyter
         """
 
         tmp = yaml.load(template)
@@ -246,8 +247,13 @@ def autocorrect_trial(working_dir=os.getcwd()): #try 0.05 also
             raise FileNotFoundError(f'Could not find predicted 2D points file. Please check the it{iteration} folder for trial {trial}') from None
         out_name = new_data_path + '/' + trial + '/' + 'it' + str(iteration) + '/' + trial + '-AutoCorrected2DPoints.csv'
 
+        if project['test_autocorrect']:
+            cams = [project['cam']]
+        else:
+            cams = ['cam1', 'cam2']
+        
         # For each camera
-        for cam in ['cam1','cam2']:
+        for cam in cams:
             csv = autocorrect_video(cam, trial, csv, project, new_data_path)
 
         # Print when autocorrect finishes
@@ -262,22 +268,34 @@ def autocorrect_video(cam, trial, csv, project, new_data_path):
     if not video.isOpened():
         raise FileNotFoundError(f'Couldn\'t find a video at file path: {video_path}') from None
 
-    # For each frame of video
-    print(f'Total frames in video: {video.get(cv2.CAP_PROP_FRAME_COUNT)}')
-
-    for frame_index in range(int(video.get(cv2.CAP_PROP_FRAME_COUNT))):
-        # Load frame
-        print(f'Current Frame: {frame_index + 1}')
+    if project['test_autocorrect']:
+        video.set(1, project['frame_num'] - 1)
         ret, frame = video.read()
         if ret is False:
             raise IOError('Error reading video frame')
-        csv = autocorrect_frame(new_data_path, trial, frame, cam, frame_index, csv, project)
+        autocorrect_frame(new_data_path, project['trial_name'], frame, project['cam'], project['frame_num'], csv, project)
+        return csv
+    else:
+        # For each frame of video
+        print(f'Total frames in video: {video.get(cv2.CAP_PROP_FRAME_COUNT)}')
+
+        for frame_index in range(int(video.get(cv2.CAP_PROP_FRAME_COUNT))):
+            # Load frame
+            print(f'Current Frame: {frame_index + 1}')
+            ret, frame = video.read()
+            if ret is False:
+                raise IOError('Error reading video frame')
+            csv = autocorrect_frame(new_data_path, trial, frame, cam, frame_index, csv, project)
     return csv
 
 def autocorrect_frame(new_data_path, trial, frame, cam, frame_index, csv, project):
     '''Run the autocorrect function for a single frame (no output)'''
     # For each marker in the frame
     parts_unique = get_bodyparts_from_xma(f'{new_data_path}/{trial}')
+    if project['test_autocorrect']:
+        parts_unique = [project['marker']]
+    else:
+        parts_unique = get_bodyparts_from_xma(f'{new_data_path}/{trial}')
     for part in parts_unique:
         # Find point and offsets
         x_float = csv.loc[frame_index, part + '_' + cam + '_X']
