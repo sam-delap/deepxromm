@@ -67,6 +67,12 @@ def create_new_project(working_dir=os.getcwd(), experimenter='NA'):
         img_wt: 3.6
         blur_wt: -2.9
         gamma: 0.1
+
+        # Jupyter Testing Vars
+        cam: cam1
+        frame: 1
+        marker: marker_name
+        test_autocorrect: false
         """
 
         tmp = yaml.load(template)
