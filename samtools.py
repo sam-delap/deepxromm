@@ -335,7 +335,7 @@ def show_crop(src, center, scale=5, contours=None, detected_marker=None):
     plt.imshow(image)
     plt.show()
 
-def get_bodyparts_from_xma(path_to_trial):
+def get_bodyparts_from_xma(path_to_trial, mode='2D'):
     '''Pull the names of the XMAlab markers from the 2Dpoints file'''
 
     csv_path = [file for file in os.listdir(path_to_trial) if file[-4:] == '.csv']
@@ -345,7 +345,12 @@ def get_bodyparts_from_xma(path_to_trial):
         raise FileNotFoundError('Couldn\'t find a CSV file for trial: ' + path_to_trial)
     trial_csv = pd.read_csv(path_to_trial + '/' + csv_path[0], sep=',',header=0, dtype='float',na_values='NaN')
     names = trial_csv.columns.values
-    parts = [name.rsplit('_',2)[0] for name in names]
+    if mode == 'rgb':
+        parts = [name.rsplit('_',1)[0] for name in names]
+    elif mode == '2D':
+        parts = [name.rsplit('_',2)[0] for name in names]  
+    else:
+        raise SyntaxError('Invalid value for mode parameter')
     parts_unique = []
     for part in parts:
         if part not in parts_unique:
@@ -603,7 +608,6 @@ def splice_xma_to_dlc(working_dir, outlier_mode=False, swap=False, cross=True):
     substitute_data_abspath = os.path.join('\\'.join(project['path_config_file'].split('\\')[:-1]),substitute_data_relpath)
     trial_name = os.listdir(f'{working_dir}/trials')[0]
     markers = get_bodyparts_from_xma(f'{working_dir}/trials/{trial_name}')
-     # Load trial CSV
     try:
         training_data_path = os.path.join(project['working_dir'], "trainingdata")
         trial = os.listdir(training_data_path)[0]
@@ -746,23 +750,29 @@ def split_dlc_to_xma(project, trial, save_hdf=True):
         dlc = yaml.load(dlc_config)
     iteration = dlc['iteration']
     trial_path = project['working_dir'] + f'/trainingdata/{trial}'
-    for part in get_bodyparts_from_xma(trial_path):
+    
+    rgb_parts = get_bodyparts_from_xma(trial_path, mode='rgb')
+    for part in rgb_parts:
         bodyparts_XY.append(part+'_X')
         bodyparts_XY.append(part+'_Y')
-
-    csv_path = f'{trial_path}/it{iteration}/{trial}-Predicted2DPoints.csv'
-    df = pd.read_csv(f'trial_path/')
-    print(df.columns)
+    
+    csv_path = [file for file in os.listdir(f'{trial_path}/it{iteration}') if '.csv' in file and '-2DPoints' not in file]
+    if len(csv_path) > 1:
+        raise FileExistsError('Found more than 1 data CSV for RGB trial. Please remove CSVs from older analyses from this folder before analyzing.')
+    elif len(csv_path) < 1:
+        raise FileNotFoundError(f'Couldn\'t find data CSV for trial {trial}. Something wrong with DeepLabCut?')
+    
+    csv_path = csv_path[0]
+    xma_csv_path = f'{trial_path}/it{iteration}/{trial}-Predicted2DPoints.csv'
+    
+    df = pd.read_csv(f'{trial_path}/it{iteration}/{csv_path}', skiprows=1)
+    df.index = df['bodyparts']
+    df = df.drop(columns=df.columns[[df.loc['coords'] == 'likelihood']])
+    df = df.drop(columns=[column for column in df.columns if column not in [bodypart for bodypart in rgb_parts] and column not in [f'{bodypart}.1' for bodypart in rgb_parts]])
+    df.columns = bodyparts_XY
+    df = df.drop(index='coords')
+    df.to_csv(xma_csv_path, index=False)
+    print("Successfully split DLC format to XMALab 2D points; saved "+str(xma_csv_path))
     if save_hdf:
-        tracked_hdf = os.path.splitext(csv_path)[0]+'-Predicted2DPoints.h5'
+        tracked_hdf = os.path.splitext(csv_path)[0]+'.h5'
         df.to_hdf(tracked_hdf, 'df_with_missing', format='table', mode='w', nan_rep='NaN')
-    df = df.reset_index().melt(id_vars=['index'])
-    print(df.columns)
-    df = df[df['coords'] != 'likelihood']
-    df['id'] = df['bodyparts']+'_'+df['coords'].str.upper()
-    df[['index','value','id']]
-    df = df.pivot(index='index',columns='id',values='value')
-    df = df.reindex(columns=bodyparts_XY)
-    tracked_csv = os.path.splitext(csv_path)[0]+'-Predicted2DPoints.csv'
-    df.to_csv(tracked_csv,index=False, na_rep='NaN')
-    print("Successfully split DLC format to XMALab 2D points; saved "+str(tracked_csv))
