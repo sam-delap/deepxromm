@@ -38,6 +38,7 @@ class TestProjectCreation(unittest.TestCase):
         'nframes',
         'maxiters',
         'tracking_threshold',
+        'tracking_mode',
         'search_area',
         'threshold',
         'krad',
@@ -168,6 +169,26 @@ class TestDefaultsPerformance(unittest.TestCase):
             config_obj = yaml.load(dlc_config)
 
         self.assertEqual(config_obj['bodyparts'], ['foo', 'bar', 'baz'])
+
+    def test_bodyparts_add_from_csv_in_3D(self):
+        '''If the user wants to do 3D tracking, we output the desired list of bodyparts'''
+        yaml = YAML()
+        date = dt.today().strftime("%Y-%m-%d")
+        
+        with open(os.path.join(self.working_dir, 'project_config.yaml'), 'r') as config:
+            tmp = yaml.load(config)
+        tmp['tracking_mode'] = 'rgb'
+        with open(os.path.join(self.working_dir, 'project_config.yaml'), 'w') as fp:
+            yaml.dump(tmp, fp)
+        sam.load_project(self.working_dir)
+
+        path_to_config = '/tmp-NA-' + date + '/config.yaml'
+
+        yaml = YAML()
+        with open(self.working_dir + path_to_config) as dlc_config:
+            config_obj = yaml.load(dlc_config)
+
+        self.assertEqual(config_obj['bodyparts'], ['foo_cam1', 'foo_cam2', 'bar_cam1', 'bar_cam2', 'baz_cam1', 'baz_cam2'])
 
     def test_bodyparts_error_if_different_from_csv(self):
         '''If the user specifies different bodyparts than their CSV, raise an error'''

@@ -56,6 +56,7 @@ def create_new_project(working_dir=os.getcwd(), experimenter='NA'):
         nframes: 0
         maxiters: 150000
         tracking_threshold: 0.1 # Fraction of total frames included in training sample
+        tracking_mode: 2D
 
 # Image Processing Vars
         search_area: 15
@@ -148,9 +149,9 @@ def load_project(working_dir=os.getcwd()):
         trial_name = os.listdir(working_dir + '/trainingdata')[0]
 
         if dlc_yaml['bodyparts'] == default_bodyparts:
-            dlc_yaml['bodyparts'] = get_bodyparts_from_xma(os.path.join(working_dir, 'trainingdata', trial_name))
+            dlc_yaml['bodyparts'] = get_bodyparts_from_xma(os.path.join(working_dir, 'trainingdata', trial_name), project['tracking_mode'])
 
-        elif dlc_yaml['bodyparts'] != get_bodyparts_from_xma(os.path.join(working_dir, 'trainingdata', trial_name)):
+        elif dlc_yaml['bodyparts'] != get_bodyparts_from_xma(os.path.join(working_dir, 'trainingdata', trial_name), project['tracking_mode']):
             raise SyntaxError('XMAlab CSV marker names are different than DLC bodyparts.')
 
     with open(project['path_config_file'], 'w') as dlc_config:
@@ -619,7 +620,7 @@ def split_rgb(trial_path, codec='avc1'):
     print(f"Cam2 grayscale video created at {trial_path}/{out_name}cam2.avi!")
     print(f"Blue channel grayscale video created at {trial_path}/{out_name}blue.avi!")
 
-def splice_xma_to_dlc(working_dir, outlier_mode=False, swap=False, cross=True):
+def splice_xma_to_dlc(working_dir, outlier_mode=False, swap=False, cross=False):
     '''Takes csv of XMALab 2D XY coordinates from 2 cameras, outputs spliced hdf+csv data for DeepLabCut'''
     project = load_project(working_dir)
     substitute_data_relpath = "labeled-data/" + project['dataset_name']
