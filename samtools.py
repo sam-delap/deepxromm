@@ -150,9 +150,9 @@ def load_project(working_dir=os.getcwd()):
         trial_name = os.listdir(working_dir + '/trainingdata')[0]
 
         if dlc_yaml['bodyparts'] == default_bodyparts:
-            dlc_yaml['bodyparts'] = get_bodyparts_from_xma(os.path.join(working_dir, 'trainingdata', trial_name), project['tracking_mode'])
+            dlc_yaml['bodyparts'] = get_bodyparts_from_xma(os.path.join(working_dir, 'trainingdata', trial_name), project['tracking_mode'], project['swapped_markers'], project['crossed_markers'])
 
-        elif dlc_yaml['bodyparts'] != get_bodyparts_from_xma(os.path.join(working_dir, 'trainingdata', trial_name), project['tracking_mode']):
+        elif dlc_yaml['bodyparts'] != get_bodyparts_from_xma(os.path.join(working_dir, 'trainingdata', trial_name), project['tracking_mode'], project['swapped_markers'], project['crossed_markers']):
             raise SyntaxError('XMAlab CSV marker names are different than DLC bodyparts.')
 
     with open(project['path_config_file'], 'w') as dlc_config:
