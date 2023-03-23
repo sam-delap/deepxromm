@@ -56,6 +56,8 @@ def create_new_project(working_dir=os.getcwd(), experimenter='NA'):
         maxiters: 150000
         tracking_threshold: 0.1 # Fraction of total frames included in training sample
         tracking_mode: 2D
+        swapped_markers: false
+        crossed_markers: false
 
 # Image Processing Vars
         search_area: 15
@@ -353,7 +355,7 @@ def show_crop(src, center, scale=5, contours=None, detected_marker=None):
     plt.imshow(image)
     plt.show()
 
-def get_bodyparts_from_xma(path_to_trial, mode='2D'):
+def get_bodyparts_from_xma(path_to_trial, mode='2D', split_markers=False, crossed_markers=False):
     '''Pull the names of the XMAlab markers from the 2Dpoints file'''
 
     csv_path = [file for file in os.listdir(path_to_trial) if file[-4:] == '.csv']
@@ -365,10 +367,15 @@ def get_bodyparts_from_xma(path_to_trial, mode='2D'):
     names = trial_csv.columns.values
     if mode == 'rgb':
         parts = [name.rsplit('_',1)[0] for name in names]
+        if split_markers:
+            parts = parts + [f'sw_{part}' for part in parts]
+        if crossed_markers:
+            parts = parts + [f'cx_{part}_cam1x2' for part in [name.rsplit('_',2)[0] for name in names]]
     elif mode == '2D':
         parts = [name.rsplit('_',2)[0] for name in names]  
     else:
         raise SyntaxError('Invalid value for mode parameter')
+    
     parts_unique = []
     for part in parts:
         if part not in parts_unique:
@@ -641,10 +648,10 @@ def splice_xma_to_dlc(working_dir, outlier_mode=False, swap=False, cross=False):
             name_x2 = marker+'_cam2_X'
             name_y1 = marker+'_cam1_Y'
             name_y2 = marker+'_cam2_Y'
-            swap_name_x1 = 'sw'+name_x1
-            swap_name_x2 = 'sw'+name_x2
-            swap_name_y1 = 'sw'+name_y1
-            swap_name_y2 = 'sw'+name_y2
+            swap_name_x1 = 'sw_'+name_x1
+            swap_name_x2 = 'sw_'+name_x2
+            swap_name_y1 = 'sw_'+name_y1
+            swap_name_y2 = 'sw_'+name_y2
             df_sw[swap_name_x1] = df[name_x1]
             df_sw[swap_name_y1] = df[name_y2]
             df_sw[swap_name_x2] = df[name_x2]
