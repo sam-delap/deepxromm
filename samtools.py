@@ -2,7 +2,6 @@
 # Import packages
 import os
 import math
-import datetime
 import warnings
 from subprocess import Popen, PIPE
 import cv2
