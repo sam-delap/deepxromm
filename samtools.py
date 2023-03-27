@@ -183,7 +183,7 @@ def train_network(working_dir=os.getcwd()):
             merge_rgb(f'{data_path}/{trial}')
             substitute_data_relpath = "labeled-data/" + project['dataset_name']
             substitute_data_abspath = os.path.join(os.path.split(project['path_config_file'])[0],substitute_data_relpath)
-            extract_matched_frames_rgb(project, substitute_data_abspath, range(1, project['nframes'] + 1))
+            extract_matched_frames_rgb(project, f'{data_path}/{trial}', substitute_data_abspath, range(1, project['nframes'] + 1))
             splice_xma_to_dlc(project, f'{data_path}/{trial}', swap=project['swapped_markers'], cross=project['crossed_markers'])
     
     deeplabcut.create_training_dataset(project['path_config_file'])
@@ -505,6 +505,9 @@ def merge_rgb(trial_path, codec='avc1', mode='difference'):
     '''Takes the path to a trial subfolder and exports a single new video with cam1 video written to the red channel and cam2 video written to the green channel.
     The blue channel is, depending on the value passed as "mode", either the difference blend between A and B, the multiply blend, or just a black frame.'''
     trial_name = os.path.basename(os.path.normpath(trial_path))
+    if os.path.exists(f'{trial_path}/{trial_name}_rgb.avi'):
+        print('RGB video already created. Skipping.')
+        return 
     try:
         cam1_video = cv2.VideoCapture(f'{trial_path}/{trial_name}_cam1.avi')
     except FileNotFoundError as e:
@@ -735,7 +738,7 @@ def extract_matched_frames_rgb(project, trial_path, labeled_data_path, indices, 
     trainingdata_path = project['working_dir'] + '/trainingdata'
     trial_name = os.path.basename(os.path.normpath(trial_path))
     video_path = f'{trainingdata_path}/{trial_name}/{trial_name}_rgb.avi'
-    labeled_data_path = os.path.split(project['path_config'])[0] + '/labeled-data/' + project['task']
+    labeled_data_path = os.path.split(project['path_config_file'])[0] + '/labeled-data/' + project['task']
     frames_from_vid = vid_to_pngs(video_path, labeled_data_path, indices_to_match=indices , name_from_folder=True, compression=compression)
     extracted_frames.append(frames_from_vid)
     print("Extracted "+str(len(indices))+f" matching frames from {video_path}")
