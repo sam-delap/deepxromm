@@ -744,6 +744,7 @@ def vid_to_pngs(video_path, output_dir=None, indices_to_match=[], name_from_fold
     '''Takes a list of frame numbers and exports matching frames from a video as pngs. 
     Optionally, compress the output PNGs. Factor ranges from 0 (no compression) to 9 (most compression)'''
     frame_index = 1
+    last_frame_to_analyze = max(indices_to_match)
     png_list = []
     if name_from_folder:
         out_name = os.path.splitext(os.path.basename(video_path))[0]
@@ -755,6 +756,8 @@ def vid_to_pngs(video_path, output_dir=None, indices_to_match=[], name_from_fold
     while(cap.isOpened()):
         ret, frame = cap.read()
         if ret == False:
+            break
+        if frame_index > last_frame_to_analyze:
             break
         if indices_to_match and not frame_index in indices_to_match:
             frame_index += 1
