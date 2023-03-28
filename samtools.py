@@ -3,13 +3,16 @@
 import os
 import math
 import warnings
+from subprocess import Popen, PIPE
 import cv2
+from PIL import Image
 import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
 import deeplabcut
 from deeplabcut.utils import xrommtools
 from ruamel.yaml import YAML
+import blend_modes
 
 def create_new_project(working_dir=os.getcwd(), experimenter='NA'):
     '''Create a new xrommtools project'''
@@ -52,8 +55,11 @@ def create_new_project(working_dir=os.getcwd(), experimenter='NA'):
         nframes: 0
         maxiters: 150000
         tracking_threshold: 0.1 # Fraction of total frames included in training sample
+        tracking_mode: 2D
+        swapped_markers: false
+        crossed_markers: false
 
-        # Image Processing Vars
+# Image Processing Vars
         search_area: 15
         threshold: 8
         krad: 17
@@ -144,9 +150,9 @@ def load_project(working_dir=os.getcwd()):
         trial_name = os.listdir(working_dir + '/trainingdata')[0]
 
         if dlc_yaml['bodyparts'] == default_bodyparts:
-            dlc_yaml['bodyparts'] = get_bodyparts_from_xma(os.path.join(working_dir, 'trainingdata', trial_name))
+            dlc_yaml['bodyparts'] = get_bodyparts_from_xma(os.path.join(working_dir, 'trainingdata', trial_name), project['tracking_mode'], project['swapped_markers'], project['crossed_markers'])
 
-        elif dlc_yaml['bodyparts'] != get_bodyparts_from_xma(os.path.join(working_dir, 'trainingdata', trial_name)):
+        elif dlc_yaml['bodyparts'] != get_bodyparts_from_xma(os.path.join(working_dir, 'trainingdata', trial_name), project['tracking_mode'], project['swapped_markers'], project['crossed_markers']):
             raise SyntaxError('XMAlab CSV marker names are different than DLC bodyparts.')
 
     with open(project['path_config_file'], 'w') as dlc_config:
@@ -163,14 +169,23 @@ def train_network(working_dir=os.getcwd()):
     project = load_project(working_dir=working_dir)
     data_path = working_dir + "/trainingdata"
 
-    try:
-        xrommtools.xma_to_dlc(project['path_config_file'],
-        data_path,
-        project['dataset_name'],
-        project['experimenter'],
-        project['nframes'])
-    except UnboundLocalError:
-        pass
+    if project['tracking_mode'] == '2D':
+        try:
+            xrommtools.xma_to_dlc(project['path_config_file'],
+            data_path,
+            project['dataset_name'],
+            project['experimenter'],
+            project['nframes'])
+        except UnboundLocalError:
+            pass
+    else:
+        for trial in os.listdir(data_path):
+            merge_rgb(f'{data_path}/{trial}')
+            substitute_data_relpath = "labeled-data/" + project['dataset_name']
+            substitute_data_abspath = os.path.join(os.path.split(project['path_config_file'])[0],substitute_data_relpath)
+            extract_matched_frames_rgb(project, f'{data_path}/{trial}', substitute_data_abspath, range(1, project['nframes'] + 1))
+            splice_xma_to_dlc(project, f'{data_path}/{trial}', swap=project['swapped_markers'], cross=project['crossed_markers'])
+    
     deeplabcut.create_training_dataset(project['path_config_file'])
     deeplabcut.train_network(project['path_config_file'], maxiters=project['maxiters'])
 
@@ -190,7 +205,14 @@ def analyze_videos(working_dir=os.getcwd()):
         dlc = yaml.load(dlc_config)
     iteration = dlc['iteration']
 
-    xrommtools.analyze_xromm_videos(project['path_config_file'], new_data_path, iteration)
+    if project['tracking_mode'] == '2D':
+        xrommtools.analyze_xromm_videos(project['path_config_file'], new_data_path, iteration)
+    else:
+        for trial in os.listdir(f'{working_dir}/trials'):
+            video_path = f'{working_dir}/trials/{trial}/{trial}_rgb.avi'
+            destfolder = f'{working_dir}/trials/{trial}/it{iteration}/'
+            deeplabcut.analyze_videos(project['path_config_file'], video_path, destfolder=destfolder, save_as_csv=True)
+            split_dlc_to_xma(project, trial)
 
 def autocorrect_trial(working_dir=os.getcwd()): #try 0.05 also
     '''Do XMAlab-style autocorrect on the tracked beads'''
@@ -349,13 +371,7 @@ def show_crop(src, center, scale=5, contours=None, detected_marker=None):
     plt.imshow(image)
     plt.show()
 
-# play with first pass filter params
-# play with thresholding
-# filter contours for area then circularity
-# try blobdetector
-
-# Makes more sense for this to be trial-specific and to loop externally as-needed
-def get_bodyparts_from_xma(path_to_trial):
+def get_bodyparts_from_xma(path_to_trial, mode='2D', split_markers=False, crossed_markers=False):
     '''Pull the names of the XMAlab markers from the 2Dpoints file'''
 
     csv_path = [file for file in os.listdir(path_to_trial) if file[-4:] == '.csv']
@@ -365,7 +381,17 @@ def get_bodyparts_from_xma(path_to_trial):
         raise FileNotFoundError('Couldn\'t find a CSV file for trial: ' + path_to_trial)
     trial_csv = pd.read_csv(path_to_trial + '/' + csv_path[0], sep=',',header=0, dtype='float',na_values='NaN')
     names = trial_csv.columns.values
-    parts = [name.rsplit('_',2)[0] for name in names]
+    if mode == 'rgb':
+        parts = [name.rsplit('_',1)[0] for name in names]
+        if split_markers:
+            parts = parts + [f'sw_{part}' for part in parts]
+        if crossed_markers:
+            parts = parts + [f'cx_{part}_cam1x2' for part in [name.rsplit('_',2)[0] for name in names]]
+    elif mode == '2D':
+        parts = [name.rsplit('_',2)[0] for name in names]  
+    else:
+        raise SyntaxError('Invalid value for mode parameter')
+    
     parts_unique = []
     for part in parts:
         if part not in parts_unique:
@@ -480,3 +506,315 @@ def jupyter_test_autocorrect(working_dir=os.getcwd(), cam='cam1', marker_name=No
         detected_center, _ = cv2.minEnclosingCircle(contours[best_index])
         detected_center_im, _ = cv2.minEnclosingCircle(contours_im[best_index])
         show_crop(subimage, 15, contours = [contours_im[best_index]], detected_marker = detected_center_im)
+
+
+def merge_rgb(trial_path, codec='avc1', mode='difference'):
+    '''Takes the path to a trial subfolder and exports a single new video with cam1 video written to the red channel and cam2 video written to the green channel.
+    The blue channel is, depending on the value passed as "mode", either the difference blend between A and B, the multiply blend, or just a black frame.'''
+    trial_name = os.path.basename(os.path.normpath(trial_path))
+    if os.path.exists(f'{trial_path}/{trial_name}_rgb.avi'):
+        print('RGB video already created. Skipping.')
+        return 
+    try:
+        cam1_video = cv2.VideoCapture(f'{trial_path}/{trial_name}_cam1.avi')
+    except FileNotFoundError as e:
+        raise FileNotFoundError(f'Make sure your cam1 video for trial {trial_name} is named {trial_name}_cam1.avi') from e
+    try:
+        cam2_video = cv2.VideoCapture(f'{trial_path}/{trial_name}_cam2.avi')
+    except FileNotFoundError as e:
+        raise FileNotFoundError(f'Make sure your cam2 video for trial {trial_name} is named {trial_name}_cam2.avi') from e
+
+    frame_width = int(cam1_video.get(3))
+    frame_height = int(cam1_video.get(4))
+    frame_rate = round(cam1_video.get(5),2)
+    fourcc = cv2.VideoWriter_fourcc(*codec)
+    out = cv2.VideoWriter(f'{trial_path}/{trial_name}_rgb.avi',
+                            fourcc,
+                            frame_rate,(frame_width, frame_height))
+    i = 1
+    while cam1_video.isOpened():
+        print(f'Current Frame: {i}')
+        ret_cam1, frame_cam1 = cam1_video.read()
+        _, frame_cam2 = cam2_video.read()
+        if ret_cam1:
+            frame_cam1 = cv2.cvtColor(frame_cam1, cv2.COLOR_BGR2BGRA,4).astype(np.float32)
+            frame_cam2 = cv2.cvtColor(frame_cam2, cv2.COLOR_BGR2BGRA,4).astype(np.float32)
+            frame_cam1 = cv2.normalize(frame_cam1, None, 0, 255, norm_type=cv2.NORM_MINMAX)
+            frame_cam2 = cv2.normalize(frame_cam2, None, 0, 255, norm_type=cv2.NORM_MINMAX)
+            if mode == "difference":
+                extra_channel = blend_modes.difference(frame_cam1,frame_cam2,1)
+            elif mode == "multiply":
+                extra_channel = blend_modes.multiply(frame_cam1,frame_cam2,1)
+            else:
+                extra_channel = np.zeros((frame_width, frame_height,3),np.uint8)
+                extra_channel = cv2.cvtColor(extra_channel, cv2.COLOR_BGR2BGRA,4).astype(np.float32)
+            frame_cam1 = cv2.cvtColor(frame_cam1, cv2.COLOR_BGRA2BGR).astype(np.uint8)
+            frame_cam2 = cv2.cvtColor(frame_cam2, cv2.COLOR_BGRA2BGR).astype(np.uint8)
+            extra_channel = cv2.cvtColor(extra_channel, cv2.COLOR_BGRA2BGR).astype(np.uint8)
+            frame_cam1 = cv2.cvtColor(frame_cam1, cv2.COLOR_BGR2GRAY)
+            frame_cam2 = cv2.cvtColor(frame_cam2, cv2.COLOR_BGR2GRAY)
+            extra_channel = cv2.cvtColor(extra_channel, cv2.COLOR_BGR2GRAY)
+            merged = cv2.merge((extra_channel, frame_cam2, frame_cam1))
+            out.write(merged)
+            if cv2.waitKey(1) & 0xFF == ord('q'):
+                break
+        else:
+            break
+
+        i = i + 1
+    cam1_video.release()
+    cam2_video.release()
+    out.release()
+    cv2.destroyAllWindows()
+    print(f"Merged RGB video created at {trial_path}/{trial_name}_rgb.avi!")
+
+
+def split_rgb(trial_path, codec='avc1'):
+    '''Takes a RGB video with different grayscale data written to the R, G, and B channels and splits it back into its component source videos.'''
+    trial_name = os.path.basename(os.path.normpath(trial_path))
+    out_name = trial_name+'_split_'
+
+    try:
+        rgb_video = cv2.VideoCapture(f'{trial_path}/{trial_name}_rgb.avi')
+    except FileNotFoundError as e:
+        raise FileNotFoundError(f'Couldn\'t find video at {trial_path}/{trial_name}_rgb.avi') from e 
+    frame_width = int(rgb_video.get(3))
+    frame_height = int(rgb_video.get(4))
+    frame_rate = round(rgb_video.get(5),2)
+    if codec == 'uncompressed':
+        pix_format = 'gray'   ##change to 'yuv420p' for color or 'gray' for grayscale. 'pal8' doesn't play on macs
+        cam1_split_ffmpeg = Popen(['ffmpeg', '-y', '-f', 'image2pipe', '-vcodec', 'png', '-r', str(int(frame_rate)),
+        '-i', '-', '-vcodec', 'rawvideo','-pix_fmt',pix_format,'-r', str(int(frame_rate)), f'{trial_path}/{out_name}'+'cam1.avi'], stdin=PIPE)
+        cam2_split_ffmpeg = Popen(['ffmpeg', '-y', '-f', 'image2pipe', '-vcodec', 'png', '-r', str(int(frame_rate)),
+        '-i', '-', '-vcodec', 'rawvideo','-pix_fmt',pix_format,'-r', str(int(frame_rate)), f'{trial_path}/{out_name}'+'cam2.avi'], stdin=PIPE)
+        blue_split_ffmpeg = Popen(['ffmpeg', '-y', '-f', 'image2pipe', '-vcodec', 'png', '-r', str(int(frame_rate)),
+        '-i', '-', '-vcodec', 'rawvideo','-pix_fmt',pix_format,'-r', str(int(frame_rate)), f'{trial_path}/{out_name}'+'blue.avi'], stdin=PIPE)
+    else:
+        if codec == 0:
+            fourcc = 0
+        else:
+            fourcc = cv2.VideoWriter_fourcc(*codec)
+        cam1 = cv2.VideoWriter(f'{trial_path}/{out_name}'+'cam1.avi',
+                                fourcc,
+                                frame_rate,(frame_width, frame_height))
+        cam2 = cv2.VideoWriter(f'{trial_path}/{out_name}'+'cam2.avi',
+                                fourcc,
+                                frame_rate,(frame_width, frame_height))
+        blue_channel = cv2.VideoWriter(f'{trial_path}/{out_name}'+'blue.avi',
+                                fourcc,
+                                frame_rate,(frame_width, frame_height))
+
+    i = 1
+    while rgb_video.isOpened():
+        ret, frame = rgb_video.read()
+        print(f'Current Frame: {i}')
+        i = i + 1
+        if ret:
+            B, G, R = cv2.split(frame)
+            if codec == 'uncompressed':
+                im_r = Image.fromarray(R)
+                im_g = Image.fromarray(G)
+                im_b = Image.fromarray(B)
+                im_r.save(cam1_split_ffmpeg.stdin, 'PNG')
+                im_g.save(cam2_split_ffmpeg.stdin, 'PNG')
+                im_b.save(blue_split_ffmpeg.stdin, 'PNG')
+                if cv2.waitKey(1) & 0xFF == ord('q'):
+                    break
+            else:
+                cam1.write(R)
+                cam2.write(G)
+                blue_channel.write(B)
+                if cv2.waitKey(1) & 0xFF == ord('q'):
+                    break
+        else:
+            break
+    if codec == 'uncompressed':
+        cam1_split_ffmpeg.stdin.close()
+        cam1_split_ffmpeg.wait()
+        cam2_split_ffmpeg.stdin.close()
+        cam2_split_ffmpeg.wait()
+        blue_split_ffmpeg.stdin.close()
+        blue_split_ffmpeg.wait()
+    else:
+        cam1.release()
+        cam2.release()
+        blue_channel.release()
+    rgb_video.release()
+    cv2.destroyAllWindows()
+    print(f"Cam1 grayscale video created at {trial_path}/{out_name}cam1.avi!")
+    print(f"Cam2 grayscale video created at {trial_path}/{out_name}cam2.avi!")
+    print(f"Blue channel grayscale video created at {trial_path}/{out_name}blue.avi!")
+
+def splice_xma_to_dlc(project, trial_path, outlier_mode=False, swap=False, cross=False):
+    '''Takes csv of XMALab 2D XY coordinates from 2 cameras, outputs spliced hdf+csv data for DeepLabCut'''
+    substitute_data_relpath = "labeled-data/" + project['dataset_name']
+    substitute_data_abspath = os.path.join('\\'.join(project['path_config_file'].split('\\')[:-1]),substitute_data_relpath)
+    markers = get_bodyparts_from_xma(trial_path, mode = '2D')
+    try:
+        trial_name = os.path.basename(os.path.normpath(trial_path))
+        df = pd.read_csv(f'{trial_path}/{trial_name}.csv')
+    except FileNotFoundError as e:
+        raise FileNotFoundError(f'Please make sure that your trainingdata 2DPoints csv file is named {trial_name}.csv') from e
+    if swap:
+        print("Creating cam1Y-cam2Y-swapped synthetic markers")
+        swaps = []
+        df_sw = pd.DataFrame()
+        for marker in markers:
+            name_x1 = marker+'_cam1_X'
+            name_x2 = marker+'_cam2_X'
+            name_y1 = marker+'_cam1_Y'
+            name_y2 = marker+'_cam2_Y'
+            swap_name_x1 = 'sw_'+name_x1
+            swap_name_x2 = 'sw_'+name_x2
+            swap_name_y1 = 'sw_'+name_y1
+            swap_name_y2 = 'sw_'+name_y2
+            df_sw[swap_name_x1] = df[name_x1]
+            df_sw[swap_name_y1] = df[name_y2]
+            df_sw[swap_name_x2] = df[name_x2]
+            df_sw[swap_name_y2] = df[name_y1]
+            swaps.extend([swap_name_x1,swap_name_y1,swap_name_x2,swap_name_y2])
+        df = df.join(df_sw)
+        print(swaps)
+    if cross:
+        print("Creating cam1-cam2-crossed synthetic markers")
+        crosses = []
+        df_cx = pd.DataFrame()
+        for marker in markers:
+            name_x1 = marker+'_cam1_X'
+            name_x2 = marker+'_cam2_X'
+            name_y1 = marker+'_cam1_Y'
+            name_y2 = marker+'_cam2_Y'
+            cross_name_x = 'cx_'+marker+'_cam1x2_X'
+            cross_name_y = 'cx_'+marker+'_cam1x2_Y'
+            df_cx[cross_name_x] = df[name_x1]*df[name_x2]
+            df_cx[cross_name_y] = df[name_y1]*df[name_y2]
+            crosses.extend([cross_name_x,cross_name_y])
+        df = df.join(df_cx)
+        print(crosses)
+    names_final = df.columns.values
+    parts_final = [name.rsplit('_',1)[0] for name in names_final]
+    parts_unique_final = []
+    for part in parts_final:
+        if not part in parts_unique_final:
+            parts_unique_final.append(part)
+    print("Importing markers: ")
+    print(parts_unique_final)
+    with open(project['path_config_file'], 'r') as dlc_config:
+        yaml = YAML()
+        dlc_proj = yaml.load(dlc_config)
+
+    dlc_proj['bodyparts'] = parts_unique_final
+
+    with open(project['path_config_file'], 'w') as dlc_config:
+        yaml.dump(dlc_proj, dlc_config)
+
+    unique_frames_set = {}
+    unique_frames_set = {index for index in range(1, project['nframes'] + 1) if index not in unique_frames_set}
+    unique_frames = sorted(unique_frames_set)
+    print("Importing frames: ")
+    print(unique_frames)
+    df['frame_index']=[substitute_data_relpath + f'/{trial_name}_rgb_'+str(index).zfill(4)+'.png' for index in unique_frames]
+    df['scorer']=project['experimenter']
+    df = df.melt(id_vars=['frame_index','scorer'])
+    new = df['variable'].str.rsplit("_",n=1,expand=True)
+    df['variable'],df['coords'] = new[0], new[1]
+    df=df.rename(columns={'variable':'bodyparts'})
+    df['coords']=df['coords'].str.rstrip(" ").str.lower()
+    cat_type = pd.api.types.CategoricalDtype(categories=parts_unique_final,ordered=True)
+    df['bodyparts']=df['bodyparts'].str.lstrip(" ").astype(cat_type)
+    newdf = df.pivot_table(columns=['scorer', 'bodyparts', 'coords'],index='frame_index',values='value',aggfunc='first',dropna=False)
+    newdf.index.name=None
+    if not os.path.exists(substitute_data_abspath):
+        os.makedirs(substitute_data_abspath)
+    if outlier_mode:
+        data_name = os.path.join(substitute_data_abspath,"MachineLabelsRefine.h5")
+        tracked_hdf = os.path.join(substitute_data_abspath,("MachineLabelsRefine_"+".h5"))
+    else:
+        data_name = os.path.join(substitute_data_abspath,("CollectedData_"+project['experimenter']+".h5"))
+        tracked_hdf = os.path.join(substitute_data_abspath,("CollectedData_"+project['experimenter']+".h5"))
+    newdf.to_hdf(data_name, 'df_with_missing', format='table', mode='w')
+    newdf.to_hdf(tracked_hdf, 'df_with_missing', format='table', mode='w')
+    tracked_csv = data_name.split('.h5')[0]+'.csv'
+    newdf.to_csv(tracked_csv, na_rep='NaN')
+    print("Successfully spliced XMALab 2D points to DLC format", "saved "+str(data_name), "saved "+str(tracked_hdf), "saved "+str(tracked_csv), sep='\n')
+
+def extract_matched_frames_rgb(project, trial_path, labeled_data_path, indices, compression=1):
+    '''Given a list of frame indices and a project path, produce a folder (in labeled-data) of matching frame pngs per source video.
+    Optionally, compress the output PNGs. Factor ranges from 0 (no compression) to 9 (most compression)'''
+    extracted_frames = []
+    trainingdata_path = project['working_dir'] + '/trainingdata'
+    trial_name = os.path.basename(os.path.normpath(trial_path))
+    video_path = f'{trainingdata_path}/{trial_name}/{trial_name}_rgb.avi'
+    labeled_data_path = os.path.split(project['path_config_file'])[0] + '/labeled-data/' + project['task']
+    frames_from_vid = vid_to_pngs(video_path, labeled_data_path, indices_to_match=indices , name_from_folder=True, compression=compression)
+    extracted_frames.append(frames_from_vid)
+    print("Extracted "+str(len(indices))+f" matching frames from {video_path}")
+
+def vid_to_pngs(video_path, output_dir=None, indices_to_match=[], name_from_folder=True, compression=0):
+    '''Takes a list of frame numbers and exports matching frames from a video as pngs. 
+    Optionally, compress the output PNGs. Factor ranges from 0 (no compression) to 9 (most compression)'''
+    frame_index = 1
+    last_frame_to_analyze = max(indices_to_match)
+    png_list = []
+    if name_from_folder:
+        out_name = os.path.splitext(os.path.basename(video_path))[0]
+    else:
+        out_name = 'img'
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
+    cap = cv2.VideoCapture(video_path)
+    while(cap.isOpened()):
+        ret, frame = cap.read()
+        if ret == False:
+            break
+        if frame_index > last_frame_to_analyze:
+            break
+        if indices_to_match and not frame_index in indices_to_match:
+            frame_index += 1
+            continue
+        else:
+            print(f'Extracting frame {frame_index}')
+            png_name = out_name+'_'+str(frame_index).zfill(4)+'.png'
+            png_path = os.path.join(output_dir, png_name)
+            png_list.append(png_path)
+            cv2.imwrite(png_path, frame, [cv2.IMWRITE_PNG_COMPRESSION, compression])
+            if cv2.waitKey(1) & 0xFF == ord('q'):
+                    break
+            frame_index += 1
+    cap.release()
+    cv2.destroyAllWindows()
+    return png_list
+
+def split_dlc_to_xma(project, trial, save_hdf=True):
+    bodyparts_XY = []
+    yaml = YAML()
+    with open(project['path_config_file']) as dlc_config:
+        dlc = yaml.load(dlc_config)
+    iteration = dlc['iteration']
+    trial_path = project['working_dir'] + f'/trials/{trial}'
+    
+    rgb_parts = get_bodyparts_from_xma(trial_path, mode='rgb')
+    for part in rgb_parts:
+        bodyparts_XY.append(part+'_X')
+        bodyparts_XY.append(part+'_Y')
+    
+    csv_path = [file for file in os.listdir(f'{trial_path}/it{iteration}') if '.csv' in file and '-2DPoints' not in file]
+    if len(csv_path) > 1:
+        raise FileExistsError('Found more than 1 data CSV for RGB trial. Please remove CSVs from older analyses from this folder before analyzing.')
+    elif len(csv_path) < 1:
+        raise FileNotFoundError(f'Couldn\'t find data CSV for trial {trial}. Something wrong with DeepLabCut?')
+    
+    csv_path = csv_path[0]
+    xma_csv_path = f'{trial_path}/it{iteration}/{trial}-Predicted2DPoints.csv'
+    
+    df = pd.read_csv(f'{trial_path}/it{iteration}/{csv_path}', skiprows=1)
+    df.index = df['bodyparts']
+    df = df.drop(columns=df.columns[[df.loc['coords'] == 'likelihood']])
+    df = df.drop(columns=[column for column in df.columns if column not in [bodypart for bodypart in rgb_parts] and column not in [f'{bodypart}.1' for bodypart in rgb_parts]])
+    df.columns = bodyparts_XY
+    df = df.drop(index='coords')
+    df.to_csv(xma_csv_path, index=False)
+    print("Successfully split DLC format to XMALab 2D points; saved "+str(xma_csv_path))
+    if save_hdf:
+        tracked_hdf = os.path.splitext(csv_path)[0]+'.h5'
+        df.to_hdf(tracked_hdf, 'df_with_missing', format='table', mode='w', nan_rep='NaN')
