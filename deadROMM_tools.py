@@ -16,31 +16,22 @@ import blend_modes
 
 def create_new_project(working_dir=os.getcwd(), experimenter='NA'):
     '''Create a new xrommtools project'''
-    saved_dir=os.getcwd()
-    try:
-        os.chdir(working_dir)
-    except FileNotFoundError:
+    if not os.path.exists(working_dir):
         os.mkdir(working_dir)
-        os.chdir(working_dir)
     dirs = ["trainingdata", "trials", "XMA_files"]
     for folder in dirs:
-        try:
-            os.mkdir(folder)
-        except FileExistsError:
-            continue
+        if not os.path.exists(f'{working_dir}/{folder}'):
+            os.mkdir(f'{working_dir}/{folder}')
 
     # Create a fake video to pass into the deeplabcut workflow
     frame = np.zeros((480, 480, 3), np.uint8)
-    out = cv2.VideoWriter('dummy.avi',cv2.VideoWriter_fourcc(*'DIVX'), 15, (480,480))
+    out = cv2.VideoWriter(f'{working_dir}/dummy.avi',cv2.VideoWriter_fourcc(*'DIVX'), 15, (480,480))
     out.write(frame)
     out.release()
 
     # Create a new project
     yaml = YAML()
-    if '\\' in working_dir:
-        task = working_dir.split("\\")[len(working_dir.split("\\")) - 1]
-    else:
-        task = working_dir.split('/')[len(working_dir.split('/')) - 1]
+    task = os.path.basename(working_dir)
 
     path_config_file = deeplabcut.create_new_project(task, experimenter,
         [working_dir + "\\dummy.avi"], working_dir + "\\", copy_videos=True)
@@ -68,17 +59,17 @@ def create_new_project(working_dir=os.getcwd(), experimenter='NA'):
         blur_wt: -2.9
         gamma: 0.1
 
-        # Jupyter Testing Vars
+# Jupyter Testing Vars
         cam: cam1
         frame_num: 1
-        trial_name
+        trial_name:
         marker: marker_name
         test_autocorrect: false # Set to true if you want to see autocorrect's output in Jupyter
         """
 
         tmp = yaml.load(template)
 
-        with open("project_config.yaml", 'w') as config:
+        with open(f"{working_dir}/project_config.yaml", 'w') as config:
             yaml.dump(tmp, config)
 
         try:
@@ -95,7 +86,6 @@ def create_new_project(working_dir=os.getcwd(), experimenter='NA'):
         os.remove("dummy.avi")
     except FileNotFoundError:
         pass
-    os.chdir(saved_dir)
 
 def load_project(working_dir=os.getcwd()):
     '''Load an existing project (only used internally/in testing)'''

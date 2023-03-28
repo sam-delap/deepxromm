@@ -99,6 +99,7 @@ class TestDefaultsPerformance(unittest.TestCase):
         }, index=[1])
 
         df.to_csv('tmp/trainingdata/dummy/dummy.csv', index=False)
+        cv2.destroyAllWindows()
 
     def test_can_find_frames_from_csv(self):
         '''Can I accurately find the number of frames in the video if the user doesn't tell me?'''
@@ -193,6 +194,7 @@ class TestDefaultsPerformance(unittest.TestCase):
         self.assertEqual(config_obj['bodyparts'], ['foo_cam1', 'foo_cam2', 'bar_cam1', 'bar_cam2', 'baz_cam1', 'baz_cam2'])
 
     def test_bodyparts_add_synthetic(self):
+        '''Can we add swapped markers?'''
         yaml = YAML()
         date = dt.today().strftime("%Y-%m-%d")
         
@@ -211,7 +213,9 @@ class TestDefaultsPerformance(unittest.TestCase):
             config_obj = yaml.load(dlc_config)
         
         self.assertEqual(config_obj['bodyparts'], ['foo_cam1', 'foo_cam2', 'bar_cam1', 'bar_cam2', 'baz_cam1', 'baz_cam2', 'sw_foo_cam1', 'sw_foo_cam2', 'sw_bar_cam1', 'sw_bar_cam2', 'sw_baz_cam1', 'sw_baz_cam2'])
+    
     def test_bodyparts_add_crossed(self):
+        '''Can we add crossed markers?'''
         yaml = YAML()
         date = dt.today().strftime("%Y-%m-%d")
         
@@ -230,7 +234,9 @@ class TestDefaultsPerformance(unittest.TestCase):
             config_obj = yaml.load(dlc_config)
         
         self.assertEqual(config_obj['bodyparts'], ['foo_cam1', 'foo_cam2', 'bar_cam1', 'bar_cam2', 'baz_cam1', 'baz_cam2', 'cx_foo_cam1x2', 'cx_bar_cam1x2', 'cx_baz_cam1x2'])
+    
     def test_bodyparts_add_synthetic_and_crossed(self):
+        '''Can we add both swapped and crossed markers?'''
         yaml = YAML()
         date = dt.today().strftime("%Y-%m-%d")
         
@@ -310,6 +316,8 @@ class TestSampleTrial(unittest.TestCase):
         out = cv2.VideoWriter('tmp/trials/test/test_cam2.avi',cv2.VideoWriter_fourcc(*'DIVX'), 30, (1024,512))
         out.write(frame)
         out.release()
+
+        cv2.destroyAllWindows()
 
     def test_autocorrect_is_working(self):
         '''Make sure that autocorrect still works properly after making changes'''
