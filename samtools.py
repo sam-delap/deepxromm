@@ -205,7 +205,14 @@ def analyze_videos(working_dir=os.getcwd()):
         dlc = yaml.load(dlc_config)
     iteration = dlc['iteration']
 
-    xrommtools.analyze_xromm_videos(project['path_config_file'], new_data_path, iteration)
+    if project['tracking_mode'] == '2D':
+        xrommtools.analyze_xromm_videos(project['path_config_file'], new_data_path, iteration)
+    else:
+        for trial in os.listdir(f'{working_dir}/trials'):
+            video_path = f'{working_dir}/trials/{trial}/{trial}_rgb.avi'
+            destfolder = f'{working_dir}/trials/{trial}/it{iteration}/'
+            deeplabcut.analyze_videos(project['path_config_file'], video_path, destfolder=destfolder, save_as_csv=True)
+            split_dlc_to_xma(project, trial)
 
 def autocorrect_trial(working_dir=os.getcwd()): #try 0.05 also
     '''Do XMAlab-style autocorrect on the tracked beads'''
@@ -784,7 +791,7 @@ def split_dlc_to_xma(project, trial, save_hdf=True):
     with open(project['path_config_file']) as dlc_config:
         dlc = yaml.load(dlc_config)
     iteration = dlc['iteration']
-    trial_path = project['working_dir'] + f'/trainingdata/{trial}'
+    trial_path = project['working_dir'] + f'/trials/{trial}'
     
     rgb_parts = get_bodyparts_from_xma(trial_path, mode='rgb')
     for part in rgb_parts:
