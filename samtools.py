@@ -708,6 +708,7 @@ def splice_xma_to_dlc(project, trial_path, outlier_mode=False, swap=False, cross
     with open(project['path_config_file'], 'w') as dlc_config:
         yaml.dump(dlc_proj, dlc_config)
 
+    df = df.dropna(how='all')
     unique_frames_set = {}
     unique_frames_set = {index for index in range(1, project['nframes'] + 1) if index not in unique_frames_set}
     unique_frames = sorted(unique_frames_set)
@@ -745,7 +746,7 @@ def extract_matched_frames_rgb(project, trial_path, labeled_data_path, indices, 
     trainingdata_path = project['working_dir'] + '/trainingdata'
     trial_name = os.path.basename(os.path.normpath(trial_path))
     video_path = f'{trainingdata_path}/{trial_name}/{trial_name}_rgb.avi'
-    labeled_data_path = os.path.split(project['path_config_file'])[0] + '/labeled-data/' + project['task']
+    labeled_data_path = os.path.split(project['path_config_file'])[0] + '/labeled-data/' + project['dataset_name']
     frames_from_vid = vid_to_pngs(video_path, labeled_data_path, indices_to_match=indices , name_from_folder=True, compression=compression)
     extracted_frames.append(frames_from_vid)
     print("Extracted "+str(len(indices))+f" matching frames from {video_path}")
