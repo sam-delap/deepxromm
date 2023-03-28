@@ -39,6 +39,8 @@ class TestProjectCreation(unittest.TestCase):
         'maxiters',
         'tracking_threshold',
         'tracking_mode',
+        'swapped_markers',
+        'crossed_markers',
         'search_area',
         'threshold',
         'krad',
