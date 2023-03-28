@@ -182,7 +182,7 @@ class TestDefaultsPerformance(unittest.TestCase):
         tmp['tracking_mode'] = 'rgb'
         with open(os.path.join(self.working_dir, 'project_config.yaml'), 'w') as fp:
             yaml.dump(tmp, fp)
-        sam.load_project(self.working_dir)
+        deadROMM_tools.load_project(self.working_dir)
 
         path_to_config = '/tmp-NA-' + date + '/config.yaml'
 
@@ -202,7 +202,7 @@ class TestDefaultsPerformance(unittest.TestCase):
         tmp['swapped_markers'] = True
         with open(os.path.join(self.working_dir, 'project_config.yaml'), 'w') as fp:
             yaml.dump(tmp, fp)
-        sam.load_project(self.working_dir)
+        deadROMM_tools.load_project(self.working_dir)
 
         path_to_config = '/tmp-NA-' + date + '/config.yaml'
 
@@ -221,7 +221,7 @@ class TestDefaultsPerformance(unittest.TestCase):
         tmp['crossed_markers'] = True
         with open(os.path.join(self.working_dir, 'project_config.yaml'), 'w') as fp:
             yaml.dump(tmp, fp)
-        sam.load_project(self.working_dir)
+        deadROMM_tools.load_project(self.working_dir)
 
         path_to_config = '/tmp-NA-' + date + '/config.yaml'
 
@@ -241,7 +241,7 @@ class TestDefaultsPerformance(unittest.TestCase):
         tmp['crossed_markers'] = True
         with open(os.path.join(self.working_dir, 'project_config.yaml'), 'w') as fp:
             yaml.dump(tmp, fp)
-        sam.load_project(self.working_dir)
+        deadROMM_tools.load_project(self.working_dir)
 
         path_to_config = '/tmp-NA-' + date + '/config.yaml'
 
