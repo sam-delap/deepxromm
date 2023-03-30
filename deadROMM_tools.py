@@ -254,8 +254,9 @@ def autocorrect_trial(working_dir=os.getcwd()): #try 0.05 also
             csv = autocorrect_video(cam, trial, csv, project, new_data_path)
 
         # Print when autocorrect finishes
-        print(f'Done! Saving to {out_name}')
-        csv.to_csv(out_name, index=False)
+        if not project['test_autocorrect']:
+            print(f'Done! Saving to {out_name}')
+            csv.to_csv(out_name, index=False)
 
 def autocorrect_video(cam, trial, csv, project, new_data_path):
     '''Run the autocorrect function on a single video within a single trial'''
@@ -331,6 +332,7 @@ def autocorrect_frame(new_data_path, trial, frame, cam, frame_index, csv, projec
 
         # Find contours
         contours, _ = cv2.findContours(subimage_gaussthresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE, offset=(x_start,y_start))
+        contours_im = [contour-[x_start, y_start] for contour in contours]
 
         # Find closest contour
         dist = 1000
@@ -344,6 +346,35 @@ def autocorrect_frame(new_data_path, trial, frame, cam, frame_index, csv, projec
                 best_index = i
                 dist = dist_tmp
 
+        if project['test_autocorrect']:
+            print('Raw')
+            show_crop(subimage, 15)
+            
+            print('Filtered')
+            show_crop(subimage_filtered, 15)
+            
+            print(f'Blurred: {sigma}')
+            show_crop(subimage_blurred, 15)
+            
+            print('Diff (Float - blurred)')
+            show_crop(subimage_diff, 15)
+
+            print('Median')
+            show_crop(subimage_median, 15)
+
+            print('Median filtered')
+            show_crop(subimage_median, 15)
+
+            print('Threshold')
+            show_crop(subimage_threshold, 15)
+
+            print('Gaussian')
+            show_crop(subimage_threshold, 15)
+
+            print('Best Contour')
+            detected_center_im, _ = cv2.minEnclosingCircle(contours_im[best_index])
+            show_crop(subimage, 15, contours = [contours_im[best_index]], detected_marker = detected_center_im)
+        
         # Save center of closest contour to CSV
         if best_index >= 0:
             detected_center, _ = cv2.minEnclosingCircle(contours[best_index])
@@ -418,116 +449,6 @@ def get_bodyparts_from_xma(path_to_trial, mode='2D', split_markers=False, crosse
         if part not in parts_unique:
             parts_unique.append(part)
     return parts_unique
-
-def jupyter_test_autocorrect(working_dir=os.getcwd(), cam='cam1', marker_name=None, frame_num=1, csv_path=None):
-    '''Test the filtering parameters for autocorrect_frame() from a jupyter notebook'''
-    project = load_project(working_dir)
-    new_data_path = working_dir + "/trials"
-    trial_name = os.listdir(new_data_path)[0]
-    predicted_vid_path = new_data_path + '/' + trial_name + '/' + trial_name + '_' + cam + '.avi'
-    yaml = YAML()
-    with open(project['path_config_file']) as dlc_config:
-        dlc = yaml.load(dlc_config)
-
-    iteration = dlc['iteration']
-    print(f'Analyzing video at: {predicted_vid_path}')
-    # Find the raw video
-    try:
-        video = cv2.VideoCapture(predicted_vid_path)
-    except FileNotFoundError:
-        raise FileNotFoundError(f'Please make sure that your {cam} video file is named {trial_name}_{cam}.avi') from None
-    # For each frame of video
-    print(f'Loading {cam} video for trial {trial_name}')
-    print(f'Total frames in video: {int(video.get(cv2.CAP_PROP_FRAME_COUNT))}')
-    if csv_path is None:
-        csv_path = f'{new_data_path}/{trial_name}/it{iteration}/{trial_name}-Predicted2DPoints.csv'
-
-    try:
-        csv = pd.read_csv(csv_path)
-    except FileNotFoundError:
-        print(f'Please point to a 2DPoints csv file or put a CSV file at: {csv_path}')
-
-    # Load frame
-    video.set(1, frame_num - 1)
-    ret, sample_frame = video.read()
-    if ret is False:
-        raise IOError('Error reading video frame')
-
-    # Grab the name of the first marker from the CSV if the user didn't specify
-    if marker_name is None:
-        marker_name = csv.columns.values[0].rsplit('_',2)[0]
-    x_float = csv.loc[frame_num, marker_name + '_' + cam + '_X']
-    y_float = csv.loc[frame_num, marker_name + '_' + cam + '_Y']
-    x_start = int(x_float-15+0.5)
-    y_start = int(y_float-15+0.5)
-    x_end = int(x_float+15+0.5)
-    y_end = int(y_float+15+0.5)
-
-    subimage = sample_frame[y_start:y_end, x_start:x_end]
-
-    print('Raw')
-    show_crop(subimage, 15)
-    subimage_filtered = filter_image(subimage, project['krad'], project['gsigma'], project['img_wt'], project['blur_wt'], project['gamma'])
-    print('Filtered')
-    show_crop(subimage_filtered, 15)
-
-    subimage_float = subimage_filtered.astype(np.float32)
-    radius = int(1.5 * 5 + 0.5) #5 might be too high
-    sigma = radius * math.sqrt(2 * math.log(255)) - 1
-    subimage_blurred = cv2.GaussianBlur(subimage_float, (2 * radius + 1, 2 * radius + 1), sigma)
-    print(f'Blurred: {sigma}')
-    show_crop(subimage_blurred, 15)
-
-    subimage_diff = subimage_float-subimage_blurred
-    subimage_diff = cv2.normalize(subimage_diff, None, 0,255,cv2.NORM_MINMAX).astype(np.uint8)
-    print('Diff (Float - blurred)')
-    show_crop(subimage_diff, 15)
-
-    # Median
-    subimage_median = cv2.medianBlur(subimage_diff, 3)
-    print('Median')
-    show_crop(subimage_median, 15)
-
-    # LUT
-    subimage_median = filter_image(subimage_median, krad=3)
-    print('Median filtered')
-    show_crop(subimage_median, 15)
-
-    # Thresholding
-    subimage_median = cv2.cvtColor(subimage_median, cv2.COLOR_BGR2GRAY)
-    min_val, _, _, _ = cv2.minMaxLoc(subimage_median)
-    thres = 0.5 * min_val + 0.5 * np.mean(subimage_median) + project['threshold'] * 0.01 * 255
-    ret, subimage_threshold =  cv2.threshold(subimage_median, thres, 255, cv2.THRESH_BINARY_INV)
-    print('Threshold')
-    show_crop(subimage_threshold, 15)
-
-    # Gaussian blur
-    subimage_gaussthresh = cv2.GaussianBlur(subimage_threshold, (3,3), 1.3)
-    print('Gaussian')
-    show_crop(subimage_threshold, 15)
-
-    # Find contours
-    contours, _ = cv2.findContours(subimage_gaussthresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE, offset=(x_start,y_start))
-    contours_im = [contour-[x_start, y_start] for contour in contours]
-
-    # Find closest contour
-    dist = 1000
-    best_index = -1
-    detected_centers = {}
-    for i, cnt in enumerate(contours):
-        detected_center, _ = cv2.minEnclosingCircle(cnt)
-        dist_tmp = math.sqrt((x_float - detected_center[0])**2 + (y_float - detected_center[1])**2)
-        detected_centers[round(dist_tmp, 4)] = detected_center
-        if dist_tmp < dist:
-            best_index = i
-            dist = dist_tmp
-
-    # Display contour on raw image
-    if best_index >= 0:
-        detected_center, _ = cv2.minEnclosingCircle(contours[best_index])
-        detected_center_im, _ = cv2.minEnclosingCircle(contours_im[best_index])
-        show_crop(subimage, 15, contours = [contours_im[best_index]], detected_marker = detected_center_im)
-
 
 def merge_rgb(trial_path, codec='avc1', mode='difference'):
     '''Takes the path to a trial subfolder and exports a single new video with cam1 video written to the red channel and cam2 video written to the green channel.
