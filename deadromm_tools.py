@@ -650,7 +650,7 @@ def splice_xma_to_dlc(project, trial_path, outlier_mode=False, swap=False, cross
 
     with open(project['path_config_file'], 'w') as dlc_config:
         yaml.dump(dlc_proj, dlc_config)
-    
+
     df = df.dropna(how='all')
     unique_frames_set = {}
     unique_frames_set = {index for index in range(1, project['nframes'] + 1) if index not in unique_frames_set}
