@@ -6,7 +6,7 @@ from datetime import datetime as dt
 import pandas as pd
 import cv2
 from ruamel.yaml import YAML
-import deadROMM_tools
+import deadromm_tools
 
 
 class TestProjectCreation(unittest.TestCase):
@@ -15,7 +15,7 @@ class TestProjectCreation(unittest.TestCase):
     def setUpClass(cls):
         '''Create a sample project'''
         super(TestProjectCreation, cls).setUpClass()
-        deadROMM_tools.create_new_project(os.path.join(os.getcwd(), 'tmp'))
+        deadromm_tools.create_new_project(os.path.join(os.getcwd(), 'tmp'))
 
     def test_project_creates_correct_folders(self):
         '''Do we have all of the correct folders?'''
@@ -73,7 +73,7 @@ class TestDefaultsPerformance(unittest.TestCase):
     def setUp(self):
         '''Create a sample project where the user only inputs XMAlab data'''
         self.working_dir = os.path.join(os.getcwd(), 'tmp')
-        deadROMM_tools.create_new_project(self.working_dir)
+        deadromm_tools.create_new_project(self.working_dir)
         frame = cv2.imread('sample_frame.jpg')
 
         # Make a trial directory
@@ -109,18 +109,18 @@ class TestDefaultsPerformance(unittest.TestCase):
 
     def test_can_find_frames_from_csv(self):
         '''Can I accurately find the number of frames in the video if the user doesn't tell me?'''
-        project = deadROMM_tools.load_project(self.working_dir)
+        project = deadromm_tools.load_project(self.working_dir)
         self.assertEqual(project['nframes'], 1, msg=f"Actual nframes: {project['nframes']}")
 
     def test_analyze_errors_if_no_folders_in_trials_dir(self):
         '''If there are no trials to analyze, do we return an error?'''
         with self.assertRaises(FileNotFoundError):
-            deadROMM_tools.analyze_videos(self.working_dir)
+            deadromm_tools.analyze_videos(self.working_dir)
 
     def test_autocorrect_errors_if_no_folders_in_trials_dir(self):
         '''If there are no trials to autocorrect, do we return an error?'''
         with self.assertRaises(FileNotFoundError):
-            deadROMM_tools.autocorrect_trial(self.working_dir)
+            deadromm_tools.autocorrect_trial(self.working_dir)
 
     def test_warn_users_if_nframes_doesnt_match_csv(self):
         '''If the number of frames in the CSV doesn't match the number of frames specified, do I issue a warning?'''
@@ -135,14 +135,14 @@ class TestDefaultsPerformance(unittest.TestCase):
 
         # Check that the user is warned
         with self.assertWarns(UserWarning):
-            deadROMM_tools.load_project(self.working_dir)
+            deadromm_tools.load_project(self.working_dir)
 
     def test_yaml_file_updates_nframes_after_load_if_frames_is_0(self):
         '''If the user doesn't specify how many frames they want analyzed,
         does their YAML file get updated with how many are in the CSV?'''
         yaml = YAML()
 
-        deadROMM_tools.load_project(self.working_dir)
+        deadromm_tools.load_project(self.working_dir)
         with open(os.path.join(self.working_dir, 'project_config.yaml'), 'r') as config:
             tmp = yaml.load(config)
 
@@ -151,7 +151,7 @@ class TestDefaultsPerformance(unittest.TestCase):
     def test_warn_if_user_has_tracked_less_than_threshold_frames(self):
         '''If the user has tracked less than threshold % of their trial,
         do I give them a warning?'''
-        deadROMM_tools.load_project(self.working_dir)
+        deadromm_tools.load_project(self.working_dir)
 
         # Increase the number of frames in the video to 100 so I can test this
         frame = cv2.imread('sample_frame.jpg')
@@ -164,14 +164,14 @@ class TestDefaultsPerformance(unittest.TestCase):
 
         # Check that the user is warned
         with self.assertWarns(UserWarning):
-            deadROMM_tools.load_project(self.working_dir)
+            deadromm_tools.load_project(self.working_dir)
 
     def test_bodyparts_add_from_csv_if_not_defined(self):
         '''If the user hasn't specified the bodyparts from their trial,
         we can pull them from the CSV'''
         yaml = YAML()
         date = dt.today().strftime("%Y-%m-%d")
-        deadROMM_tools.load_project(self.working_dir)
+        deadromm_tools.load_project(self.working_dir)
         path_to_config = '/tmp-NA-' + date + '/config.yaml'
 
         with open(self.working_dir + path_to_config) as dlc_config:
@@ -179,17 +179,17 @@ class TestDefaultsPerformance(unittest.TestCase):
 
         self.assertEqual(config_obj['bodyparts'], ['foo', 'bar', 'baz'])
 
-    def test_bodyparts_add_from_csv_in_3D(self):
+    def test_bodyparts_add_from_csv_in_3d(self):
         '''If the user wants to do 3D tracking, we output the desired list of bodyparts'''
         yaml = YAML()
         date = dt.today().strftime("%Y-%m-%d")
-        
+
         with open(os.path.join(self.working_dir, 'project_config.yaml'), 'r') as config:
             tmp = yaml.load(config)
         tmp['tracking_mode'] = 'rgb'
         with open(os.path.join(self.working_dir, 'project_config.yaml'), 'w') as fp:
             yaml.dump(tmp, fp)
-        deadROMM_tools.load_project(self.working_dir)
+        deadromm_tools.load_project(self.working_dir)
 
         path_to_config = '/tmp-NA-' + date + '/config.yaml'
 
@@ -203,49 +203,61 @@ class TestDefaultsPerformance(unittest.TestCase):
         '''Can we add swapped markers?'''
         yaml = YAML()
         date = dt.today().strftime("%Y-%m-%d")
-        
+
         with open(os.path.join(self.working_dir, 'project_config.yaml'), 'r') as config:
             tmp = yaml.load(config)
         tmp['tracking_mode'] = 'rgb'
         tmp['swapped_markers'] = True
         with open(os.path.join(self.working_dir, 'project_config.yaml'), 'w') as fp:
             yaml.dump(tmp, fp)
-        deadROMM_tools.load_project(self.working_dir)
+        deadromm_tools.load_project(self.working_dir)
 
         path_to_config = '/tmp-NA-' + date + '/config.yaml'
 
         yaml = YAML()
         with open(self.working_dir + path_to_config) as dlc_config:
             config_obj = yaml.load(dlc_config)
-        
-        self.assertEqual(config_obj['bodyparts'], ['foo_cam1', 'foo_cam2', 'bar_cam1', 'bar_cam2', 'baz_cam1', 'baz_cam2', 'sw_foo_cam1', 'sw_foo_cam2', 'sw_bar_cam1', 'sw_bar_cam2', 'sw_baz_cam1', 'sw_baz_cam2'])
-    
+
+        self.assertEqual(config_obj['bodyparts'],
+                        ['foo_cam1',
+                         'foo_cam2',
+                         'bar_cam1',
+                         'bar_cam2',
+                         'baz_cam1',
+                         'baz_cam2',
+                         'sw_foo_cam1',
+                         'sw_foo_cam2',
+                         'sw_bar_cam1',
+                         'sw_bar_cam2',
+                         'sw_baz_cam1',
+                         'sw_baz_cam2'])
+
     def test_bodyparts_add_crossed(self):
         '''Can we add crossed markers?'''
         yaml = YAML()
         date = dt.today().strftime("%Y-%m-%d")
-        
+
         with open(os.path.join(self.working_dir, 'project_config.yaml'), 'r') as config:
             tmp = yaml.load(config)
         tmp['tracking_mode'] = 'rgb'
         tmp['crossed_markers'] = True
         with open(os.path.join(self.working_dir, 'project_config.yaml'), 'w') as fp:
             yaml.dump(tmp, fp)
-        deadROMM_tools.load_project(self.working_dir)
+        deadromm_tools.load_project(self.working_dir)
 
         path_to_config = '/tmp-NA-' + date + '/config.yaml'
 
         yaml = YAML()
         with open(self.working_dir + path_to_config) as dlc_config:
             config_obj = yaml.load(dlc_config)
-        
+
         self.assertEqual(config_obj['bodyparts'], ['foo_cam1', 'foo_cam2', 'bar_cam1', 'bar_cam2', 'baz_cam1', 'baz_cam2', 'cx_foo_cam1x2', 'cx_bar_cam1x2', 'cx_baz_cam1x2'])
-    
+
     def test_bodyparts_add_synthetic_and_crossed(self):
         '''Can we add both swapped and crossed markers?'''
         yaml = YAML()
         date = dt.today().strftime("%Y-%m-%d")
-        
+
         with open(os.path.join(self.working_dir, 'project_config.yaml'), 'r') as config:
             tmp = yaml.load(config)
         tmp['tracking_mode'] = 'rgb'
@@ -253,15 +265,30 @@ class TestDefaultsPerformance(unittest.TestCase):
         tmp['crossed_markers'] = True
         with open(os.path.join(self.working_dir, 'project_config.yaml'), 'w') as fp:
             yaml.dump(tmp, fp)
-        deadROMM_tools.load_project(self.working_dir)
+        deadromm_tools.load_project(self.working_dir)
 
         path_to_config = '/tmp-NA-' + date + '/config.yaml'
 
         yaml = YAML()
         with open(self.working_dir + path_to_config) as dlc_config:
             config_obj = yaml.load(dlc_config)
-        
-        self.assertEqual(config_obj['bodyparts'], ['foo_cam1', 'foo_cam2', 'bar_cam1', 'bar_cam2', 'baz_cam1', 'baz_cam2', 'sw_foo_cam1', 'sw_foo_cam2', 'sw_bar_cam1', 'sw_bar_cam2', 'sw_baz_cam1', 'sw_baz_cam2', 'cx_foo_cam1x2', 'cx_bar_cam1x2', 'cx_baz_cam1x2'])
+
+        self.assertEqual(config_obj['bodyparts'],
+                        ['foo_cam1',
+                         'foo_cam2',
+                         'bar_cam1',
+                         'bar_cam2',
+                         'baz_cam1',
+                         'baz_cam2',
+                         'sw_foo_cam1',
+                         'sw_foo_cam2',
+                         'sw_bar_cam1',
+                         'sw_bar_cam2',
+                         'sw_baz_cam1',
+                         'sw_baz_cam2',
+                         'cx_foo_cam1x2',
+                         'cx_bar_cam1x2',
+                         'cx_baz_cam1x2'])
 
     def test_bodyparts_error_if_different_from_csv(self):
         '''If the user specifies different bodyparts than their CSV, raise an error'''
@@ -278,23 +305,23 @@ class TestDefaultsPerformance(unittest.TestCase):
             yaml.dump(config_dlc, dlc_config)
 
         with self.assertRaises(SyntaxError):
-            deadROMM_tools.load_project(self.working_dir)
-    
+            deadromm_tools.load_project(self.working_dir)
+
     def test_autocorrect_error_if_trial_not_set(self):
         '''If the user doesn't specify a trial to test autocorrect with, do we error?'''
         yaml = YAML()
 
         with open(os.path.join(self.working_dir, 'project_config.yaml'), 'r') as config:
             tmp = yaml.load(config)
-        
+
         tmp['test_autocorrect'] = True
         tmp['marker'] = 'foo'
-        
+
         with open(os.path.join(self.working_dir, 'project_config.yaml'), 'w') as fp:
             yaml.dump(tmp, fp)
 
         with self.assertRaises(SyntaxError):
-            deadROMM_tools.load_project(self.working_dir)
+            deadromm_tools.load_project(self.working_dir)
 
     def test_autocorrect_error_if_marker_not_set(self):
         '''If the user doesn't specify a marker to test autocorrect with, do we error?'''
@@ -302,15 +329,15 @@ class TestDefaultsPerformance(unittest.TestCase):
 
         with open(os.path.join(self.working_dir, 'project_config.yaml'), 'r') as config:
             tmp = yaml.load(config)
-        
+
         tmp['test_autocorrect'] = True
         tmp['trial_name'] = 'test'
-        
+
         with open(os.path.join(self.working_dir, 'project_config.yaml'), 'w') as fp:
             yaml.dump(tmp, fp)
 
         with self.assertRaises(SyntaxError):
-            deadROMM_tools.load_project(self.working_dir)
+            deadromm_tools.load_project(self.working_dir)
 
     def tearDown(self):
         '''Remove the created temp project'''
@@ -321,7 +348,7 @@ class TestSampleTrial(unittest.TestCase):
     def setUp(self):
         '''Create trial'''
         self.working_dir = os.path.join(os.getcwd(), 'tmp')
-        deadROMM_tools.create_new_project(self.working_dir)
+        deadromm_tools.create_new_project(self.working_dir)
         frame = cv2.imread('sample_frame.jpg')
 
         # Make a trial directory
@@ -360,7 +387,7 @@ class TestSampleTrial(unittest.TestCase):
     def test_autocorrect_is_working(self):
         '''Make sure that autocorrect still works properly after making changes'''
         # Run autocorrect on the sample frame
-        deadROMM_tools.autocorrect_trial(self.working_dir)
+        deadromm_tools.autocorrect_trial(self.working_dir)
 
         # Load CSVs
         function_output = pd.read_csv(f'{self.working_dir}/trials/test/it0/test-AutoCorrected2DPoints.csv', dtype='float64')

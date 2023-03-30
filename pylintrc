@@ -264,12 +264,14 @@ good-names=i,
            k,
            G,
            R,
+           B,
            ex,
            Run,
            _,
            df,
            fp,
-           e
+           e,
+           deadROMM_tools
 
 # Good variable names regexes, separated by a comma. If names match any regex,
 # they will always be accepted

@@ -189,7 +189,7 @@ def train_network(working_dir=os.getcwd()):
             substitute_data_abspath = os.path.join(os.path.split(project['path_config_file'])[0],substitute_data_relpath)
             extract_matched_frames_rgb(project, f'{data_path}/{trial}', substitute_data_abspath, range(1, project['nframes'] + 1))
             splice_xma_to_dlc(project, f'{data_path}/{trial}', swap=project['swapped_markers'], cross=project['crossed_markers'])
-    
+
     deeplabcut.create_training_dataset(project['path_config_file'])
     deeplabcut.train_network(project['path_config_file'], maxiters=project['maxiters'])
 
@@ -248,7 +248,7 @@ def autocorrect_trial(working_dir=os.getcwd()): #try 0.05 also
             cams = [project['cam']]
         else:
             cams = ['cam1', 'cam2']
-        
+
         # For each camera
         for cam in cams:
             csv = autocorrect_video(cam, trial, csv, project, new_data_path)
@@ -273,27 +273,27 @@ def autocorrect_video(cam, trial, csv, project, new_data_path):
             raise IOError('Error reading video frame')
         autocorrect_frame(new_data_path, project['trial_name'], frame, project['cam'], project['frame_num'], csv, project)
         return csv
-    else:
-        # For each frame of video
-        print(f'Total frames in video: {video.get(cv2.CAP_PROP_FRAME_COUNT)}')
 
-        for frame_index in range(int(video.get(cv2.CAP_PROP_FRAME_COUNT))):
-            # Load frame
-            print(f'Current Frame: {frame_index + 1}')
-            ret, frame = video.read()
-            if ret is False:
-                raise IOError('Error reading video frame')
-            csv = autocorrect_frame(new_data_path, trial, frame, cam, frame_index, csv, project)
+    # For each frame of video
+    print(f'Total frames in video: {video.get(cv2.CAP_PROP_FRAME_COUNT)}')
+
+    for frame_index in range(int(video.get(cv2.CAP_PROP_FRAME_COUNT))):
+        # Load frame
+        print(f'Current Frame: {frame_index + 1}')
+        ret, frame = video.read()
+        if ret is False:
+            raise IOError('Error reading video frame')
+        csv = autocorrect_frame(f'{new_data_path}/{trial}', frame, cam, frame_index, csv, project)
     return csv
 
-def autocorrect_frame(new_data_path, trial, frame, cam, frame_index, csv, project):
+def autocorrect_frame(path_to_trial, frame, cam, frame_index, csv, project):
     '''Run the autocorrect function for a single frame (no output)'''
     # For each marker in the frame
-    parts_unique = get_bodyparts_from_xma(f'{new_data_path}/{trial}')
+    parts_unique = get_bodyparts_from_xma(path_to_trial)
     if project['test_autocorrect']:
         parts_unique = [project['marker']]
     else:
-        parts_unique = get_bodyparts_from_xma(f'{new_data_path}/{trial}')
+        parts_unique = get_bodyparts_from_xma(path_to_trial)
     for part in parts_unique:
         # Find point and offsets
         x_float = csv.loc[frame_index, part + '_' + cam + '_X']
@@ -349,13 +349,13 @@ def autocorrect_frame(new_data_path, trial, frame, cam, frame_index, csv, projec
         if project['test_autocorrect']:
             print('Raw')
             show_crop(subimage, 15)
-            
+
             print('Filtered')
             show_crop(subimage_filtered, 15)
-            
+
             print(f'Blurred: {sigma}')
             show_crop(subimage_blurred, 15)
-            
+
             print('Diff (Float - blurred)')
             show_crop(subimage_diff, 15)
 
@@ -374,7 +374,7 @@ def autocorrect_frame(new_data_path, trial, frame, cam, frame_index, csv, projec
             print('Best Contour')
             detected_center_im, _ = cv2.minEnclosingCircle(contours_im[best_index])
             show_crop(subimage, 15, contours = [contours_im[best_index]], detected_marker = detected_center_im)
-        
+
         # Save center of closest contour to CSV
         if best_index >= 0:
             detected_center, _ = cv2.minEnclosingCircle(contours[best_index])
@@ -440,10 +440,10 @@ def get_bodyparts_from_xma(path_to_trial, mode='2D', split_markers=False, crosse
         if crossed_markers:
             parts = parts + [f'cx_{part}_cam1x2' for part in [name.rsplit('_',2)[0] for name in names]]
     elif mode == '2D':
-        parts = [name.rsplit('_',2)[0] for name in names]  
+        parts = [name.rsplit('_',2)[0] for name in names]
     else:
         raise SyntaxError('Invalid value for mode parameter')
-    
+
     parts_unique = []
     for part in parts:
         if part not in parts_unique:
@@ -456,7 +456,7 @@ def merge_rgb(trial_path, codec='avc1', mode='difference'):
     trial_name = os.path.basename(os.path.normpath(trial_path))
     if os.path.exists(f'{trial_path}/{trial_name}_rgb.avi'):
         print('RGB video already created. Skipping.')
-        return 
+        return
     try:
         cam1_video = cv2.VideoCapture(f'{trial_path}/{trial_name}_cam1.avi')
     except FileNotFoundError as e:
@@ -519,7 +519,7 @@ def split_rgb(trial_path, codec='avc1'):
     try:
         rgb_video = cv2.VideoCapture(f'{trial_path}/{trial_name}_rgb.avi')
     except FileNotFoundError as e:
-        raise FileNotFoundError(f'Couldn\'t find video at {trial_path}/{trial_name}_rgb.avi') from e 
+        raise FileNotFoundError(f'Couldn\'t find video at {trial_path}/{trial_name}_rgb.avi') from e
     frame_width = int(rgb_video.get(3))
     frame_height = int(rgb_video.get(4))
     frame_rate = round(rgb_video.get(5),2)
@@ -688,12 +688,12 @@ def extract_matched_frames_rgb(project, trial_path, labeled_data_path, indices, 
     trial_name = os.path.basename(os.path.normpath(trial_path))
     video_path = f'{trainingdata_path}/{trial_name}/{trial_name}_rgb.avi'
     labeled_data_path = os.path.split(project['path_config_file'])[0] + '/labeled-data/' + project['task']
-    frames_from_vid = vid_to_pngs(video_path, labeled_data_path, indices_to_match=indices , name_from_folder=True, compression=compression)
+    frames_from_vid = vid_to_pngs(video_path, indices, labeled_data_path, name_from_folder=True, compression=compression)
     extracted_frames.append(frames_from_vid)
     print("Extracted "+str(len(indices))+f" matching frames from {video_path}")
 
-def vid_to_pngs(video_path, output_dir=None, indices_to_match=[], name_from_folder=True, compression=0):
-    '''Takes a list of frame numbers and exports matching frames from a video as pngs. 
+def vid_to_pngs(video_path, indices_to_match, output_dir=None, name_from_folder=True, compression=0):
+    '''Takes a list of frame numbers and exports matching frames from a video as pngs.
     Optionally, compress the output PNGs. Factor ranges from 0 (no compression) to 9 (most compression)'''
     frame_index = 1
     last_frame_to_analyze = max(indices_to_match)
@@ -705,55 +705,57 @@ def vid_to_pngs(video_path, output_dir=None, indices_to_match=[], name_from_fold
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
     cap = cv2.VideoCapture(video_path)
-    while(cap.isOpened()):
+    while cap.isOpened():
         ret, frame = cap.read()
-        if ret == False:
+        if ret is False:
             break
         if frame_index > last_frame_to_analyze:
             break
-        if indices_to_match and not frame_index in indices_to_match:
+        if frame_index not in indices_to_match:
             frame_index += 1
             continue
-        else:
-            print(f'Extracting frame {frame_index}')
-            png_name = out_name+'_'+str(frame_index).zfill(4)+'.png'
-            png_path = os.path.join(output_dir, png_name)
-            png_list.append(png_path)
-            cv2.imwrite(png_path, frame, [cv2.IMWRITE_PNG_COMPRESSION, compression])
-            if cv2.waitKey(1) & 0xFF == ord('q'):
-                    break
-            frame_index += 1
+
+        print(f'Extracting frame {frame_index}')
+        png_name = out_name+'_'+str(frame_index).zfill(4)+'.png'
+        png_path = os.path.join(output_dir, png_name)
+        png_list.append(png_path)
+        cv2.imwrite(png_path, frame, [cv2.IMWRITE_PNG_COMPRESSION, compression])
+        if cv2.waitKey(1) & 0xFF == ord('q'):
+            break
+        frame_index += 1
+
     cap.release()
     cv2.destroyAllWindows()
     return png_list
 
 def split_dlc_to_xma(project, trial, save_hdf=True):
-    bodyparts_XY = []
+    '''Takes the output from RGB deeplabcut and splits it into XMAlab-readable output'''
+    bodyparts_xy = []
     yaml = YAML()
     with open(project['path_config_file']) as dlc_config:
         dlc = yaml.load(dlc_config)
     iteration = dlc['iteration']
     trial_path = project['working_dir'] + f'/trials/{trial}'
-    
+
     rgb_parts = get_bodyparts_from_xma(trial_path, mode='rgb')
     for part in rgb_parts:
-        bodyparts_XY.append(part+'_X')
-        bodyparts_XY.append(part+'_Y')
-    
+        bodyparts_xy.append(part+'_X')
+        bodyparts_xy.append(part+'_Y')
+
     csv_path = [file for file in os.listdir(f'{trial_path}/it{iteration}') if '.csv' in file and '-2DPoints' not in file]
     if len(csv_path) > 1:
         raise FileExistsError('Found more than 1 data CSV for RGB trial. Please remove CSVs from older analyses from this folder before analyzing.')
-    elif len(csv_path) < 1:
+    if len(csv_path) < 1:
         raise FileNotFoundError(f'Couldn\'t find data CSV for trial {trial}. Something wrong with DeepLabCut?')
-    
+
     csv_path = csv_path[0]
     xma_csv_path = f'{trial_path}/it{iteration}/{trial}-Predicted2DPoints.csv'
-    
+
     df = pd.read_csv(f'{trial_path}/it{iteration}/{csv_path}', skiprows=1)
     df.index = df['bodyparts']
     df = df.drop(columns=df.columns[[df.loc['coords'] == 'likelihood']])
-    df = df.drop(columns=[column for column in df.columns if column not in [bodypart for bodypart in rgb_parts] and column not in [f'{bodypart}.1' for bodypart in rgb_parts]])
-    df.columns = bodyparts_XY
+    df = df.drop(columns=[column for column in df.columns if column not in rgb_parts and column not in [f'{bodypart}.1' for bodypart in rgb_parts]])
+    df.columns = bodyparts_xy
     df = df.drop(index='coords')
     df.to_csv(xma_csv_path, index=False)
     print("Successfully split DLC format to XMALab 2D points; saved "+str(xma_csv_path))
