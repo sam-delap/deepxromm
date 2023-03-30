@@ -279,6 +279,38 @@ class TestDefaultsPerformance(unittest.TestCase):
 
         with self.assertRaises(SyntaxError):
             deadROMM_tools.load_project(self.working_dir)
+    
+    def test_autocorrect_error_if_trial_not_set(self):
+        '''If the user doesn't specify a trial to test autocorrect with, do we error?'''
+        yaml = YAML()
+
+        with open(os.path.join(self.working_dir, 'project_config.yaml'), 'r') as config:
+            tmp = yaml.load(config)
+        
+        tmp['test_autocorrect'] = True
+        tmp['marker'] = 'foo'
+        
+        with open(os.path.join(self.working_dir, 'project_config.yaml'), 'w') as fp:
+            yaml.dump(tmp, fp)
+
+        with self.assertRaises(SyntaxError):
+            deadROMM_tools.load_project(self.working_dir)
+
+    def test_autocorrect_error_if_marker_not_set(self):
+        '''If the user doesn't specify a marker to test autocorrect with, do we error?'''
+        yaml = YAML()
+
+        with open(os.path.join(self.working_dir, 'project_config.yaml'), 'r') as config:
+            tmp = yaml.load(config)
+        
+        tmp['test_autocorrect'] = True
+        tmp['trial_name'] = 'test'
+        
+        with open(os.path.join(self.working_dir, 'project_config.yaml'), 'w') as fp:
+            yaml.dump(tmp, fp)
+
+        with self.assertRaises(SyntaxError):
+            deadROMM_tools.load_project(self.working_dir)
 
     def tearDown(self):
         '''Remove the created temp project'''
