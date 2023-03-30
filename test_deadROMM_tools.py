@@ -47,7 +47,13 @@ class TestProjectCreation(unittest.TestCase):
         'gsigma',
         'img_wt',
         'blur_wt',
-        'gamma']
+        'gamma',
+        'cam',
+        'frame_num',
+        'trial_name',
+        'marker',
+        'test_autocorrect']
+
 
 
         with open(os.path.join(os.getcwd(), 'tmp/project_config.yaml')) as config:

@@ -62,8 +62,8 @@ def create_new_project(working_dir=os.getcwd(), experimenter='NA'):
 # Jupyter Testing Vars
         cam: cam1
         frame_num: 1
-        trial_name:
-        marker: marker_name
+        trial_name: your_trial_here
+        marker: your_marker_here
         test_autocorrect: false # Set to true if you want to see autocorrect's output in Jupyter
         """
 
@@ -154,6 +154,13 @@ def load_project(working_dir=os.getcwd()):
 
     with open(project['path_config_file'], 'w') as dlc_config:
         yaml.dump(dlc_yaml, dlc_config)
+
+    # Check test_autocorrect params for defaults
+    if project['test_autocorrect']:
+        if project['trial_name'] == 'your_trial_here':
+            raise SyntaxError('Please specify a trial to test autocorrect() with')
+        if project['marker'] == 'your_marker_here':
+            raise SyntaxError('Please specify a marker to test autocorrect() with')
 
     # Update changed attributes to match in the file
     with open(os.path.join(working_dir, 'project_config.yaml'), 'w') as file:
