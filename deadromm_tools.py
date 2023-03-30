@@ -16,31 +16,22 @@ import blend_modes
 
 def create_new_project(working_dir=os.getcwd(), experimenter='NA'):
     '''Create a new xrommtools project'''
-    saved_dir=os.getcwd()
-    try:
-        os.chdir(working_dir)
-    except FileNotFoundError:
+    if not os.path.exists(working_dir):
         os.mkdir(working_dir)
-        os.chdir(working_dir)
     dirs = ["trainingdata", "trials", "XMA_files"]
     for folder in dirs:
-        try:
-            os.mkdir(folder)
-        except FileExistsError:
-            continue
+        if not os.path.exists(f'{working_dir}/{folder}'):
+            os.mkdir(f'{working_dir}/{folder}')
 
     # Create a fake video to pass into the deeplabcut workflow
     frame = np.zeros((480, 480, 3), np.uint8)
-    out = cv2.VideoWriter('dummy.avi',cv2.VideoWriter_fourcc(*'DIVX'), 15, (480,480))
+    out = cv2.VideoWriter(f'{working_dir}/dummy.avi',cv2.VideoWriter_fourcc(*'DIVX'), 15, (480,480))
     out.write(frame)
     out.release()
 
     # Create a new project
     yaml = YAML()
-    if '\\' in working_dir:
-        task = working_dir.split("\\")[len(working_dir.split("\\")) - 1]
-    else:
-        task = working_dir.split('/')[len(working_dir.split('/')) - 1]
+    task = os.path.basename(working_dir)
 
     path_config_file = deeplabcut.create_new_project(task, experimenter,
         [working_dir + "\\dummy.avi"], working_dir + "\\", copy_videos=True)
@@ -67,11 +58,18 @@ def create_new_project(working_dir=os.getcwd(), experimenter='NA'):
         img_wt: 3.6
         blur_wt: -2.9
         gamma: 0.1
+
+# Jupyter Testing Vars
+        cam: cam1
+        frame_num: 1
+        trial_name: your_trial_here
+        marker: your_marker_here
+        test_autocorrect: false # Set to true if you want to see autocorrect's output in Jupyter
         """
 
         tmp = yaml.load(template)
 
-        with open("project_config.yaml", 'w') as config:
+        with open(f"{working_dir}/project_config.yaml", 'w') as config:
             yaml.dump(tmp, config)
 
         try:
@@ -88,7 +86,6 @@ def create_new_project(working_dir=os.getcwd(), experimenter='NA'):
         os.remove("dummy.avi")
     except FileNotFoundError:
         pass
-    os.chdir(saved_dir)
 
 def load_project(working_dir=os.getcwd()):
     '''Load an existing project (only used internally/in testing)'''
@@ -158,6 +155,13 @@ def load_project(working_dir=os.getcwd()):
     with open(project['path_config_file'], 'w') as dlc_config:
         yaml.dump(dlc_yaml, dlc_config)
 
+    # Check test_autocorrect params for defaults
+    if project['test_autocorrect']:
+        if project['trial_name'] == 'your_trial_here':
+            raise SyntaxError('Please specify a trial to test autocorrect() with')
+        if project['marker'] == 'your_marker_here':
+            raise SyntaxError('Please specify a marker to test autocorrect() with')
+
     # Update changed attributes to match in the file
     with open(os.path.join(working_dir, 'project_config.yaml'), 'w') as file:
         yaml.dump(project, file)
@@ -185,7 +189,7 @@ def train_network(working_dir=os.getcwd()):
             substitute_data_abspath = os.path.join(os.path.split(project['path_config_file'])[0],substitute_data_relpath)
             extract_matched_frames_rgb(project, f'{data_path}/{trial}', substitute_data_abspath, range(1, project['nframes'] + 1))
             splice_xma_to_dlc(project, f'{data_path}/{trial}', swap=project['swapped_markers'], cross=project['crossed_markers'])
-    
+
     deeplabcut.create_training_dataset(project['path_config_file'])
     deeplabcut.train_network(project['path_config_file'], maxiters=project['maxiters'])
 
@@ -240,13 +244,19 @@ def autocorrect_trial(working_dir=os.getcwd()): #try 0.05 also
             raise FileNotFoundError(f'Could not find predicted 2D points file. Please check the it{iteration} folder for trial {trial}') from None
         out_name = new_data_path + '/' + trial + '/' + 'it' + str(iteration) + '/' + trial + '-AutoCorrected2DPoints.csv'
 
+        if project['test_autocorrect']:
+            cams = [project['cam']]
+        else:
+            cams = ['cam1', 'cam2']
+
         # For each camera
-        for cam in ['cam1','cam2']:
+        for cam in cams:
             csv = autocorrect_video(cam, trial, csv, project, new_data_path)
 
         # Print when autocorrect finishes
-        print(f'Done! Saving to {out_name}')
-        csv.to_csv(out_name, index=False)
+        if not project['test_autocorrect']:
+            print(f'Done! Saving to {out_name}')
+            csv.to_csv(out_name, index=False)
 
 def autocorrect_video(cam, trial, csv, project, new_data_path):
     '''Run the autocorrect function on a single video within a single trial'''
@@ -255,6 +265,15 @@ def autocorrect_video(cam, trial, csv, project, new_data_path):
     video = cv2.VideoCapture(video_path)
     if not video.isOpened():
         raise FileNotFoundError(f'Couldn\'t find a video at file path: {video_path}') from None
+
+    if project['test_autocorrect']:
+        video.set(1, project['frame_num'] - 1)
+        ret, frame = video.read()
+        if ret is False:
+            raise IOError('Error reading video frame')
+        path_to_trial = os.path.join(new_data_path, project['trial_name'])
+        autocorrect_frame(path_to_trial, frame, project['cam'], project['frame_num'], csv, project)
+        return csv
 
     # For each frame of video
     print(f'Total frames in video: {video.get(cv2.CAP_PROP_FRAME_COUNT)}')
@@ -265,13 +284,17 @@ def autocorrect_video(cam, trial, csv, project, new_data_path):
         ret, frame = video.read()
         if ret is False:
             raise IOError('Error reading video frame')
-        csv = autocorrect_frame(new_data_path, trial, frame, cam, frame_index, csv, project)
+        csv = autocorrect_frame(f'{new_data_path}/{trial}', frame, cam, frame_index, csv, project)
     return csv
 
-def autocorrect_frame(new_data_path, trial, frame, cam, frame_index, csv, project):
+def autocorrect_frame(path_to_trial, frame, cam, frame_index, csv, project):
     '''Run the autocorrect function for a single frame (no output)'''
     # For each marker in the frame
-    parts_unique = get_bodyparts_from_xma(f'{new_data_path}/{trial}')
+    parts_unique = get_bodyparts_from_xma(path_to_trial)
+    if project['test_autocorrect']:
+        parts_unique = [project['marker']]
+    else:
+        parts_unique = get_bodyparts_from_xma(path_to_trial)
     for part in parts_unique:
         # Find point and offsets
         x_float = csv.loc[frame_index, part + '_' + cam + '_X']
@@ -310,6 +333,7 @@ def autocorrect_frame(new_data_path, trial, frame, cam, frame_index, csv, projec
 
         # Find contours
         contours, _ = cv2.findContours(subimage_gaussthresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE, offset=(x_start,y_start))
+        contours_im = [contour-[x_start, y_start] for contour in contours]
 
         # Find closest contour
         dist = 1000
@@ -322,6 +346,35 @@ def autocorrect_frame(new_data_path, trial, frame, cam, frame_index, csv, projec
             if dist_tmp < dist:
                 best_index = i
                 dist = dist_tmp
+
+        if project['test_autocorrect']:
+            print('Raw')
+            show_crop(subimage, 15)
+
+            print('Filtered')
+            show_crop(subimage_filtered, 15)
+
+            print(f'Blurred: {sigma}')
+            show_crop(subimage_blurred, 15)
+
+            print('Diff (Float - blurred)')
+            show_crop(subimage_diff, 15)
+
+            print('Median')
+            show_crop(subimage_median, 15)
+
+            print('Median filtered')
+            show_crop(subimage_median, 15)
+
+            print('Threshold')
+            show_crop(subimage_threshold, 15)
+
+            print('Gaussian')
+            show_crop(subimage_threshold, 15)
+
+            print('Best Contour')
+            detected_center_im, _ = cv2.minEnclosingCircle(contours_im[best_index])
+            show_crop(subimage, 15, contours = [contours_im[best_index]], detected_marker = detected_center_im)
 
         # Save center of closest contour to CSV
         if best_index >= 0:
@@ -388,125 +441,15 @@ def get_bodyparts_from_xma(path_to_trial, mode='2D', split_markers=False, crosse
         if crossed_markers:
             parts = parts + [f'cx_{part}_cam1x2' for part in [name.rsplit('_',2)[0] for name in names]]
     elif mode == '2D':
-        parts = [name.rsplit('_',2)[0] for name in names]  
+        parts = [name.rsplit('_',2)[0] for name in names]
     else:
         raise SyntaxError('Invalid value for mode parameter')
-    
+
     parts_unique = []
     for part in parts:
         if part not in parts_unique:
             parts_unique.append(part)
     return parts_unique
-
-def jupyter_test_autocorrect(working_dir=os.getcwd(), cam='cam1', marker_name=None, frame_num=1, csv_path=None):
-    '''Test the filtering parameters for autocorrect_frame() from a jupyter notebook'''
-    project = load_project(working_dir)
-    new_data_path = working_dir + "/trials"
-    trial_name = os.listdir(new_data_path)[0]
-    predicted_vid_path = new_data_path + '/' + trial_name + '/' + trial_name + '_' + cam + '.avi'
-    yaml = YAML()
-    with open(project['path_config_file']) as dlc_config:
-        dlc = yaml.load(dlc_config)
-
-    iteration = dlc['iteration']
-    print(f'Analyzing video at: {predicted_vid_path}')
-    # Find the raw video
-    try:
-        video = cv2.VideoCapture(predicted_vid_path)
-    except FileNotFoundError:
-        raise FileNotFoundError(f'Please make sure that your {cam} video file is named {trial_name}_{cam}.avi') from None
-    # For each frame of video
-    print(f'Loading {cam} video for trial {trial_name}')
-    print(f'Total frames in video: {int(video.get(cv2.CAP_PROP_FRAME_COUNT))}')
-    if csv_path is None:
-        csv_path = f'{new_data_path}/{trial_name}/it{iteration}/{trial_name}-Predicted2DPoints.csv'
-
-    try:
-        csv = pd.read_csv(csv_path)
-    except FileNotFoundError:
-        print(f'Please point to a 2DPoints csv file or put a CSV file at: {csv_path}')
-
-    # Load frame
-    video.set(1, frame_num - 1)
-    ret, sample_frame = video.read()
-    if ret is False:
-        raise IOError('Error reading video frame')
-
-    # Grab the name of the first marker from the CSV if the user didn't specify
-    if marker_name is None:
-        marker_name = csv.columns.values[0].rsplit('_',2)[0]
-    x_float = csv.loc[frame_num, marker_name + '_' + cam + '_X']
-    y_float = csv.loc[frame_num, marker_name + '_' + cam + '_Y']
-    x_start = int(x_float-15+0.5)
-    y_start = int(y_float-15+0.5)
-    x_end = int(x_float+15+0.5)
-    y_end = int(y_float+15+0.5)
-
-    subimage = sample_frame[y_start:y_end, x_start:x_end]
-
-    print('Raw')
-    show_crop(subimage, 15)
-    subimage_filtered = filter_image(subimage, project['krad'], project['gsigma'], project['img_wt'], project['blur_wt'], project['gamma'])
-    print('Filtered')
-    show_crop(subimage_filtered, 15)
-
-    subimage_float = subimage_filtered.astype(np.float32)
-    radius = int(1.5 * 5 + 0.5) #5 might be too high
-    sigma = radius * math.sqrt(2 * math.log(255)) - 1
-    subimage_blurred = cv2.GaussianBlur(subimage_float, (2 * radius + 1, 2 * radius + 1), sigma)
-    print(f'Blurred: {sigma}')
-    show_crop(subimage_blurred, 15)
-
-    subimage_diff = subimage_float-subimage_blurred
-    subimage_diff = cv2.normalize(subimage_diff, None, 0,255,cv2.NORM_MINMAX).astype(np.uint8)
-    print('Diff (Float - blurred)')
-    show_crop(subimage_diff, 15)
-
-    # Median
-    subimage_median = cv2.medianBlur(subimage_diff, 3)
-    print('Median')
-    show_crop(subimage_median, 15)
-
-    # LUT
-    subimage_median = filter_image(subimage_median, krad=3)
-    print('Median filtered')
-    show_crop(subimage_median, 15)
-
-    # Thresholding
-    subimage_median = cv2.cvtColor(subimage_median, cv2.COLOR_BGR2GRAY)
-    min_val, _, _, _ = cv2.minMaxLoc(subimage_median)
-    thres = 0.5 * min_val + 0.5 * np.mean(subimage_median) + project['threshold'] * 0.01 * 255
-    ret, subimage_threshold =  cv2.threshold(subimage_median, thres, 255, cv2.THRESH_BINARY_INV)
-    print('Threshold')
-    show_crop(subimage_threshold, 15)
-
-    # Gaussian blur
-    subimage_gaussthresh = cv2.GaussianBlur(subimage_threshold, (3,3), 1.3)
-    print('Gaussian')
-    show_crop(subimage_threshold, 15)
-
-    # Find contours
-    contours, _ = cv2.findContours(subimage_gaussthresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE, offset=(x_start,y_start))
-    contours_im = [contour-[x_start, y_start] for contour in contours]
-
-    # Find closest contour
-    dist = 1000
-    best_index = -1
-    detected_centers = {}
-    for i, cnt in enumerate(contours):
-        detected_center, _ = cv2.minEnclosingCircle(cnt)
-        dist_tmp = math.sqrt((x_float - detected_center[0])**2 + (y_float - detected_center[1])**2)
-        detected_centers[round(dist_tmp, 4)] = detected_center
-        if dist_tmp < dist:
-            best_index = i
-            dist = dist_tmp
-
-    # Display contour on raw image
-    if best_index >= 0:
-        detected_center, _ = cv2.minEnclosingCircle(contours[best_index])
-        detected_center_im, _ = cv2.minEnclosingCircle(contours_im[best_index])
-        show_crop(subimage, 15, contours = [contours_im[best_index]], detected_marker = detected_center_im)
-
 
 def merge_rgb(trial_path, codec='avc1', mode='difference'):
     '''Takes the path to a trial subfolder and exports a single new video with cam1 video written to the red channel and cam2 video written to the green channel.
@@ -514,7 +457,7 @@ def merge_rgb(trial_path, codec='avc1', mode='difference'):
     trial_name = os.path.basename(os.path.normpath(trial_path))
     if os.path.exists(f'{trial_path}/{trial_name}_rgb.avi'):
         print('RGB video already created. Skipping.')
-        return 
+        return
     try:
         cam1_video = cv2.VideoCapture(f'{trial_path}/{trial_name}_cam1.avi')
     except FileNotFoundError as e:
@@ -577,7 +520,7 @@ def split_rgb(trial_path, codec='avc1'):
     try:
         rgb_video = cv2.VideoCapture(f'{trial_path}/{trial_name}_rgb.avi')
     except FileNotFoundError as e:
-        raise FileNotFoundError(f'Couldn\'t find video at {trial_path}/{trial_name}_rgb.avi') from e 
+        raise FileNotFoundError(f'Couldn\'t find video at {trial_path}/{trial_name}_rgb.avi') from e
     frame_width = int(rgb_video.get(3))
     frame_height = int(rgb_video.get(4))
     frame_rate = round(rgb_video.get(5),2)
@@ -746,13 +689,13 @@ def extract_matched_frames_rgb(project, trial_path, labeled_data_path, indices, 
     trainingdata_path = project['working_dir'] + '/trainingdata'
     trial_name = os.path.basename(os.path.normpath(trial_path))
     video_path = f'{trainingdata_path}/{trial_name}/{trial_name}_rgb.avi'
-    labeled_data_path = os.path.split(project['path_config_file'])[0] + '/labeled-data/' + project['dataset_name']
-    frames_from_vid = vid_to_pngs(video_path, labeled_data_path, indices_to_match=indices , name_from_folder=True, compression=compression)
+    labeled_data_path = os.path.split(project['path_config_file'])[0] + '/labeled-data/' + project['task']
+    frames_from_vid = vid_to_pngs(video_path, indices, labeled_data_path, name_from_folder=True, compression=compression)
     extracted_frames.append(frames_from_vid)
     print("Extracted "+str(len(indices))+f" matching frames from {video_path}")
 
-def vid_to_pngs(video_path, output_dir=None, indices_to_match=[], name_from_folder=True, compression=0):
-    '''Takes a list of frame numbers and exports matching frames from a video as pngs. 
+def vid_to_pngs(video_path, indices_to_match, output_dir=None, name_from_folder=True, compression=0):
+    '''Takes a list of frame numbers and exports matching frames from a video as pngs.
     Optionally, compress the output PNGs. Factor ranges from 0 (no compression) to 9 (most compression)'''
     frame_index = 1
     last_frame_to_analyze = max(indices_to_match)
@@ -764,55 +707,57 @@ def vid_to_pngs(video_path, output_dir=None, indices_to_match=[], name_from_fold
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
     cap = cv2.VideoCapture(video_path)
-    while(cap.isOpened()):
+    while cap.isOpened():
         ret, frame = cap.read()
-        if ret == False:
+        if ret is False:
             break
         if frame_index > last_frame_to_analyze:
             break
-        if indices_to_match and not frame_index in indices_to_match:
+        if frame_index not in indices_to_match:
             frame_index += 1
             continue
-        else:
-            print(f'Extracting frame {frame_index}')
-            png_name = out_name+'_'+str(frame_index).zfill(4)+'.png'
-            png_path = os.path.join(output_dir, png_name)
-            png_list.append(png_path)
-            cv2.imwrite(png_path, frame, [cv2.IMWRITE_PNG_COMPRESSION, compression])
-            if cv2.waitKey(1) & 0xFF == ord('q'):
-                    break
-            frame_index += 1
+
+        print(f'Extracting frame {frame_index}')
+        png_name = out_name+'_'+str(frame_index).zfill(4)+'.png'
+        png_path = os.path.join(output_dir, png_name)
+        png_list.append(png_path)
+        cv2.imwrite(png_path, frame, [cv2.IMWRITE_PNG_COMPRESSION, compression])
+        if cv2.waitKey(1) & 0xFF == ord('q'):
+            break
+        frame_index += 1
+
     cap.release()
     cv2.destroyAllWindows()
     return png_list
 
 def split_dlc_to_xma(project, trial, save_hdf=True):
-    bodyparts_XY = []
+    '''Takes the output from RGB deeplabcut and splits it into XMAlab-readable output'''
+    bodyparts_xy = []
     yaml = YAML()
     with open(project['path_config_file']) as dlc_config:
         dlc = yaml.load(dlc_config)
     iteration = dlc['iteration']
     trial_path = project['working_dir'] + f'/trials/{trial}'
-    
+
     rgb_parts = get_bodyparts_from_xma(trial_path, mode='rgb')
     for part in rgb_parts:
-        bodyparts_XY.append(part+'_X')
-        bodyparts_XY.append(part+'_Y')
-    
+        bodyparts_xy.append(part+'_X')
+        bodyparts_xy.append(part+'_Y')
+
     csv_path = [file for file in os.listdir(f'{trial_path}/it{iteration}') if '.csv' in file and '-2DPoints' not in file]
     if len(csv_path) > 1:
         raise FileExistsError('Found more than 1 data CSV for RGB trial. Please remove CSVs from older analyses from this folder before analyzing.')
-    elif len(csv_path) < 1:
+    if len(csv_path) < 1:
         raise FileNotFoundError(f'Couldn\'t find data CSV for trial {trial}. Something wrong with DeepLabCut?')
-    
+
     csv_path = csv_path[0]
     xma_csv_path = f'{trial_path}/it{iteration}/{trial}-Predicted2DPoints.csv'
-    
+
     df = pd.read_csv(f'{trial_path}/it{iteration}/{csv_path}', skiprows=1)
     df.index = df['bodyparts']
     df = df.drop(columns=df.columns[[df.loc['coords'] == 'likelihood']])
-    df = df.drop(columns=[column for column in df.columns if column not in [bodypart for bodypart in rgb_parts] and column not in [f'{bodypart}.1' for bodypart in rgb_parts]])
-    df.columns = bodyparts_XY
+    df = df.drop(columns=[column for column in df.columns if column not in rgb_parts and column not in [f'{bodypart}.1' for bodypart in rgb_parts]])
+    df.columns = bodyparts_xy
     df = df.drop(index='coords')
     df.to_csv(xma_csv_path, index=False)
     print("Successfully split DLC format to XMALab 2D points; saved "+str(xma_csv_path))
