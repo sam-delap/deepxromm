@@ -271,7 +271,8 @@ def autocorrect_video(cam, trial, csv, project, new_data_path):
         ret, frame = video.read()
         if ret is False:
             raise IOError('Error reading video frame')
-        autocorrect_frame(new_data_path, project['trial_name'], frame, project['cam'], project['frame_num'], csv, project)
+        path_to_trial = os.path.join(new_data_path, project['trial_name'])
+        autocorrect_frame(path_to_trial, frame, project['cam'], project['frame_num'], csv, project)
         return csv
 
     # For each frame of video
