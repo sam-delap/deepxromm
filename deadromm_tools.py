@@ -81,11 +81,9 @@ def create_new_project(working_dir=os.getcwd(), experimenter='NA'):
             os.remove(path_config_file[:path_config_file.find("config")] + "\\videos\\dummy.avi")
         except FileNotFoundError:
             pass
+    
+    os.remove(f'{working_dir}/dummy.avi')
 
-    try:
-        os.remove("dummy.avi")
-    except FileNotFoundError:
-        pass
 
 def load_project(working_dir=os.getcwd()):
     '''Load an existing project (only used internally/in testing)'''
