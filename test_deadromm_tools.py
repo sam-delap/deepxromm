@@ -52,9 +52,8 @@ class TestProjectCreation(unittest.TestCase):
         'frame_num',
         'trial_name',
         'marker',
-        'test_autocorrect']
-
-
+        'test_autocorrect',
+        'cam1s_are_the_same_view']
 
         with open(os.path.join(os.getcwd(), 'tmp/project_config.yaml')) as config:
             project = yaml.load(config)
@@ -406,7 +405,7 @@ class TestSampleTrial(unittest.TestCase):
 
     def test_image_hashing(self):
         # Do similarity comparison
-        similarity = deadromm_tools.analyze_video_similarity(self.working_dir)
+        similarity = deadromm_tools.analyze_video_similarity_project(self.working_dir)
 
         # Since both videos are the same, the image similarity metrics should be equal
         self.assertEqual(similarity, 0)
