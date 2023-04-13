@@ -404,6 +404,13 @@ class TestSampleTrial(unittest.TestCase):
         # Make sure the output hasn't changed
         self.assertTrue(function_output.equals(sample_output))
 
+    def test_image_hashing(self):
+        # Do similarity comparison
+        similarity = deadromm_tools.analyze_video_similarity(self.working_dir)
+
+        # Since both videos are the same, the image similarity metrics should be equal
+        self.assertEqual(similarity, 0)
+
     def tearDown(self):
         '''Remove the created temp project'''
         shutil.rmtree(os.path.join(os.getcwd(), 'tmp'))
