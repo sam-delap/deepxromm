@@ -3,6 +3,7 @@
 import os
 import math
 import warnings
+from itertools import permutations
 from subprocess import Popen, PIPE
 import cv2
 from PIL import Image
@@ -13,6 +14,7 @@ import deeplabcut
 from deeplabcut.utils import xrommtools
 from ruamel.yaml import YAML
 import blend_modes
+import imagehash
 
 def create_new_project(working_dir=os.getcwd(), experimenter='NA'):
     '''Create a new xrommtools project'''
@@ -38,33 +40,36 @@ def create_new_project(working_dir=os.getcwd(), experimenter='NA'):
 
     if isinstance(path_config_file, str):
         template = f"""
-        task: {task}
-        experimenter: {experimenter}
-        working_dir: {working_dir}
-        path_config_file: {path_config_file}
-        dataset_name: MyData
-        nframes: 0
-        maxiters: 150000
-        tracking_threshold: 0.1 # Fraction of total frames included in training sample
-        tracking_mode: 2D
-        swapped_markers: false
-        crossed_markers: false
+    task: {task}
+    experimenter: {experimenter}
+    working_dir: {working_dir}
+    path_config_file: {path_config_file}
+    dataset_name: MyData
+    nframes: 0
+    maxiters: 150000
+    tracking_threshold: 0.1 # Fraction of total frames included in training sample
+    tracking_mode: 2D
+    swapped_markers: false
+    crossed_markers: false
 
 # Image Processing Vars
-        search_area: 15
-        threshold: 8
-        krad: 17
-        gsigma: 10
-        img_wt: 3.6
-        blur_wt: -2.9
-        gamma: 0.1
+    search_area: 15
+    threshold: 8
+    krad: 17
+    gsigma: 10
+    img_wt: 3.6
+    blur_wt: -2.9
+    gamma: 0.1
 
 # Jupyter Testing Vars
-        cam: cam1
-        frame_num: 1
-        trial_name: your_trial_here
-        marker: your_marker_here
-        test_autocorrect: false # Set to true if you want to see autocorrect's output in Jupyter
+    cam: cam1
+    frame_num: 1
+    trial_name: your_trial_here
+    marker: your_marker_here
+    test_autocorrect: false # Set to true if you want to see autocorrect's output in Jupyter
+
+# Video Similarity Analysis Vars
+    cam1s_are_the_same_view: true    
         """
 
         tmp = yaml.load(template)
@@ -762,3 +767,53 @@ def split_dlc_to_xma(project, trial, save_hdf=True):
     if save_hdf:
         tracked_hdf = os.path.splitext(csv_path)[0]+'.h5'
         df.to_hdf(tracked_hdf, 'df_with_missing', format='table', mode='w', nan_rep='NaN')
+
+# This is dangerous, as it will assume all of your cam1s match (or don't match). Use with caution
+def analyze_video_similarity_project(working_dir):
+    # Analyzes every possible combination of trials
+    raise NotImplementedError('Need to code this up')
+
+def analyze_video_similarity_trial(working_dir):
+    '''Analyze the average similarity between trials using image hashing'''
+    project = load_project(working_dir)    
+    project['cam1s_are_the_same_view'] # True/False
+
+    # Find videos for each trial
+    trial1_cam1 = cv2.VideoCapture(os.path.join(f'{working_dir}/trials', project['trial_1_name'], project['trial_1_name'] + '_cam1.avi'))
+    trial2_cam1 = cv2.VideoCapture(os.path.join(f'{working_dir}/trials', project['trial_2_name'], project['trial_2_name'] + '_cam1.avi'))
+    trial1_cam2 = cv2.VideoCapture(os.path.join(f'{working_dir}/trials', project['trial_1_name'], project['trial_1_name'] + '_cam2.avi'))
+    trial2_cam2 = cv2.VideoCapture(os.path.join(f'{working_dir}/trials', project['trial_2_name'], project['trial_2_name'] + '_cam2.avi'))
+    
+    # Find number of frames per video
+    if project['cam1s_are_the_same_view']:
+        cam1_hash, noc = compare_two_videos(trial1_cam1, trial2_cam1)
+        cam2_hash, noc = compare_two_videos(trial1_cam2, trial2_cam2)
+    else:
+        cam1_hash, noc = compare_two_videos(trial1_cam1, trial2_cam2)
+        cam2_hash, noc = compare_two_videos(trial1_cam2, trial2_cam1)
+
+    return (cam1_hash + cam2_hash) / noc
+
+def compare_two_videos(video1, video2):
+    '''Do an image hashing between two videos'''
+    video1_frames = int(video1.get(cv2.CAP_PROP_FRAME_COUNT))
+    video2_frames = int(video2.get(cv2.CAP_PROP_FRAME_COUNT))
+    noc = math.perm(video1_frames + video2_frames, 2)
+
+    hash_dif = 0
+
+    for _ in range(video1_frames):
+        ret, frame1 = video1.read()
+        if not ret:
+            print('Error reading video 1 frame')
+            cv2.destroyAllWindows()
+            return (-1, -1)
+        for _ in range(video2_frames):
+            ret, frame2 = video2.read()
+            if not ret:
+                print('Error reading video 2 frame')
+                cv2.destroyAllWindows()
+                return(-1, -1)
+            hash_dif += imagehash.phash(frame1) - imagehash.phash(frame2)
+    
+    return hash_dif, noc
