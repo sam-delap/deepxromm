@@ -18,6 +18,12 @@ jobs:
       run: |
         python -m pip install --upgrade pip
         pip install pylint
+        pip install cv2
+        pip install PIL
+        pip install matplotlib
+        pip install pandas
+        pip install deeplabcut
+        pip install ruamel.yaml
         pip install blend_modes
     - name: Analysing the code with pylint
       run: |
