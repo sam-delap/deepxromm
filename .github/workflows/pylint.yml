@@ -4,7 +4,7 @@ on: [push]
 
 jobs:
   build:
-    runs-on: deeplabcut-latest
+    runs-on: ubuntu-latest
     strategy:
       matrix:
         python-version: ["3.8", "3.9", "3.10", "3.11"]
@@ -21,6 +21,4 @@ jobs:
         pip install blend_modes
     - name: Analysing the code with pylint
       run: |
-        python stylizer.py
-        echo pylintrc > /home/runner/work/deadROMM-tools
         pylint $(git ls-files '*.py')
