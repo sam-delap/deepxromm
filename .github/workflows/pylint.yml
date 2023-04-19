@@ -18,7 +18,7 @@ jobs:
       run: |
         python -m pip install --upgrade pip
         pip install pylint
-        pip install cv2
+        pip install opencv-python
         pip install PIL
         pip install matplotlib
         pip install pandas
