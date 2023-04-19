@@ -19,7 +19,7 @@ jobs:
         python -m pip install --upgrade pip
         pip install pylint
         pip install opencv-python
-        pip install PIL
+        pip install Pillow
         pip install matplotlib
         pip install pandas
         pip install deeplabcut
