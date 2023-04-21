@@ -407,7 +407,7 @@ class TestSampleTrial(unittest.TestCase):
         # Do similarity comparison
         similarity = deadromm_tools.analyze_video_similarity_project(self.working_dir)
 
-        # Since both videos are the same, the image similarity metrics should be equal
+        # Since both videos are the same, the image similarity output should be 0
         self.assertEqual(similarity, 0)
 
     def tearDown(self):

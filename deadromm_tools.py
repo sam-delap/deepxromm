@@ -771,12 +771,26 @@ def split_dlc_to_xma(project, trial, save_hdf=True):
 # This is dangerous, as it will assume all of your cam1s match (or don't match). Use with caution
 def analyze_video_similarity_project(working_dir):
     # Analyzes every possible combination of trials
-    raise NotImplementedError('Need to code this up')
+    project = load_project(working_dir)
+    similarity_score = 0
+    list_of_trials = os.listdir(f'{working_dir}/trials')
+    yaml = YAML()
+    noc = 0
+    for trial1 in list_of_trials[:-1]:
+        for trial2 in list_of_trials[1:]:
+            project['trial_1_name'] = trial1
+            project['trial_2_name'] = trial2
+            with open(os.path.join(working_dir, 'project_config.yaml'), 'w') as file:
+                yaml.dump(project, file)
+            similarity_score = similarity_score + analyze_video_similarity_trial(working_dir)
+            noc = noc + 1
+    
+    return similarity_score
+   
 
 def analyze_video_similarity_trial(working_dir):
     '''Analyze the average similarity between trials using image hashing'''
-    project = load_project(working_dir)    
-    project['cam1s_are_the_same_view'] # True/False
+    project = load_project(working_dir)
 
     # Find videos for each trial
     trial1_cam1 = cv2.VideoCapture(os.path.join(f'{working_dir}/trials', project['trial_1_name'], project['trial_1_name'] + '_cam1.avi'))
@@ -786,13 +800,13 @@ def analyze_video_similarity_trial(working_dir):
     
     # Find number of frames per video
     if project['cam1s_are_the_same_view']:
-        cam1_hash, noc = compare_two_videos(trial1_cam1, trial2_cam1)
-        cam2_hash, noc = compare_two_videos(trial1_cam2, trial2_cam2)
+        cam1_dif, noc = compare_two_videos(trial1_cam1, trial2_cam1)
+        cam2_dif, noc = compare_two_videos(trial1_cam2, trial2_cam2)
     else:
-        cam1_hash, noc = compare_two_videos(trial1_cam1, trial2_cam2)
-        cam2_hash, noc = compare_two_videos(trial1_cam2, trial2_cam1)
+        cam1_dif, noc = compare_two_videos(trial1_cam1, trial2_cam2)
+        cam2_dif, noc = compare_two_videos(trial1_cam2, trial2_cam1)
 
-    return (cam1_hash + cam2_hash) / noc
+    return (cam1_dif + cam2_dif) / noc
 
 def compare_two_videos(video1, video2):
     '''Do an image hashing between two videos'''
