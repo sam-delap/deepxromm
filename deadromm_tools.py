@@ -833,7 +833,7 @@ def compare_two_videos(video1, video2):
         print(f'Current frame (video 2): {j}')
         ret, frame2 = video2.read()
         if not ret:
-            print('Error reading video 1 frame')
+            print('Error reading video 2 frame')
             cv2.destroyAllWindows()
             break
         hashes2.append(imagehash.phash(Image.fromarray(frame2)))
