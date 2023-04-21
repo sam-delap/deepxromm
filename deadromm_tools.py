@@ -3,7 +3,7 @@
 import os
 import math
 import warnings
-from itertools import permutations
+from itertools import combinations
 from subprocess import Popen, PIPE
 import cv2
 from PIL import Image
@@ -776,7 +776,7 @@ def analyze_video_similarity_project(working_dir):
     list_of_trials = os.listdir(f'{working_dir}/trials')
     yaml = YAML()
 
-    trial_perms = permutations(list_of_trials)
+    trial_perms = combinations(list_of_trials, 2)
     for trial1, trial2 in trial_perms:
         project['trial_1_name'] = trial1
         project['trial_2_name'] = trial2
