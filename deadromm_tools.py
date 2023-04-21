@@ -799,13 +799,13 @@ def analyze_video_similarity_trial(working_dir):
     
     # Find number of frames per video
     if project['cam1s_are_the_same_view']:
-        cam1_dif, noc = compare_two_videos(trial1_cam1, trial2_cam1)
-        cam2_dif, noc = compare_two_videos(trial1_cam2, trial2_cam2)
+        cam1_dif, noc1 = compare_two_videos(trial1_cam1, trial2_cam1)
+        cam2_dif, noc2 = compare_two_videos(trial1_cam2, trial2_cam2)
     else:
-        cam1_dif, noc = compare_two_videos(trial1_cam1, trial2_cam2)
-        cam2_dif, noc = compare_two_videos(trial1_cam2, trial2_cam1)
+        cam1_dif, noc1 = compare_two_videos(trial1_cam1, trial2_cam2)
+        cam2_dif, noc2 = compare_two_videos(trial1_cam2, trial2_cam1)
 
-    return (cam1_dif + cam2_dif) / noc
+    return (cam1_dif + cam2_dif) / (noc1 + noc2)
 
 def compare_two_videos(video1, video2):
     '''Do an image hashing between two videos'''
