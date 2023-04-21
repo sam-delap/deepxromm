@@ -11,7 +11,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
 import deeplabcut
-from deeplabcut.utils import xrommtools
+import xrommtools
 from ruamel.yaml import YAML
 import blend_modes
 import imagehash
