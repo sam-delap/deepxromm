@@ -775,13 +775,14 @@ def analyze_video_similarity_project(working_dir):
     similarity_score = {}
     list_of_trials = os.listdir(f'{working_dir}/trials')
     yaml = YAML()
-    for trial1 in list_of_trials[:-1]:
-        for trial2 in list_of_trials[1:]:
-            project['trial_1_name'] = trial1
-            project['trial_2_name'] = trial2
-            with open(os.path.join(working_dir, 'project_config.yaml'), 'w') as file:
-                yaml.dump(project, file)
-            similarity_score[(trial1, trial2)] = analyze_video_similarity_trial(working_dir)
+
+    trial_perms = permutations(list_of_trials)
+    for trial1, trial2 in trial_perms:
+        project['trial_1_name'] = trial1
+        project['trial_2_name'] = trial2
+        with open(os.path.join(working_dir, 'project_config.yaml'), 'w') as file:
+            yaml.dump(project, file)
+        similarity_score[(trial1, trial2)] = analyze_video_similarity_trial(working_dir)
     
     return similarity_score
    
