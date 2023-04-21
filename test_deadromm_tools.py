@@ -4,6 +4,7 @@ import os
 import shutil
 from datetime import datetime as dt
 import pandas as pd
+import numpy as np
 import cv2
 from ruamel.yaml import YAML
 import deadromm_tools
@@ -403,12 +404,45 @@ class TestSampleTrial(unittest.TestCase):
         # Make sure the output hasn't changed
         self.assertTrue(function_output.equals(sample_output))
 
-    def test_image_hashing(self):
+    def test_image_hashing_identical_trials_returns_0(self):
+        '''Make sure the image hashing function is working properly'''
+        # Create an identical second trial
+        frame = cv2.imread('sample_frame.jpg')
+        os.makedirs(f'{self.working_dir}/trials/test2_same')
+
+        out = cv2.VideoWriter(f'{self.working_dir}/trials/test2_same/test2_same_cam1.avi',cv2.VideoWriter_fourcc(*'DIVX'), 30, (1024,512))
+        out.write(frame)
+        out.release()
+
+        out = cv2.VideoWriter(f'{self.working_dir}/trials/test2_same/test2_same_cam2.avi',cv2.VideoWriter_fourcc(*'DIVX'), 30, (1024,512))
+        out.write(frame)
+        out.release()
+
         # Do similarity comparison
         similarity = deadromm_tools.analyze_video_similarity_project(self.working_dir)
 
         # Since both videos are the same, the image similarity output should be 0
         self.assertEqual(sum(similarity.values()), 0)
+
+    def test_image_hashing_different_trials_returns_nonzero(self):
+        '''Image hashing different videos returns nonzero answer'''
+        # Create an identical second trial
+        frame = np.zeros((480, 480, 3), np.uint8)
+        os.makedirs(f'{self.working_dir}/trials/test2_diff')
+
+        out = cv2.VideoWriter(f'{self.working_dir}/trials/test2_diff/test2_diff_cam1.avi',cv2.VideoWriter_fourcc(*'DIVX'), 30, (480,480))
+        out.write(frame)
+        out.release()
+
+        out = cv2.VideoWriter(f'{self.working_dir}/trials/test2_diff/test2_diff_cam2.avi',cv2.VideoWriter_fourcc(*'DIVX'), 30, (480,480))
+        out.write(frame)
+        out.release()
+        
+        # Do similarity comparison
+        similarity = deadromm_tools.analyze_video_similarity_project(self.working_dir)
+
+        # Since the videos are different, should return nonzero answer
+        self.assertNotEqual(sum(similarity.values()), 0)
 
     def tearDown(self):
         '''Remove the created temp project'''
