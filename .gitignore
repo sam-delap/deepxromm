@@ -13,7 +13,6 @@
 
 # Logs
 *.tfevents*
-*.txt
 
 # PyCache
 *.pyc*
