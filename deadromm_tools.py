@@ -812,21 +812,35 @@ def compare_two_videos(video1, video2):
     video1_frames = int(video1.get(cv2.CAP_PROP_FRAME_COUNT))
     video2_frames = int(video2.get(cv2.CAP_PROP_FRAME_COUNT))
     noc = math.perm(video1_frames + video2_frames, 2)
-
+    print(f'Video 1 frames: {video1_frames}')
+    print(f'Video 2 frames: {video2_frames}')
     hash_dif = 0
 
-    for _ in range(video1_frames):
+    hashes1 = []
+    print ('Creating hashes for video 1')
+    for i in range(video1_frames):
+        print(f'Current frame (video 1): {i}')
         ret, frame1 = video1.read()
         if not ret:
             print('Error reading video 1 frame')
             cv2.destroyAllWindows()
-            return (-1, -1)
-        for _ in range(video2_frames):
-            ret, frame2 = video2.read()
-            if not ret:
-                print('Error reading video 2 frame')
-                cv2.destroyAllWindows()
-                return(-1, -1)
-            hash_dif += imagehash.phash(frame1) - imagehash.phash(frame2)
+            break
+        hashes1.append(imagehash.phash(Image.fromarray(frame1)))
+
+    print('Creating hashes for video 2')
+    hashes2 = []
+    for j in range(video2_frames):
+        print(f'Current frame (video 2): {j}')
+        ret, frame2 = video2.read()
+        if not ret:
+            print('Error reading video 1 frame')
+            cv2.destroyAllWindows()
+            break
+        hashes2.append(imagehash.phash(Image.fromarray(frame2)))
+    
+    print('Comparing hashes between videos')
+    for hash1 in hashes1:
+        for hash2 in hashes2:
+            hash_dif = hash_dif + (hash1 - hash2)
     
     return hash_dif, noc
