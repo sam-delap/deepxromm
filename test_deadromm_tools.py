@@ -444,6 +444,34 @@ class TestSampleTrial(unittest.TestCase):
         # Since the videos are different, should return nonzero answer
         self.assertNotEqual(sum(similarity.values()), 0)
 
+    def test_marker_similarity_returns_0_if_identical(self):
+        '''Check that identical data has a similarity value of 1'''
+        # Move sample data into test trial
+        shutil.copy('sample_frame_input.csv', f'{self.working_dir}/trials/test/test.csv')
+
+        # Move sample data into test2 trial
+        os.makedirs(f'{self.working_dir}/trials/test2')
+        shutil.copy('sample_frame_input.csv', f'{self.working_dir}/trials/test2/test2.csv')
+
+        # Do cross-correlation
+        marker_similarity = deadromm_tools.analyze_marker_similarity_project(self.working_dir)
+        
+        self.assertEqual(marker_similarity, 1)
+
+    def test_marker_similarity_returns_not_0_if_different(self):
+        '''Check that different data has a similarity value of not 1'''
+        # Move sample data into test trial
+        shutil.copy('sample_frame_input.csv', f'{self.working_dir}/trials/test/test.csv')
+
+        # Move autocorrect data into test2 trial
+        os.makedirs(f'{self.working_dir}/trials/test2')
+        shutil.copy('sample_autocorrect_output.csv', f'{self.working_dir}/trials/test2/test2.csv')
+
+        # Do cross-correlation
+        marker_similarity = deadromm_tools.analyze_marker_similarity_project(self.working_dir)
+        
+        self.assertNotEqual(marker_similarity, 1)
+
     def tearDown(self):
         '''Remove the created temp project'''
         shutil.rmtree(os.path.join(os.getcwd(), 'tmp'))

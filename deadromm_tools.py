@@ -844,3 +844,20 @@ def compare_two_videos(video1, video2):
             hash_dif = hash_dif + (hash1 - hash2)
     
     return hash_dif, noc
+
+def analyze_marker_similarity_project(working_dir):
+    '''Analyze all videos in a project and get their average rhythmicity'''
+    project = load_project(working_dir)
+    similarity_score = {}
+    list_of_trials = os.listdir(f'{working_dir}/trials')
+    yaml = YAML()
+
+    trial_perms = combinations(list_of_trials, 2)
+    for trial1, trial2 in trial_perms:
+        project['trial_1_name'] = trial1
+        project['trial_2_name'] = trial2
+        with open(os.path.join(working_dir, 'project_config.yaml'), 'w') as file:
+            yaml.dump(project, file)
+        similarity_score[(trial1, trial2)] = analyze_video_similarity_trial(working_dir)
+    
+    return cross_corr
