@@ -797,7 +797,7 @@ def analyze_video_similarity_trial(working_dir):
     trial1_cam2 = cv2.VideoCapture(os.path.join(f'{working_dir}/trials', project['trial_1_name'], project['trial_1_name'] + '_cam2.avi'))
     trial2_cam2 = cv2.VideoCapture(os.path.join(f'{working_dir}/trials', project['trial_2_name'], project['trial_2_name'] + '_cam2.avi'))
     
-    # Find number of frames per video
+    # Compare hashes
     if project['cam1s_are_the_same_view']:
         cam1_dif, noc1 = compare_two_videos(trial1_cam1, trial2_cam1)
         cam2_dif, noc2 = compare_two_videos(trial1_cam2, trial2_cam2)
@@ -846,9 +846,9 @@ def compare_two_videos(video1, video2):
     return hash_dif, noc
 
 def analyze_marker_similarity_project(working_dir):
-    '''Analyze all videos in a project and get their average rhythmicity'''
+    '''Analyze all videos in a project and get their average rhythmicity. This assumes that all cam1/2 pairs are either the same or different!'''
     project = load_project(working_dir)
-    similarity_score = {}
+    marker_similarity = {}
     list_of_trials = os.listdir(f'{working_dir}/trials')
     yaml = YAML()
 
@@ -858,6 +858,24 @@ def analyze_marker_similarity_project(working_dir):
         project['trial_2_name'] = trial2
         with open(os.path.join(working_dir, 'project_config.yaml'), 'w') as file:
             yaml.dump(project, file)
-        similarity_score[(trial1, trial2)] = analyze_video_similarity_trial(working_dir)
+        marker_similarity[(trial1, trial2)] = abs(analyze_marker_similarity_trial(working_dir))
     
-    return cross_corr
+    return marker_similarity
+
+def analyze_marker_similarity_trial(working_dir):
+    '''Analyze marker similarity for a pair of trials. Returns the mean difference for paired marker positions (X - X, Y - Y for each marker)'''
+    project = load_project(working_dir)
+
+    # Find CSVs for each trial
+    trial1_path = os.path.join(f'{working_dir}/trials', project['trial_1_name'])
+    trial2_path = os.path.join(f'{working_dir}/trials', project['trial_2_name'])
+    
+    # Get a list of markers that each trial have in commmon
+    markers_in_common = [marker for marker in get_bodyparts_from_xma(trial1_path, mode='rgb', split_markers=False, crossed_markers=False) if marker in get_bodyparts_from_xma(trial2_path, mode='rgb', split_markers=False, crossed_markers=False)]
+    bodyparts_xy = [f'{marker}_X' for marker in markers_in_common] + [f'{marker}_Y' for marker in markers_in_common]
+    trial1_csv = pd.read_csv(os.path.join(trial1_path, project['trial_1_name'] + '.csv'))
+    trial2_csv = pd.read_csv(os.path.join(trial2_path, project['trial_2_name'] + '.csv'))
+
+    marker_similarity = sum([(trial1_csv[marker] - trial2_csv[marker]).sum() / (len(trial1_csv[marker]) + len(trial2_csv[marker])) for marker in bodyparts_xy]) / len(bodyparts_xy)
+
+    return marker_similarity

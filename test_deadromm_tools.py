@@ -456,7 +456,7 @@ class TestSampleTrial(unittest.TestCase):
         # Do cross-correlation
         marker_similarity = deadromm_tools.analyze_marker_similarity_project(self.working_dir)
         
-        self.assertEqual(marker_similarity, 1)
+        self.assertEqual(sum(marker_similarity.values()), 0)
 
     def test_marker_similarity_returns_not_0_if_different(self):
         '''Check that different data has a similarity value of not 1'''
@@ -470,7 +470,7 @@ class TestSampleTrial(unittest.TestCase):
         # Do cross-correlation
         marker_similarity = deadromm_tools.analyze_marker_similarity_project(self.working_dir)
         
-        self.assertNotEqual(marker_similarity, 1)
+        self.assertNotEqual(sum(marker_similarity.values()), 0)
 
     def tearDown(self):
         '''Remove the created temp project'''
