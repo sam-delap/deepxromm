@@ -408,7 +408,7 @@ class TestSampleTrial(unittest.TestCase):
         similarity = deadromm_tools.analyze_video_similarity_project(self.working_dir)
 
         # Since both videos are the same, the image similarity output should be 0
-        self.assertEqual(similarity, 0)
+        self.assertEqual(sum(similarity.values()), 0)
 
     def tearDown(self):
         '''Remove the created temp project'''

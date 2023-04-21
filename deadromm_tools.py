@@ -768,22 +768,21 @@ def split_dlc_to_xma(project, trial, save_hdf=True):
         tracked_hdf = os.path.splitext(csv_path)[0]+'.h5'
         df.to_hdf(tracked_hdf, 'df_with_missing', format='table', mode='w', nan_rep='NaN')
 
-# This is dangerous, as it will assume all of your cam1s match (or don't match). Use with caution
 def analyze_video_similarity_project(working_dir):
+    '''Analyze all videos in a project and take their average similar. This is dangerous, as it will assume that all cam1/cam2 pairs match
+    or don't match!'''
     # Analyzes every possible combination of trials
     project = load_project(working_dir)
-    similarity_score = 0
+    similarity_score = {}
     list_of_trials = os.listdir(f'{working_dir}/trials')
     yaml = YAML()
-    noc = 0
     for trial1 in list_of_trials[:-1]:
         for trial2 in list_of_trials[1:]:
             project['trial_1_name'] = trial1
             project['trial_2_name'] = trial2
             with open(os.path.join(working_dir, 'project_config.yaml'), 'w') as file:
                 yaml.dump(project, file)
-            similarity_score = similarity_score + analyze_video_similarity_trial(working_dir)
-            noc = noc + 1
+            similarity_score[(trial1, trial2)] = analyze_video_similarity_trial(working_dir)
     
     return similarity_score
    
