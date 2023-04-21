@@ -771,7 +771,6 @@ def split_dlc_to_xma(project, trial, save_hdf=True):
 def analyze_video_similarity_project(working_dir):
     '''Analyze all videos in a project and take their average similar. This is dangerous, as it will assume that all cam1/cam2 pairs match
     or don't match!'''
-    # Analyzes every possible combination of trials
     project = load_project(working_dir)
     similarity_score = {}
     list_of_trials = os.listdir(f'{working_dir}/trials')
