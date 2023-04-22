@@ -4,6 +4,7 @@ import os
 import shutil
 from datetime import datetime as dt
 import pandas as pd
+import numpy as np
 import cv2
 from ruamel.yaml import YAML
 import deadromm_tools
@@ -52,9 +53,8 @@ class TestProjectCreation(unittest.TestCase):
         'frame_num',
         'trial_name',
         'marker',
-        'test_autocorrect']
-
-
+        'test_autocorrect',
+        'cam1s_are_the_same_view']
 
         with open(os.path.join(os.getcwd(), 'tmp/project_config.yaml')) as config:
             project = yaml.load(config)
@@ -109,6 +109,7 @@ class TestDefaultsPerformance(unittest.TestCase):
 
     def test_can_find_frames_from_csv(self):
         '''Can I accurately find the number of frames in the video if the user doesn't tell me?'''
+        print(os.listdir(self.working_dir))
         project = deadromm_tools.load_project(self.working_dir)
         self.assertEqual(project['nframes'], 1, msg=f"Actual nframes: {project['nframes']}")
 
@@ -403,6 +404,74 @@ class TestSampleTrial(unittest.TestCase):
 
         # Make sure the output hasn't changed
         self.assertTrue(function_output.equals(sample_output))
+
+    def test_image_hashing_identical_trials_returns_0(self):
+        '''Make sure the image hashing function is working properly'''
+        # Create an identical second trial
+        frame = cv2.imread('sample_frame.jpg')
+        os.makedirs(f'{self.working_dir}/trials/test2_same')
+
+        out = cv2.VideoWriter(f'{self.working_dir}/trials/test2_same/test2_same_cam1.avi',cv2.VideoWriter_fourcc(*'DIVX'), 30, (1024,512))
+        out.write(frame)
+        out.release()
+
+        out = cv2.VideoWriter(f'{self.working_dir}/trials/test2_same/test2_same_cam2.avi',cv2.VideoWriter_fourcc(*'DIVX'), 30, (1024,512))
+        out.write(frame)
+        out.release()
+
+        # Do similarity comparison
+        similarity = deadromm_tools.analyze_video_similarity_project(self.working_dir)
+
+        # Since both videos are the same, the image similarity output should be 0
+        self.assertEqual(sum(similarity.values()), 0)
+
+    def test_image_hashing_different_trials_returns_nonzero(self):
+        '''Image hashing different videos returns nonzero answer'''
+        # Create an identical second trial
+        frame = np.zeros((480, 480, 3), np.uint8)
+        os.makedirs(f'{self.working_dir}/trials/test2_diff')
+
+        out = cv2.VideoWriter(f'{self.working_dir}/trials/test2_diff/test2_diff_cam1.avi',cv2.VideoWriter_fourcc(*'DIVX'), 30, (480,480))
+        out.write(frame)
+        out.release()
+
+        out = cv2.VideoWriter(f'{self.working_dir}/trials/test2_diff/test2_diff_cam2.avi',cv2.VideoWriter_fourcc(*'DIVX'), 30, (480,480))
+        out.write(frame)
+        out.release()
+        
+        # Do similarity comparison
+        similarity = deadromm_tools.analyze_video_similarity_project(self.working_dir)
+
+        # Since the videos are different, should return nonzero answer
+        self.assertNotEqual(sum(similarity.values()), 0)
+
+    def test_marker_similarity_returns_0_if_identical(self):
+        '''Check that identical data has a similarity value of 1'''
+        # Move sample data into test trial
+        shutil.copy('sample_frame_input.csv', f'{self.working_dir}/trials/test/test.csv')
+
+        # Move sample data into test2 trial
+        os.makedirs(f'{self.working_dir}/trials/test2')
+        shutil.copy('sample_frame_input.csv', f'{self.working_dir}/trials/test2/test2.csv')
+
+        # Do cross-correlation
+        marker_similarity = deadromm_tools.analyze_marker_similarity_project(self.working_dir)
+        
+        self.assertEqual(sum(marker_similarity.values()), 0)
+
+    def test_marker_similarity_returns_not_0_if_different(self):
+        '''Check that different data has a similarity value of not 1'''
+        # Move sample data into test trial
+        shutil.copy('sample_frame_input.csv', f'{self.working_dir}/trials/test/test.csv')
+
+        # Move autocorrect data into test2 trial
+        os.makedirs(f'{self.working_dir}/trials/test2')
+        shutil.copy('sample_autocorrect_output.csv', f'{self.working_dir}/trials/test2/test2.csv')
+
+        # Do cross-correlation
+        marker_similarity = deadromm_tools.analyze_marker_similarity_project(self.working_dir)
+        
+        self.assertNotEqual(sum(marker_similarity.values()), 0)
 
     def tearDown(self):
         '''Remove the created temp project'''

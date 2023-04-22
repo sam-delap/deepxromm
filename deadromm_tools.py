@@ -3,6 +3,7 @@
 import os
 import math
 import warnings
+from itertools import combinations
 from subprocess import Popen, PIPE
 import cv2
 from PIL import Image
@@ -10,9 +11,10 @@ import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
 import deeplabcut
-from deeplabcut.utils import xrommtools
+import xrommtools
 from ruamel.yaml import YAML
 import blend_modes
+import imagehash
 
 def create_new_project(working_dir=os.getcwd(), experimenter='NA'):
     '''Create a new xrommtools project'''
@@ -32,39 +34,41 @@ def create_new_project(working_dir=os.getcwd(), experimenter='NA'):
     # Create a new project
     yaml = YAML()
     task = os.path.basename(working_dir)
-
     path_config_file = deeplabcut.create_new_project(task, experimenter,
-        [working_dir + "\\dummy.avi"], working_dir + "\\", copy_videos=True)
+        [os.path.join(working_dir, "dummy.avi")], working_dir + os.path.sep, copy_videos=True)
 
     if isinstance(path_config_file, str):
         template = f"""
-        task: {task}
-        experimenter: {experimenter}
-        working_dir: {working_dir}
-        path_config_file: {path_config_file}
-        dataset_name: MyData
-        nframes: 0
-        maxiters: 150000
-        tracking_threshold: 0.1 # Fraction of total frames included in training sample
-        tracking_mode: 2D
-        swapped_markers: false
-        crossed_markers: false
+    task: {task}
+    experimenter: {experimenter}
+    working_dir: {working_dir}
+    path_config_file: {path_config_file}
+    dataset_name: MyData
+    nframes: 0
+    maxiters: 150000
+    tracking_threshold: 0.1 # Fraction of total frames included in training sample
+    tracking_mode: 2D
+    swapped_markers: false
+    crossed_markers: false
 
 # Image Processing Vars
-        search_area: 15
-        threshold: 8
-        krad: 17
-        gsigma: 10
-        img_wt: 3.6
-        blur_wt: -2.9
-        gamma: 0.1
+    search_area: 15
+    threshold: 8
+    krad: 17
+    gsigma: 10
+    img_wt: 3.6
+    blur_wt: -2.9
+    gamma: 0.1
 
 # Jupyter Testing Vars
-        cam: cam1
-        frame_num: 1
-        trial_name: your_trial_here
-        marker: your_marker_here
-        test_autocorrect: false # Set to true if you want to see autocorrect's output in Jupyter
+    cam: cam1
+    frame_num: 1
+    trial_name: your_trial_here
+    marker: your_marker_here
+    test_autocorrect: false # Set to true if you want to see autocorrect's output in Jupyter
+
+# Video Similarity Analysis Vars
+    cam1s_are_the_same_view: true    
         """
 
         tmp = yaml.load(template)
@@ -73,12 +77,12 @@ def create_new_project(working_dir=os.getcwd(), experimenter='NA'):
             yaml.dump(tmp, config)
 
         try:
-            os.rmdir(path_config_file[:path_config_file.find("config")] + "labeled-data\\dummy")
+            os.rmdir(path_config_file[:path_config_file.find("config")] + os.path.join("labeled-data","dummy"))
         except FileNotFoundError:
             pass
 
         try:
-            os.remove(path_config_file[:path_config_file.find("config")] + "\\videos\\dummy.avi")
+            os.remove(os.path.join(path_config_file[:path_config_file.find("config")], "videos", "dummy.avi"))
         except FileNotFoundError:
             pass
     
@@ -88,7 +92,7 @@ def create_new_project(working_dir=os.getcwd(), experimenter='NA'):
 def load_project(working_dir=os.getcwd()):
     '''Load an existing project (only used internally/in testing)'''
     # Open the config
-    with open(working_dir + "\\project_config.yaml", 'r') as config_file:
+    with open(os.path.join(working_dir, "project_config.yaml"), 'r') as config_file:
         yaml = YAML()
         project = yaml.load(config_file)
 
@@ -589,7 +593,7 @@ def split_rgb(trial_path, codec='avc1'):
 def splice_xma_to_dlc(project, trial_path, outlier_mode=False, swap=False, cross=False):
     '''Takes csv of XMALab 2D XY coordinates from 2 cameras, outputs spliced hdf+csv data for DeepLabCut'''
     substitute_data_relpath = "labeled-data/" + project['dataset_name']
-    substitute_data_abspath = os.path.join('\\'.join(project['path_config_file'].split('\\')[:-1]),substitute_data_relpath)
+    substitute_data_abspath = os.path.join(os.path.sep.join(project['path_config_file'].split('\\')[:-1]),substitute_data_relpath)
     markers = get_bodyparts_from_xma(trial_path, mode = '2D')
     try:
         trial_name = os.path.basename(os.path.normpath(trial_path))
@@ -762,3 +766,115 @@ def split_dlc_to_xma(project, trial, save_hdf=True):
     if save_hdf:
         tracked_hdf = os.path.splitext(csv_path)[0]+'.h5'
         df.to_hdf(tracked_hdf, 'df_with_missing', format='table', mode='w', nan_rep='NaN')
+
+def analyze_video_similarity_project(working_dir):
+    '''Analyze all videos in a project and take their average similar. This is dangerous, as it will assume that all cam1/cam2 pairs match
+    or don't match!'''
+    project = load_project(working_dir)
+    similarity_score = {}
+    list_of_trials = os.listdir(f'{working_dir}/trials')
+    yaml = YAML()
+
+    trial_perms = combinations(list_of_trials, 2)
+    for trial1, trial2 in trial_perms:
+        project['trial_1_name'] = trial1
+        project['trial_2_name'] = trial2
+        with open(os.path.join(working_dir, 'project_config.yaml'), 'w') as file:
+            yaml.dump(project, file)
+        similarity_score[(trial1, trial2)] = analyze_video_similarity_trial(working_dir)
+    
+    return similarity_score
+   
+
+def analyze_video_similarity_trial(working_dir):
+    '''Analyze the average similarity between trials using image hashing'''
+    project = load_project(working_dir)
+
+    # Find videos for each trial
+    trial1_cam1 = cv2.VideoCapture(os.path.join(f'{working_dir}/trials', project['trial_1_name'], project['trial_1_name'] + '_cam1.avi'))
+    trial2_cam1 = cv2.VideoCapture(os.path.join(f'{working_dir}/trials', project['trial_2_name'], project['trial_2_name'] + '_cam1.avi'))
+    trial1_cam2 = cv2.VideoCapture(os.path.join(f'{working_dir}/trials', project['trial_1_name'], project['trial_1_name'] + '_cam2.avi'))
+    trial2_cam2 = cv2.VideoCapture(os.path.join(f'{working_dir}/trials', project['trial_2_name'], project['trial_2_name'] + '_cam2.avi'))
+    
+    # Compare hashes
+    if project['cam1s_are_the_same_view']:
+        cam1_dif, noc1 = compare_two_videos(trial1_cam1, trial2_cam1)
+        cam2_dif, noc2 = compare_two_videos(trial1_cam2, trial2_cam2)
+    else:
+        cam1_dif, noc1 = compare_two_videos(trial1_cam1, trial2_cam2)
+        cam2_dif, noc2 = compare_two_videos(trial1_cam2, trial2_cam1)
+
+    return (cam1_dif + cam2_dif) / (noc1 + noc2)
+
+def compare_two_videos(video1, video2):
+    '''Do an image hashing between two videos'''
+    video1_frames = int(video1.get(cv2.CAP_PROP_FRAME_COUNT))
+    video2_frames = int(video2.get(cv2.CAP_PROP_FRAME_COUNT))
+    noc = math.perm(video1_frames + video2_frames, 2)
+    print(f'Video 1 frames: {video1_frames}')
+    print(f'Video 2 frames: {video2_frames}')
+    hash_dif = 0
+
+    hashes1 = []
+    print ('Creating hashes for video 1')
+    for i in range(video1_frames):
+        print(f'Current frame (video 1): {i}')
+        ret, frame1 = video1.read()
+        if not ret:
+            print('Error reading video 1 frame')
+            cv2.destroyAllWindows()
+            break
+        hashes1.append(imagehash.phash(Image.fromarray(frame1)))
+
+    print('Creating hashes for video 2')
+    hashes2 = []
+    for j in range(video2_frames):
+        print(f'Current frame (video 2): {j}')
+        ret, frame2 = video2.read()
+        if not ret:
+            print('Error reading video 2 frame')
+            cv2.destroyAllWindows()
+            break
+        hashes2.append(imagehash.phash(Image.fromarray(frame2)))
+    
+    print('Comparing hashes between videos')
+    for hash1 in hashes1:
+        for hash2 in hashes2:
+            hash_dif = hash_dif + (hash1 - hash2)
+    
+    return hash_dif, noc
+
+def analyze_marker_similarity_project(working_dir):
+    '''Analyze all videos in a project and get their average rhythmicity. This assumes that all cam1/2 pairs are either the same or different!'''
+    project = load_project(working_dir)
+    marker_similarity = {}
+    list_of_trials = os.listdir(f'{working_dir}/trials')
+    yaml = YAML()
+
+    trial_perms = combinations(list_of_trials, 2)
+    for trial1, trial2 in trial_perms:
+        project['trial_1_name'] = trial1
+        project['trial_2_name'] = trial2
+        with open(os.path.join(working_dir, 'project_config.yaml'), 'w') as file:
+            yaml.dump(project, file)
+        marker_similarity[(trial1, trial2)] = abs(analyze_marker_similarity_trial(working_dir))
+    
+    return marker_similarity
+
+def analyze_marker_similarity_trial(working_dir):
+    '''Analyze marker similarity for a pair of trials. Returns the mean difference for paired marker positions (X - X, Y - Y for each marker)'''
+    project = load_project(working_dir)
+
+    # Find CSVs for each trial
+    trial1_path = os.path.join(f'{working_dir}/trials', project['trial_1_name'])
+    trial2_path = os.path.join(f'{working_dir}/trials', project['trial_2_name'])
+    
+    # Get a list of markers that each trial have in commmon
+    markers_in_common = [marker for marker in get_bodyparts_from_xma(trial1_path, mode='rgb', split_markers=False, crossed_markers=False) if marker in get_bodyparts_from_xma(trial2_path, mode='rgb', split_markers=False, crossed_markers=False)]
+    bodyparts_xy = [f'{marker}_X' for marker in markers_in_common] + [f'{marker}_Y' for marker in markers_in_common]
+    trial1_csv = pd.read_csv(os.path.join(trial1_path, project['trial_1_name'] + '.csv'))
+    trial2_csv = pd.read_csv(os.path.join(trial2_path, project['trial_2_name'] + '.csv'))
+
+    marker_similarity = sum([(trial1_csv[marker] - trial2_csv[marker]).sum() / (len(trial1_csv[marker]) + len(trial2_csv[marker])) for marker in bodyparts_xy]) / len(bodyparts_xy)
+
+    return marker_similarity
