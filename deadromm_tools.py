@@ -34,7 +34,7 @@ def create_new_project(working_dir=os.getcwd(), experimenter='NA'):
     # Create a new project
     yaml = YAML()
     task = os.path.basename(working_dir)
-    print(os.listdir(working_dir))
+    print(type(cv2.VideoCapture(f'{working_dir}/dummy.avi')))
     path_config_file = deeplabcut.create_new_project(task, experimenter,
         [working_dir + "\\dummy.avi"], working_dir + "\\", copy_videos=True)
 
