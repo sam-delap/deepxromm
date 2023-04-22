@@ -1,5 +1,5 @@
 name: Run test suite on PR
-run-name: Run tests for ${{ github.ref_name }} PR
+run-name: Run tests for ${{ github.head_ref }}
 on: [pull_request]
 jobs:
   tests:
@@ -9,6 +9,6 @@ jobs:
       - uses: actions/setup-python@v4
         with:
           python-version: '3.9'
-          cache: 'pip'
+      - run: pip install --upgrade pip
       - run: pip install -r requirements.txt
       - run: python test_deadromm_tools.py
