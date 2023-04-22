@@ -109,6 +109,7 @@ class TestDefaultsPerformance(unittest.TestCase):
 
     def test_can_find_frames_from_csv(self):
         '''Can I accurately find the number of frames in the video if the user doesn't tell me?'''
+        print(os.listdir(self.working_dir))
         project = deadromm_tools.load_project(self.working_dir)
         self.assertEqual(project['nframes'], 1, msg=f"Actual nframes: {project['nframes']}")
 
