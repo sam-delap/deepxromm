@@ -34,9 +34,8 @@ def create_new_project(working_dir=os.getcwd(), experimenter='NA'):
     # Create a new project
     yaml = YAML()
     task = os.path.basename(working_dir)
-    print(type(cv2.VideoCapture(f'{working_dir}/dummy.avi')))
     path_config_file = deeplabcut.create_new_project(task, experimenter,
-        [working_dir + "\\dummy.avi"], working_dir + "\\", copy_videos=True)
+        [os.path.join(working_dir, "dummy.avi")], working_dir + os.path.sep, copy_videos=True)
 
     if isinstance(path_config_file, str):
         template = f"""
@@ -78,12 +77,12 @@ def create_new_project(working_dir=os.getcwd(), experimenter='NA'):
             yaml.dump(tmp, config)
 
         try:
-            os.rmdir(path_config_file[:path_config_file.find("config")] + "labeled-data\\dummy")
+            os.rmdir(path_config_file[:path_config_file.find("config")] + os.path.join("labeled-data","dummy"))
         except FileNotFoundError:
             pass
 
         try:
-            os.remove(path_config_file[:path_config_file.find("config")] + "\\videos\\dummy.avi")
+            os.remove(os.path.join(path_config_file[:path_config_file.find("config")], "videos", "dummy.avi"))
         except FileNotFoundError:
             pass
     
@@ -93,7 +92,7 @@ def create_new_project(working_dir=os.getcwd(), experimenter='NA'):
 def load_project(working_dir=os.getcwd()):
     '''Load an existing project (only used internally/in testing)'''
     # Open the config
-    with open(working_dir + "\\project_config.yaml", 'r') as config_file:
+    with open(os.path.join(working_dir, "project_config.yaml"), 'r') as config_file:
         yaml = YAML()
         project = yaml.load(config_file)
 
@@ -594,7 +593,7 @@ def split_rgb(trial_path, codec='avc1'):
 def splice_xma_to_dlc(project, trial_path, outlier_mode=False, swap=False, cross=False):
     '''Takes csv of XMALab 2D XY coordinates from 2 cameras, outputs spliced hdf+csv data for DeepLabCut'''
     substitute_data_relpath = "labeled-data/" + project['dataset_name']
-    substitute_data_abspath = os.path.join('\\'.join(project['path_config_file'].split('\\')[:-1]),substitute_data_relpath)
+    substitute_data_abspath = os.path.join(os.path.sep.join(project['path_config_file'].split('\\')[:-1]),substitute_data_relpath)
     markers = get_bodyparts_from_xma(trial_path, mode = '2D')
     try:
         trial_name = os.path.basename(os.path.normpath(trial_path))
