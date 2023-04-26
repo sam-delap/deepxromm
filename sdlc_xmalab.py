@@ -104,7 +104,7 @@ def load_project(working_dir=os.getcwd()):
     # Load trial CSV
     try:
         training_data_path = os.path.join(project['working_dir'], "trainingdata")
-        trial = [folder for folder in os.listdir(training_data_path) if os.path.isdir(os.path.join(training_data_path, folder)) and not folder.statrswith('.')][0]
+        trial = [folder for folder in os.listdir(training_data_path) if os.path.isdir(os.path.join(training_data_path, folder)) and not folder.startswith('.')][0]
         trial_csv = pd.read_csv(training_data_path + '/' + trial + '/' + trial + '.csv')
     except FileNotFoundError as e:
         raise FileNotFoundError(f'Please make sure that your trainingdata 2DPoints csv file is named {trial}.csv') from e
