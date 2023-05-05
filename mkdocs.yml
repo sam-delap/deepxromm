@@ -2,6 +2,7 @@ site_name: SDLC_XMALab Docs
 nav:
   - Home: index.md
   - Installation Guide: install.md
+  - Config File Reference: config.md
 theme:
   name: material
   features:
