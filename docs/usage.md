@@ -1,0 +1,47 @@
+# Usage Guide
+There are two ways to use this package. You can either:
+
+1. Follow the usage guide below to run everything locally (visit the DeepLabCut documentation to configure DeepLabCut to work with your GPU [here](https://deeplabcut.github.io/DeepLabCut/docs/installation.html#gpu-support) before running the below commands.
+2. Use the colab_tutortial.ipynb [Jupyter Notebook](https://realpython.com/jupyter-notebook-introduction/#:~:text=The%20Jupyter%20Notebook%20is%20an,the%20people%20at%20Project%20Jupyter.) that is included with the source code for this repository and an online computing platform like [Google Colab](colab.research.google.com)
+
+## Getting Started and Creating a New Project
+1. If you haven't already, follow the steps in the installation guide to install this package's dependencies!
+2. Activate your conda environment
+    ```bash
+    conda activate your-env-name
+    ```
+3. Change into the folder where you stored the source code for this package (use \ instead of / on Windows)
+    ```bash
+    cd /path/to/folder-name
+    ```
+4. Open an interactive Python session
+    ```bash
+    ipython
+    ```
+5. From the terminal, run the following commands (replacing `/path/to/project-folder` with the path to the folder for your project):
+    ```python
+    import sdlc_xmalab
+    working_dir = '/path/to/project-folder'
+    experimenter = 'SD'
+    sdlc_xmalab.create_new_project(working_dir, experimenter)
+    ```
+    1. Keep your Python session open. We'll be running more commands here shortly
+6. You should now see something that looks like this inside of your project folder:
+    ```bash
+    sample-proj
+    │   project_config.yaml
+    │
+    ├───sample-proj-SD-YYYY-MM-DD
+    ├───trainingdata
+    ├───trials
+    └───XMA_files
+    ```
+
+## Importing your data and beginning network training
+1. The simplest approach is to create a new folder inside of the trainingdata folder named after your trial and place your raw videos, as well as distorted 2D points from tracking, in the folder.
+2. There are also a number of options for customization in the project_config.yaml file. Check out the config file reference to learn more about what each variable does
+3. To start training your network, run the following in your Python terminal
+    ```python
+    sdlc_xmalab.train_network(working_dir)
+    ```
+
