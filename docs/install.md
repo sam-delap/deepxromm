@@ -1,10 +1,7 @@
 # Installation Guide
 ## Prerequisites
 1. A recent version of python. These docs were built using python 3.9.16
-2. If you're running locally:
-    1. Anaconda (link download instructions)
-    1. An NVidia GPU
-    1. The cuda runtime (link to download instructions)
+2. If you're running locally, you'll also need DeepLabCut's [dependencies](https://deeplabcut.github.io/DeepLabCut/docs/installation.html)
 
 ## Creating a conda environment
 Run the following command
