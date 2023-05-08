@@ -1,4 +1,4 @@
-site_name: SDLC_XMALab Docs
+site_name: Sam's DeepLabCut-XMAlab (sdlc-xmalab) Docs
 nav:
   - Home: index.md
   - Installation: install.md

@@ -1,11 +1,11 @@
 # Usage Guide
 There are two ways to use this package. You can either:
 
-1. Follow the usage guide below to run everything locally (visit the DeepLabCut documentation to configure DeepLabCut to work with your GPU [here](https://deeplabcut.github.io/DeepLabCut/docs/installation.html#gpu-support) before running the below commands.
-2. Use the colab_tutortial.ipynb [Jupyter Notebook](https://realpython.com/jupyter-notebook-introduction/#:~:text=The%20Jupyter%20Notebook%20is%20an,the%20people%20at%20Project%20Jupyter.) that is included with the source code for this repository and an online computing platform like [Google Colab](colab.research.google.com)
+1. Follow the usage guide below to run everything locally.
+2. Use the colab_tutortial.ipynb [Jupyter Notebook](https://realpython.com/jupyter-notebook-introduction/) that is included with the source code for this repository and an online computing platform like [Google Colab](https://colab.research.google.com/)
 
 ## Getting Started and Creating a New Project
-1. If you haven't already, follow the steps in the installation guide to install this package's dependencies!
+1. If you haven't already, follow the steps in the [installation guide](https://sam-delap.github.io/sdlc_xmalab/install/) to install this package's dependencies!
 2. Activate your conda environment
     ```bash
     conda activate your-env-name
