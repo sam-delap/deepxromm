@@ -2,7 +2,8 @@
 There are two ways to use this package. You can either:
 
 1. Follow the usage guide below to run everything locally.
-2. Use the colab_tutortial.ipynb [Jupyter Notebook](https://realpython.com/jupyter-notebook-introduction/) that is included with the source code for this repository and an online computing platform like [Google Colab](https://colab.research.google.com/)
+2. Use the colab_tutortial.ipynb [Jupyter Notebook](https://drive.google.com/drive/folders/1X91DYNbcu4_tV1FMvF-28XB7p7SS-MBt) and an online computing platform like [Google Colab](https://colab.research.google.com/)
+    1. If you are using this option, be sure to make a copy of the notebook before using it so that you can save your changes!
 
 ## Getting Started and Creating a New Project
 1. If you haven't already, follow the steps in the [installation guide](https://sam-delap.github.io/sdlc_xmalab/install/) to install this package's dependencies!
