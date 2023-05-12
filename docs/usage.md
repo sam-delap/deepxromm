@@ -54,7 +54,8 @@ There are two ways to use this package. You can either:
     ```
 1. This will save a file named **trial_name**-Predicted2DPoints.csv to the it# file (where number is the number next to iteration: in your project_folder/project-name-SD-YYYY-MM-DD/config.yaml file) inside of your trials/trial_name folder
 1. You can analyze the network's performance by importing this CSV as a 2D Points file into XMAlab with the following settings
-![XMAlab import settings](XMA_import_settings.png)
+
+![XMAlab import settings](XMA_import_settings.png){: .center}
 ## Using autocorrect()
 This package comes pre-built with autocorrect() functions that leverage the same image filtering functions as XMAlab, and use the marker's outline to do centroid detection on each marker. You can modify the autocorrect function's performance using the **image processing** parameters from the [config file reference](config.md). You can also visualize the centroid detection process using the **test_autocorrect()** parameters.
 ### Testing autocorrect() parameters on a single marker/frame combination
@@ -85,6 +86,7 @@ You'll need a Python environment that is capable of displaying images, like a [J
     iteration: 0
     ```
 1. You can analyze autocorrect's performance by importing this CSV as a 2D Points file into XMAlab with the following settings
-![XMAlab import settings](XMA_import_settings.png)
+
+![XMAlab import settings](XMA_import_settings.png){: .center}
 
  

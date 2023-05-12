@@ -1,4 +1,5 @@
 site_name: Sam's DeepLabCut-XMAlab (sdlc-xmalab) Docs
+site_url: https://sam-delap.github.io/sdlc_xmalab/
 nav:
   - Home: index.md
   - Installation: install.md
@@ -37,6 +38,9 @@ extra:
       link: https://github.com/sam-delap/sdlc_xmalab
     - icon: fontawesome/brands/linkedin
       link: https://www.linkedin.com/in/sam-delap/
+
+extra_css:
+  - extra.css
 
 markdown_extensions:
   - pymdownx.highlight:
