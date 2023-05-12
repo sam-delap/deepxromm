@@ -38,9 +38,6 @@ extra:
     - icon: fontawesome/brands/linkedin
       link: https://www.linkedin.com/in/sam-delap/
 
-extra_css:
-  - extra.css
-
 markdown_extensions:
   - pymdownx.highlight:
       anchor_linenums: true
