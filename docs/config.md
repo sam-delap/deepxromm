@@ -23,8 +23,8 @@
 **threshold**: Grayscale value for image thresholding. Pixels with a value above this number are turned black, while pixels with a value below this number are turned <span style="color:white;background-color:black;">white</span>. The default is 8 (grayscale values range from 0=black to 255=white).  
 **krad**: The size of the kernel used for Gaussian filtering of the image. The larger the kernel, the higher the filtered radius of a marker. The default is 17 (left) vs. a krad of 3 (right).  
 <div align="center">
-    <img src="/krad_17.png" alt="Krad of 17" />
-    <img src="/krad_3.png" alt="Krad of 3" />
+    <img src="../krad_17.png" alt="Krad of 17" />
+    <img src="../krad_3.png" alt="Krad of 3" />
 </div>
 
 **gsigma**: Responsible for small differences in image contrast. Can be modified as a last resort, but for the most part I would leave this alone. The default is 10.  
@@ -32,8 +32,8 @@
 **blur_wt**: Relative weight of the blur when it is blended together with an image. Typically you’ll want this to be significantly lower than the image, and the default will work well for most X-ray images. The default is -2.9.  
 **gamma**: The level of contrast in the image. Higher gamma = lower contrast. The default is 0.1 (left) vs. gamma = 0.9 (right). Try to run with a level of gamma that avoids filtering out marker data, while not taking away valuable information from the image processing itself.
 <div align="center">
-    <img src="/krad_17.png" alt="Gamma of 0.1" />
-    <img src="/gamma_0.9.png" alt="Gamma of 0.9" />
+    <img src="../krad_17.png" alt="Gamma of 0.1" />
+    <img src="../gamma_0.9.png" alt="Gamma of 0.9" />
 </div>
 
 ## Autocorrect() Function Visualization
