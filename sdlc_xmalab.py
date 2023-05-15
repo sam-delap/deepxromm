@@ -228,7 +228,7 @@ def autocorrect_trial(working_dir=os.getcwd()): #try 0.05 also
 
     # Error if trials directory is empty
     new_data_path = os.path.join(working_dir, 'trials')
-    trials = [folder for folder in os.listdir() if os.path.isdir(os.path.join(new_data_path, folder)) and not folder.startswith('.')]
+    trials = [folder for folder in os.listdir(new_data_path) if os.path.isdir(os.path.join(new_data_path, folder)) and not folder.startswith('.')]
     if len(trials) <= 0:
         raise FileNotFoundError(f'Empty trials directory found. Please put trials to be analyzed after training into the {working_dir}/trials folder')
 
@@ -775,7 +775,7 @@ def analyze_video_similarity_project(working_dir):
     project = load_project(working_dir)
     similarity_score = {}
     new_data_path = os.path.join(working_dir, 'trials')
-    list_of_trials = [folder for folder in os.listdir() if os.path.isdir(os.path.join(new_data_path, folder)) and not folder.startswith('.')]
+    list_of_trials = [folder for folder in os.listdir(new_data_path) if os.path.isdir(os.path.join(new_data_path, folder)) and not folder.startswith('.')]
     yaml = YAML()
 
     trial_perms = combinations(list_of_trials, 2)
@@ -852,7 +852,7 @@ def analyze_marker_similarity_project(working_dir):
     project = load_project(working_dir)
     marker_similarity = {}
     new_data_path = os.path.join(working_dir, 'trials')
-    list_of_trials = [folder for folder in os.listdir() if os.path.isdir(os.path.join(new_data_path, folder)) and not folder.startswith('.')]
+    list_of_trials = [folder for folder in os.listdir(new_data_path) if os.path.isdir(os.path.join(new_data_path, folder)) and not folder.startswith('.')]
     yaml = YAML()
 
     trial_perms = combinations(list_of_trials, 2)
