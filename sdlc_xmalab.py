@@ -60,7 +60,7 @@ def create_new_project(working_dir=os.getcwd(), experimenter='NA'):
     blur_wt: -2.9
     gamma: 0.1
 
-# Jupyter Testing Vars
+# Autocorrect() Testing Vars
     cam: cam1
     frame_num: 1
     trial_name: your_trial_here
@@ -202,7 +202,7 @@ def analyze_videos(working_dir=os.getcwd()):
 
     # Error if trials directory is empty
     new_data_path = os.path.join(working_dir, 'trials')
-    trials = [folder for folder in os.listdir() if os.path.isdir(os.path.join(new_data_path, folder)) and not folder.startswith('.')]
+    trials = [folder for folder in os.listdir(new_data_path) if os.path.isdir(os.path.join(new_data_path, folder)) and not folder.startswith('.')]
     if len(trials) <= 0:
         raise FileNotFoundError(f'Empty trials directory found. Please put trials to be analyzed after training into the {working_dir}/trials folder')
 
