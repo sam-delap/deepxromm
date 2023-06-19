@@ -11,5 +11,5 @@ jobs:
           python-version: '3.9'
           cache: 'pip'
       - run: pip install --upgrade pip
-      - run: pip install -r requirements.txt
+      - run: pip install -r requirements_windows.txt
       - run: python test_sdlc_xmalab.py
