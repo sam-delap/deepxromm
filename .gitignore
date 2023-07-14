@@ -2,10 +2,6 @@
 *.avi
 *.mp4
 
-# Training Images
-*.tif
-*.png
-
 # Pointsfiles
 *.h5
 *.mat

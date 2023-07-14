@@ -61,9 +61,10 @@ def create_new_project(working_dir=os.getcwd(), experimenter='NA'):
     gamma: 0.1
 
 # Autocorrect() Testing Vars
+
+    trial_name: your_trial_here
     cam: cam1
     frame_num: 1
-    trial_name: your_trial_here
     marker: your_marker_here
     test_autocorrect: false # Set to true if you want to see autocorrect's output in Jupyter
 
