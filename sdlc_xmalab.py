@@ -784,7 +784,6 @@ def analyze_video_similarity_project(working_dir):
         similarity_score[(trial1, trial2)] = analyze_video_similarity_trial(working_dir)
     
     return similarity_score
-   
 
 def analyze_video_similarity_trial(working_dir):
     '''Analyze the average similarity between trials using image hashing'''
@@ -843,6 +842,92 @@ def compare_two_videos(video1, video2):
             hash_dif = hash_dif + (hash1 - hash2)
     
     return hash_dif, noc
+
+def get_max_dissimilarity_for_trial(trial_path, window):
+    trial_name = os.path.basename(trial_path)
+    video1 = cv2.VideoCapture(os.path.join(trial_path, f'{trial_name}_cam1.avi'))
+    video2 = cv2.VideoCapture(os.path.join(trial_path, f'{trial_name}_cam2.avi'))
+
+    hashes1, hashes2 = hash_trial_videos(video1, video2)
+    return find_dissimilar_regions(hashes1, hashes2, window)
+
+def hash_trial_videos(video1, video2):
+    '''Do an image hashing between two videos'''
+    video1_frames = int(video1.get(cv2.CAP_PROP_FRAME_COUNT))
+    video2_frames = int(video2.get(cv2.CAP_PROP_FRAME_COUNT))
+    print(f'Video 1 frames: {video1_frames}')
+    print(f'Video 2 frames: {video2_frames}')
+
+    hashes1 = []
+    print ('Creating hashes for video 1')
+    for i in range(video1_frames):
+        print(f'Current frame (video 1): {i}')
+        ret, frame1 = video1.read()
+        if not ret:
+            print('Error reading video 1 frame')
+            cv2.destroyAllWindows()
+            break
+        hashes1.append(imagehash.phash(Image.fromarray(frame1)))
+
+    print('Creating hashes for video 2')
+    hashes2 = []
+    for j in range(video2_frames):
+        print(f'Current frame (video 2): {j}')
+        ret, frame2 = video2.read()
+        if not ret:
+            print('Error reading video 2 frame')
+            cv2.destroyAllWindows()
+            break
+        hashes2.append(imagehash.phash(Image.fromarray(frame2)))
+
+    return hashes1, hashes2
+
+def find_dissimilar_regions(hashes1, hashes2, window):
+    '''Find the region of maximum dissimilarity given 2 lists of hashes and a sliding window (how many frames)'''
+    start_frame_vid1 = 0
+    start_frame_vid2 = 0
+    max_hash_dif_vid1 = 0
+    max_hash_dif_vid2 = 0
+    hash_dif_vid1 = 0
+    hash_dif_vid2 = 0
+
+    for slider in range(0, len(hashes1) // window):
+        print(f'Current start frame {slider * window}')
+        hash_dif_vid1, hash_dif_vid2 = compare_hash_sets(hashes1[slider * window:(slider + 1) * window], hashes2[slider * window:(slider + 1) * window])
+
+        print(f'Current hash diff (vid 1): {hash_dif_vid1}')
+        print(f'Current hash diff (vid 2): {hash_dif_vid2}')
+        if hash_dif_vid1 > max_hash_dif_vid1:
+            max_hash_dif_vid1 = hash_dif_vid1
+            start_frame_vid1 = slider * window
+
+        if hash_dif_vid2 > max_hash_dif_vid2:
+            max_hash_dif_vid2 = hash_dif_vid2
+            start_frame_vid2 = slider * window
+
+        print(f'Max hash diff (vid 1): {max_hash_dif_vid1}')
+        print(f'Max hash diff (vid 2): {max_hash_dif_vid2}')
+
+        print(f'Start frame (vid 1): {start_frame_vid1}')
+        print(f'Start frame (vid 2): {start_frame_vid2}')
+
+    return start_frame_vid1, start_frame_vid2
+
+def compare_hash_sets(hashes1, hashes2):
+    '''Compares two sets of image hashes to find dissimilarities'''
+    hash1_dif = 0
+    hash2_dif = 0
+
+    print(f'Hash set 1 {hashes1[0]}')
+    print(f'Hash set 2 {hashes2[0]}')
+    # Compares all possible combinations of images
+    for combination in combinations(hashes1, 2):
+        hash1_dif = hash1_dif + (combination[0] - combination[1])
+
+    for combination in combinations(hashes2, 2):
+        hash2_dif = hash2_dif + (combination[0] - combination[1])
+
+    return hash1_dif, hash2_dif
 
 def analyze_marker_similarity_project(working_dir):
     '''Analyze all videos in a project and get their average rhythmicity. This assumes that all cam1/2 pairs are either the same or different!'''
