@@ -27,7 +27,7 @@ def xma_to_dlc(path_config_file,data_path,dataset_name,scorer,nframes,nnetworks 
     idx = []
     pnames = []
     subs =[["c01","c1","C01","C1","Cam1","cam1","Cam01","cam01","Camera1","camera1"],["c02","c2","C02","C2","Cam2","cam2","Cam02","cam02","Camera2","camera2"]]
-    trialnames = os.listdir(data_path)
+    trialnames = [folder for folder in os.listdir(data_path) if os.path.isdir(os.path.join(data_path, folder)) and not folder.startswith('.')]
 
 
     ### PART 1: Pick frames for dataset
@@ -327,12 +327,12 @@ def analyze_xromm_videos(path_config_file,path_data_to_analyze,iteration,nnetwor
     config = path_config_file
     configs = [path_config_file, path_config_file_cam2]
     subs =[["c01","c1","C01","C1","Cam1","cam1","Cam01","cam01","Camera1","camera1"],["c02","c2","C02","C2","Cam2","cam2","Cam02","cam02","Camera2","camera2"]]
-    trialnames = os.listdir(path_data_to_analyze)
-
+    trialnames = [folder for folder in os.listdir(path_data_to_analyze) if os.path.isdir(os.path.join(path_data_to_analyze, folder)) and not folder.startswith('.')]
+    
     for trialnum,trial in enumerate(trialnames):
-        trialpath = path_data_to_analyze + "/" + trial
+        trialpath = os.path.join(path_data_to_analyze,trial)
         contents = os.listdir(trialpath)
-        savepath = trialpath + "/" + "it%d"%iteration
+        savepath = os.path.join(trialpath, f"it{iteration}")
         if os.path.exists(savepath):
             temp = os.listdir(savepath)
             if temp:
@@ -341,14 +341,14 @@ def analyze_xromm_videos(path_config_file,path_data_to_analyze,iteration,nnetwor
             os.makedirs(savepath) # make new folder
         # get video file
         for camera in cameras:
-            file = []
             for name in contents:
                 if any(x in name for x in subs[camera-1]):
-                    file = name
-            if not file:
+                    filename = name
+            if not filename:
                 raise ValueError('Cannot locate %s video file or image folder' %trial)
             
-            video = trialpath + "/" + file
+            video = os.path.join(trialpath, filename)
+            print(video)
             #analyze video
             if nnetworks == 1:
                 analyze_videos(config,[video],destfolder = savepath,save_as_csv=True)

@@ -61,6 +61,7 @@ def create_new_project(working_dir=os.getcwd(), experimenter='NA'):
     gamma: 0.1
 
 # Autocorrect() Testing Vars
+
     trial_name: your_trial_here
     cam: cam1
     frame_num: 1
@@ -104,7 +105,7 @@ def load_project(working_dir=os.getcwd()):
     # Load trial CSV
     try:
         training_data_path = os.path.join(project['working_dir'], "trainingdata")
-        trial = os.listdir(training_data_path)[0]
+        trial = [folder for folder in os.listdir(training_data_path) if os.path.isdir(os.path.join(training_data_path, folder)) and not folder.startswith('.')][0]
         trial_csv = pd.read_csv(training_data_path + '/' + trial + '/' + trial + '.csv')
     except FileNotFoundError as e:
         raise FileNotFoundError(f'Please make sure that your trainingdata 2DPoints csv file is named {trial}.csv') from e
@@ -146,12 +147,11 @@ def load_project(working_dir=os.getcwd()):
         dlc_config_loader = YAML()
 
         dlc_yaml = dlc_config_loader.load(dlc_config)
-        trial_name = os.listdir(working_dir + '/trainingdata')[0]
 
         if dlc_yaml['bodyparts'] == default_bodyparts:
-            dlc_yaml['bodyparts'] = get_bodyparts_from_xma(os.path.join(working_dir, 'trainingdata', trial_name), project['tracking_mode'], project['swapped_markers'], project['crossed_markers'])
+            dlc_yaml['bodyparts'] = get_bodyparts_from_xma(os.path.join(working_dir, 'trainingdata', trial), project['tracking_mode'], project['swapped_markers'], project['crossed_markers'])
 
-        elif dlc_yaml['bodyparts'] != get_bodyparts_from_xma(os.path.join(working_dir, 'trainingdata', trial_name), project['tracking_mode'], project['swapped_markers'], project['crossed_markers']):
+        elif dlc_yaml['bodyparts'] != get_bodyparts_from_xma(os.path.join(working_dir, 'trainingdata', trial), project['tracking_mode'], project['swapped_markers'], project['crossed_markers']):
             raise SyntaxError('XMAlab CSV marker names are different than DLC bodyparts.')
 
     with open(project['path_config_file'], 'w') as dlc_config:
@@ -173,7 +173,7 @@ def load_project(working_dir=os.getcwd()):
 def train_network(working_dir=os.getcwd()):
     '''Start training xrommtools-compatible data'''
     project = load_project(working_dir=working_dir)
-    data_path = working_dir + "/trainingdata"
+    data_path = os.path.join(working_dir, 'trainingdata')
 
     if project['tracking_mode'] == '2D':
         try:
@@ -185,7 +185,8 @@ def train_network(working_dir=os.getcwd()):
         except UnboundLocalError:
             pass
     else:
-        for trial in os.listdir(data_path):
+        trials = [folder for folder in os.listdir(data_path) if os.path.isdir(os.path.join(data_path, folder)) and not folder.startswith('.')]
+        for trial in trials:
             merge_rgb(f'{data_path}/{trial}')
             substitute_data_relpath = "labeled-data/" + project['dataset_name']
             substitute_data_abspath = os.path.join(os.path.split(project['path_config_file'])[0],substitute_data_relpath)
@@ -201,12 +202,13 @@ def analyze_videos(working_dir=os.getcwd()):
     project = load_project(working_dir)
 
     # Error if trials directory is empty
-    if len(os.listdir(f'{working_dir}/trials')) <= 0:
+    new_data_path = os.path.join(working_dir, 'trials')
+    trials = [folder for folder in os.listdir(new_data_path) if os.path.isdir(os.path.join(new_data_path, folder)) and not folder.startswith('.')]
+    if len(trials) <= 0:
         raise FileNotFoundError(f'Empty trials directory found. Please put trials to be analyzed after training into the {working_dir}/trials folder')
 
     # Establish project vars
     yaml = YAML()
-    new_data_path = working_dir + "/trials"
     with open(project['path_config_file']) as dlc_config:
         dlc = yaml.load(dlc_config)
     iteration = dlc['iteration']
@@ -214,7 +216,7 @@ def analyze_videos(working_dir=os.getcwd()):
     if project['tracking_mode'] == '2D':
         xrommtools.analyze_xromm_videos(project['path_config_file'], new_data_path, iteration)
     else:
-        for trial in os.listdir(f'{working_dir}/trials'):
+        for trial in trials:
             video_path = f'{working_dir}/trials/{trial}/{trial}_rgb.avi'
             destfolder = f'{working_dir}/trials/{trial}/it{iteration}/'
             deeplabcut.analyze_videos(project['path_config_file'], video_path, destfolder=destfolder, save_as_csv=True)
@@ -226,11 +228,12 @@ def autocorrect_trial(working_dir=os.getcwd()): #try 0.05 also
     project = load_project(working_dir)
 
     # Error if trials directory is empty
-    if len(os.listdir(f'{working_dir}/trials')) <= 0:
+    new_data_path = os.path.join(working_dir, 'trials')
+    trials = [folder for folder in os.listdir(new_data_path) if os.path.isdir(os.path.join(new_data_path, folder)) and not folder.startswith('.')]
+    if len(trials) <= 0:
         raise FileNotFoundError(f'Empty trials directory found. Please put trials to be analyzed after training into the {working_dir}/trials folder')
 
     # Establish project vars
-    new_data_path = working_dir + "/trials"
     yaml = YAML()
     with open(project['path_config_file']) as dlc_config:
         dlc = yaml.load(dlc_config)
@@ -238,7 +241,7 @@ def autocorrect_trial(working_dir=os.getcwd()): #try 0.05 also
     iteration = dlc['iteration']
 
     # For each trial
-    for trial in os.listdir(new_data_path):
+    for trial in trials:
         # Find the appropriate pointsfile
         try:
             csv = pd.read_csv(new_data_path + '/' + trial + '/' + 'it' + str(iteration) + '/' + trial + '-Predicted2DPoints.csv')
@@ -772,7 +775,8 @@ def analyze_video_similarity_project(working_dir):
     or don't match!'''
     project = load_project(working_dir)
     similarity_score = {}
-    list_of_trials = os.listdir(f'{working_dir}/trials')
+    new_data_path = os.path.join(working_dir, 'trials')
+    list_of_trials = [folder for folder in os.listdir(new_data_path) if os.path.isdir(os.path.join(new_data_path, folder)) and not folder.startswith('.')]
     yaml = YAML()
 
     trial_perms = combinations(list_of_trials, 2)
@@ -848,7 +852,8 @@ def analyze_marker_similarity_project(working_dir):
     '''Analyze all videos in a project and get their average rhythmicity. This assumes that all cam1/2 pairs are either the same or different!'''
     project = load_project(working_dir)
     marker_similarity = {}
-    list_of_trials = os.listdir(f'{working_dir}/trials')
+    new_data_path = os.path.join(working_dir, 'trials')
+    list_of_trials = [folder for folder in os.listdir(new_data_path) if os.path.isdir(os.path.join(new_data_path, folder)) and not folder.startswith('.')]
     yaml = YAML()
 
     trial_perms = combinations(list_of_trials, 2)
