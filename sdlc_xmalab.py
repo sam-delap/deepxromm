@@ -81,12 +81,12 @@ def create_new_project(working_dir=os.getcwd(), experimenter='NA', mode='2D'):
         tmp = yaml.load(template)
 
         if mode == 'per_cam':
-            task_2 = task
-            path_config_file_2 = deeplabcut.create_new_project(task,
+            task_2 = f'{task}_cam2'
+            path_config_file_2 = deeplabcut.create_new_project(task_2,
                                                                experimenter,
-                                                               os.path.join(working_dir_2,
-                                                                            "dummy.avi"),
-                                                               working_dir_2
+                                                               [os.path.join(working_dir,
+                                                                            "dummy.avi")],
+                                                               working_dir
                                                                + os.path.sep,
                                                                copy_videos=True)
             tmp['path_config_file_2'] = path_config_file_2
@@ -205,7 +205,7 @@ def train_network(working_dir=os.getcwd()):
         xrommtools.xma_to_dlc(path_config_file=project['path_config_file'],
                               path_config_file_cam2=project['path_config_file_2'],
                               data_path=data_path,
-                              dataset_name=project['dateset_name'],
+                              dataset_name=project['dataset_name'],
                               scorer=project['experimenter'],
                               nframes=project['nframes'],
                               nnetworks=2)
@@ -220,6 +220,11 @@ def train_network(working_dir=os.getcwd()):
 
     deeplabcut.create_training_dataset(project['path_config_file'])
     deeplabcut.train_network(project['path_config_file'], maxiters=project['maxiters'])
+
+    if project['tracking_mode'] == 'per_cam':
+        deeplabcut.create_training_dataset(project['path_config_file_2'])
+        deeplabcut.train_network(project['path_config_file_2'],
+                                 maxiters=project['maxiters'])
 
 def analyze_videos(working_dir=os.getcwd()):
     '''Analyze videos with a pre-existing network'''
