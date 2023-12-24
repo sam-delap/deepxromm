@@ -245,6 +245,12 @@ def analyze_videos(working_dir=os.getcwd()):
 
     if project['tracking_mode'] == '2D':
         xrommtools.analyze_xromm_videos(project['path_config_file'], new_data_path, iteration)
+    elif project['tracking_mode'] == 'per_cam':
+        xrommtools.analyze_xromm_videos(path_config_file=project['path_config_file'],
+                                        path_config_file_cam2=project['path_config_file_2'],
+                                        path_data_to_analyze=new_data_path,
+                                        iteration=iteration,
+                                        nnetworks=2)
     else:
         for trial in trials:
             video_path = f'{working_dir}/trials/{trial}/{trial}_rgb.avi'
