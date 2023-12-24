@@ -16,18 +16,21 @@ from ruamel.yaml import YAML
 import blend_modes
 import imagehash
 
-def create_new_project(working_dir=os.getcwd(), experimenter='NA'):
+def create_new_project(working_dir=os.getcwd(), experimenter='NA', mode='2D'):
     '''Create a new xrommtools project'''
     if not os.path.exists(working_dir):
         os.mkdir(working_dir)
-    dirs = ["trainingdata", "trials", "XMA_files"]
+    dirs = ["trainingdata", "trials"]
     for folder in dirs:
         if not os.path.exists(f'{working_dir}/{folder}'):
             os.mkdir(f'{working_dir}/{folder}')
 
     # Create a fake video to pass into the deeplabcut workflow
     frame = np.zeros((480, 480, 3), np.uint8)
-    out = cv2.VideoWriter(f'{working_dir}/dummy.avi',cv2.VideoWriter_fourcc(*'DIVX'), 15, (480,480))
+    out = cv2.VideoWriter(f'{working_dir}/dummy.avi',
+                          cv2.VideoWriter_fourcc(*'DIVX'),
+                          15,
+                          (480,480))
     out.write(frame)
     out.release()
 
@@ -35,7 +38,10 @@ def create_new_project(working_dir=os.getcwd(), experimenter='NA'):
     yaml = YAML()
     task = os.path.basename(working_dir)
     path_config_file = deeplabcut.create_new_project(task, experimenter,
-        [os.path.join(working_dir, "dummy.avi")], working_dir + os.path.sep, copy_videos=True)
+                                                    [os.path.join(working_dir,
+                                                                  "dummy.avi")],
+                                                    working_dir + os.path.sep,
+                                                     copy_videos=True)
 
     if isinstance(path_config_file, str):
         template = f"""
@@ -73,6 +79,17 @@ def create_new_project(working_dir=os.getcwd(), experimenter='NA'):
         """
 
         tmp = yaml.load(template)
+
+        if mode == 'per_cam':
+            task_2 = f'{task}_cam2'
+            path_config_file_2 = deeplabcut.create_new_project(task_2,
+                                                               experimenter,
+                                                               [os.path.join(working_dir,
+                                                                            "dummy.avi")],
+                                                               working_dir
+                                                               + os.path.sep,
+                                                               copy_videos=True)
+            tmp['path_config_file_2'] = path_config_file_2
 
         with open(f"{working_dir}/project_config.yaml", 'w') as config:
             yaml.dump(tmp, config)
@@ -184,6 +201,14 @@ def train_network(working_dir=os.getcwd()):
             project['nframes'])
         except UnboundLocalError:
             pass
+    elif project['tracking_mode'] == 'per_cam':
+        xrommtools.xma_to_dlc(path_config_file=project['path_config_file'],
+                              path_config_file_cam2=project['path_config_file_2'],
+                              data_path=data_path,
+                              dataset_name=project['dataset_name'],
+                              scorer=project['experimenter'],
+                              nframes=project['nframes'],
+                              nnetworks=2)
     else:
         trials = [folder for folder in os.listdir(data_path) if os.path.isdir(os.path.join(data_path, folder)) and not folder.startswith('.')]
         for trial in trials:
@@ -195,6 +220,11 @@ def train_network(working_dir=os.getcwd()):
 
     deeplabcut.create_training_dataset(project['path_config_file'])
     deeplabcut.train_network(project['path_config_file'], maxiters=project['maxiters'])
+
+    if project['tracking_mode'] == 'per_cam':
+        deeplabcut.create_training_dataset(project['path_config_file_2'])
+        deeplabcut.train_network(project['path_config_file_2'],
+                                 maxiters=project['maxiters'])
 
 def analyze_videos(working_dir=os.getcwd()):
     '''Analyze videos with a pre-existing network'''
@@ -215,6 +245,12 @@ def analyze_videos(working_dir=os.getcwd()):
 
     if project['tracking_mode'] == '2D':
         xrommtools.analyze_xromm_videos(project['path_config_file'], new_data_path, iteration)
+    elif project['tracking_mode'] == 'per_cam':
+        xrommtools.analyze_xromm_videos(path_config_file=project['path_config_file'],
+                                        path_config_file_cam2=project['path_config_file_2'],
+                                        path_data_to_analyze=new_data_path,
+                                        iteration=iteration,
+                                        nnetworks=2)
     else:
         for trial in trials:
             video_path = f'{working_dir}/trials/{trial}/{trial}_rgb.avi'
@@ -445,7 +481,7 @@ def get_bodyparts_from_xma(path_to_trial, mode='2D', split_markers=False, crosse
             parts = parts + [f'sw_{part}' for part in parts]
         if crossed_markers:
             parts = parts + [f'cx_{part}_cam1x2' for part in [name.rsplit('_',2)[0] for name in names]]
-    elif mode == '2D':
+    elif mode in ['2D', 'per_cam']:
         parts = [name.rsplit('_',2)[0] for name in names]
     else:
         raise SyntaxError('Invalid value for mode parameter')

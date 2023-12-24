@@ -20,7 +20,7 @@ class TestProjectCreation(unittest.TestCase):
 
     def test_project_creates_correct_folders(self):
         '''Do we have all of the correct folders?'''
-        for folder in ["trainingdata", "trials", "XMA_files"]:
+        for folder in ["trainingdata", "trials"]:
             with self.subTest(i=folder):
                 self.assertTrue(os.path.exists(os.path.join(os.getcwd(), 'tmp', folder)))
 
