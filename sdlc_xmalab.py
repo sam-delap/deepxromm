@@ -1004,3 +1004,11 @@ def analyze_marker_similarity_trial(working_dir):
     marker_similarity = sum([(trial1_csv[marker] - trial2_csv[marker]).sum() / (len(trial1_csv[marker]) + len(trial2_csv[marker])) for marker in bodyparts_xy]) / len(bodyparts_xy)
 
     return marker_similarity
+
+def train_many_projects(parent_dir):
+    '''Train and analyze multiple SDLC_XMALAB projects given a parent folder'''
+    for folder in os.listdir(parent_dir):
+        project_path = os.path.join(parent_dir, folder)
+        if os.path.isdir(project_path):
+            train_network(project_path)
+            analyze_videos(project_path)
