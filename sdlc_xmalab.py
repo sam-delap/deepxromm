@@ -481,9 +481,7 @@ def get_bodyparts_from_xma(path_to_trial, mode='2D', split_markers=False, crosse
             parts = parts + [f'sw_{part}' for part in parts]
         if crossed_markers:
             parts = parts + [f'cx_{part}_cam1x2' for part in [name.rsplit('_',2)[0] for name in names]]
-    elif mode == '2D':
-        parts = [name.rsplit('_',2)[0] for name in names]
-    elif mode == 'per_cam':
+    elif mode in ['2D', 'per_cam']:
         parts = [name.rsplit('_',2)[0] for name in names]
     else:
         raise SyntaxError('Invalid value for mode parameter')
