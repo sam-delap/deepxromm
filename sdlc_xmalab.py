@@ -158,9 +158,8 @@ def load_project(working_dir=os.getcwd()):
         warnings.warn(f'Project nframes is less than the recommended {tracking_threshold * 100}% of the total frames')
 
     # Check DLC bodyparts (marker names)
+    default_bodyparts = ['bodypart1', 'bodypart2', 'bodypart3', 'objectA']
     with open(project['path_config_file'], 'r') as dlc_config:
-        default_bodyparts = ['bodypart1', 'bodypart2', 'bodypart3', 'objectA']
-
         dlc_config_loader = YAML()
 
         dlc_yaml = dlc_config_loader.load(dlc_config)
@@ -173,6 +172,22 @@ def load_project(working_dir=os.getcwd()):
 
     with open(project['path_config_file'], 'w') as dlc_config:
         yaml.dump(dlc_yaml, dlc_config)
+
+    # Check DLC bodyparts (marker names) for config 2 if needed
+    if project['tracking_mode'] == 'per_cam':
+        with open(project['path_config_file_2'], 'r') as dlc_config:
+            dlc_config_loader = YAML()
+
+            dlc_yaml = dlc_config_loader.load(dlc_config)
+
+            if dlc_yaml['bodyparts'] == default_bodyparts:
+                dlc_yaml['bodyparts'] = get_bodyparts_from_xma(os.path.join(working_dir, 'trainingdata', trial), project['tracking_mode'], project['swapped_markers'], project['crossed_markers'])
+
+            elif dlc_yaml['bodyparts'] != get_bodyparts_from_xma(os.path.join(working_dir, 'trainingdata', trial), project['tracking_mode'], project['swapped_markers'], project['crossed_markers']):
+                raise SyntaxError('XMAlab CSV marker names are different than DLC bodyparts.')
+
+        with open(project['path_config_file_2'], 'w') as dlc_config:
+            yaml.dump(dlc_yaml, dlc_config)
 
     # Check test_autocorrect params for defaults
     if project['test_autocorrect']:
