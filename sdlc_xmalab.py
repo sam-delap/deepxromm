@@ -268,6 +268,7 @@ def analyze_videos(working_dir=os.getcwd()):
                                         nnetworks=2)
     else:
         for trial in trials:
+            # Need to allow for merging of RGB video if one does not exist for an RGB trial
             video_path = f'{working_dir}/trials/{trial}/{trial}_rgb.avi'
             destfolder = f'{working_dir}/trials/{trial}/it{iteration}/'
             deeplabcut.analyze_videos(project['path_config_file'], video_path, destfolder=destfolder, save_as_csv=True)
