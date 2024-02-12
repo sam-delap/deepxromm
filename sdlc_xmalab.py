@@ -119,13 +119,15 @@ def load_project(working_dir=os.getcwd()):
     if project['dataset_name'] == 'MyData':
         warnings.warn('Default project name in use', SyntaxWarning)
 
+    training_data_path = os.path.join(project['working_dir'], "trainingdata")
+    trial = [folder for folder in os.listdir(training_data_path) if os.path.isdir(os.path.join(training_data_path, folder)) and not folder.startswith('.')][0] 
+    trial_path = os.path.join(training_data_path, trial)
     # Load trial CSV
-    try:
-        training_data_path = os.path.join(project['working_dir'], "trainingdata")
-        trial = [folder for folder in os.listdir(training_data_path) if os.path.isdir(os.path.join(training_data_path, folder)) and not folder.startswith('.')][0]
-        trial_csv = pd.read_csv(training_data_path + '/' + trial + '/' + trial + '.csv')
+    try:     
+        trial_csv = pd.read_csv(os.path.join(trial_path, f'{trial}.csv'))
     except FileNotFoundError as e:
-        raise FileNotFoundError(f'Please make sure that your trainingdata 2DPoints csv file is named {trial}.csv') from e
+        print(f'Please make sure that your trainingdata 2DPoints csv file is named {trial}.csv')
+        raise e
 
     # Give search_area a minimum of 10
     project['search_area'] = int(project['search_area'] + 0.5) if project['search_area'] >= 10 else 10
@@ -179,11 +181,17 @@ def load_project(working_dir=os.getcwd()):
             dlc_config_loader = YAML()
 
             dlc_yaml = dlc_config_loader.load(dlc_config)
-
+            # Better conditional logic could definitely be had to reduce function calls here
             if dlc_yaml['bodyparts'] == default_bodyparts:
-                dlc_yaml['bodyparts'] = get_bodyparts_from_xma(os.path.join(working_dir, 'trainingdata', trial), project['tracking_mode'], project['swapped_markers'], project['crossed_markers'])
+                dlc_yaml['bodyparts'] = get_bodyparts_from_xma(trial_path, 
+                                                               project['tracking_mode'],
+                                                               project['swapped_markers'],
+                                                               project['crossed_markers'])
 
-            elif dlc_yaml['bodyparts'] != get_bodyparts_from_xma(os.path.join(working_dir, 'trainingdata', trial), project['tracking_mode'], project['swapped_markers'], project['crossed_markers']):
+            elif dlc_yaml['bodyparts'] != get_bodyparts_from_xma(trial_path,
+                                                                 project['tracking_mode'],
+                                                                 project['swapped_markers'],
+                                                                 project['crossed_markers']):
                 raise SyntaxError('XMAlab CSV marker names are different than DLC bodyparts.')
 
         with open(project['path_config_file_2'], 'w') as dlc_config:
