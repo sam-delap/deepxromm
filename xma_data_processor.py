@@ -86,8 +86,13 @@ class XMADataProcessor:
             )
 
     def _merge_rgb(self, trial_path, codec="avc1", mode="difference"):
-        """Takes the path to a trial subfolder and exports a single new video with cam1 video written to the red channel and cam2 video written to the green channel.
-        The blue channel is, depending on the value passed as "mode", either the difference blend between A and B, the multiply blend, or just a black frame."""
+        """
+        Takes the path to a trial subfolder and exports a single new video with
+        cam1 video written to the red channel and cam2 video written to the
+        green channel. The blue channel is, depending on the value of config
+        "mode", either the difference blend between A and B, the multiply
+        blend, or just a black frame.
+        """
         trial_name = os.path.basename(os.path.normpath(trial_path))
         if os.path.exists(f"{trial_path}/{trial_name}_rgb.avi"):
             print("RGB video already created. Skipping.")
