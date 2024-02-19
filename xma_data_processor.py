@@ -14,10 +14,9 @@ class XMADataProcessor:
 
     def __init__(self, config):
         self._config = config
-        self._mode = config["tracking_mode"]
 
     def get_bodyparts_from_xma(
-        self, path_to_trial, split_markers=False, crossed_markers=False
+        self, path_to_trial, mode, split_markers=False, crossed_markers=False
     ):
         """Pulls the names of the XMAlab markers from the 2Dpoints file"""
 
@@ -38,7 +37,7 @@ class XMADataProcessor:
             na_values="NaN",
         )
         names = trial_csv.columns.values
-        if self._mode == "rgb":
+        if mode == "rgb":
             parts = [name.rsplit("_", 1)[0] for name in names]
             if split_markers:
                 parts = parts + [f"sw_{part}" for part in parts]
@@ -47,7 +46,7 @@ class XMADataProcessor:
                     f"cx_{part}_cam1x2"
                     for part in [name.rsplit("_", 2)[0] for name in names]
                 ]
-        elif self._mode in ["2D", "per_cam"]:
+        elif mode in ["2D", "per_cam"]:
             parts = [name.rsplit("_", 2)[0] for name in names]
         else:
             raise SyntaxError("Invalid value for mode parameter")
@@ -174,7 +173,7 @@ class XMADataProcessor:
         print(f"Merged RGB video created at {trial_path}/{trial_name}_rgb.avi!")
 
     def _splice_xma_to_dlc(
-        self, trial_path, outlier_mode=False, swap=False, cross=False
+        self, trial_path, mode, outlier_mode=False, swap=False, cross=False
     ):
         """Takes csv of XMALab 2D XY coordinates from 2 cameras, outputs spliced hdf+csv data for DeepLabCut"""
         substitute_data_relpath = "labeled-data/" + self._config["dataset_name"]
@@ -182,7 +181,7 @@ class XMADataProcessor:
             os.path.sep.join(self._config["path_config_file"].split("\\")[:-1]),
             substitute_data_relpath,
         )
-        markers = self.get_bodyparts_from_xma(trial_path)
+        markers = self.get_bodyparts_from_xma(trial_path, mode='2D')
         try:
             trial_name = os.path.basename(os.path.normpath(trial_path))
             df = pd.read_csv(f"{trial_path}/{trial_name}.csv")

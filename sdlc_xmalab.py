@@ -164,7 +164,11 @@ def load_project(working_dir=os.getcwd()):
     # Check DLC bodyparts (marker names)
     path_to_trial = os.path.join(working_dir, 'trainingdata', trial)
     bodyparts = get_bodyparts_from_xma(
-        project, path_to_trial, project['swapped_markers'], project['crossed_markers'])
+        project,
+        path_to_trial,
+        mode=project['tracking_mode'],
+        split_markers=project['swapped_markers'],
+        crossed_markers=project['crossed_markers'])
     with open(project['path_config_file'], 'r') as dlc_config:
         default_bodyparts = ['bodypart1', 'bodypart2', 'bodypart3', 'objectA']
 
@@ -304,7 +308,11 @@ def autocorrect_video(cam, trial, csv, project, new_data_path):
 def autocorrect_frame(path_to_trial, frame, cam, frame_index, csv, project):
     '''Run the autocorrect function for a single frame (no output)'''
     # For each marker in the frame
-    parts_unique = [project['marker']] if project['test_autocorrect'] else get_bodyparts_from_xma(project, path_to_trial)
+    parts_unique = get_bodyparts_from_xma(project, path_to_trial, mode='2D')
+    if project['test_autocorrect']:
+        parts_unique = [project['marker']]
+    else:
+        parts_unique = get_bodyparts_from_xma(project, path_to_trial, mode='2D')
     for part in parts_unique:
         # Find point and offsets
         x_float = csv.loc[frame_index, part + '_' + cam + '_X']
@@ -434,10 +442,10 @@ def show_crop(src, center, scale=5, contours=None, detected_marker=None):
     plt.imshow(image)
     plt.show()
 
-def get_bodyparts_from_xma(project, path_to_trial, split_markers=False, crossed_markers=False):
+def get_bodyparts_from_xma(project, path_to_trial, mode, split_markers=False, crossed_markers=False):
     '''Pull the names of the XMAlab markers from the 2Dpoints file'''
     data_processor = XMADataProcessor(config=project)
-    return data_processor.get_bodyparts_from_xma(path_to_trial, split_markers, crossed_markers)
+    return data_processor.get_bodyparts_from_xma(path_to_trial, mode, split_markers, crossed_markers)
 
 def split_rgb(trial_path, codec='avc1'):
     '''Takes a RGB video with different grayscale data written to the R, G, and B channels and splits it back into its component source videos.'''
@@ -524,7 +532,7 @@ def split_dlc_to_xma(project, trial, save_hdf=True):
     iteration = dlc['iteration']
     trial_path = project['working_dir'] + f'/trials/{trial}'
 
-    rgb_parts = get_bodyparts_from_xma(project, trial_path)
+    rgb_parts = get_bodyparts_from_xma(project, trial_path, mode='rgb')
     for part in rgb_parts:
         bodyparts_xy.append(part+'_X')
         bodyparts_xy.append(part+'_Y')
@@ -740,8 +748,9 @@ def analyze_marker_similarity_trial(working_dir):
     trial2_path = os.path.join(f'{working_dir}/trials', project['trial_2_name'])
     
     # Get a list of markers that each trial have in commmon
-    bodyparts1 = get_bodyparts_from_xma(project, trial1_path, split_markers=False, crossed_markers=False)
-    bodyparts2 = get_bodyparts_from_xma(project, trial2_path, split_markers=False, crossed_markers=False)
+    # Marker similarity is always in rgb mode.
+    bodyparts1 = get_bodyparts_from_xma(project, trial1_path, mode='rgb', split_markers=False, crossed_markers=False)
+    bodyparts2 = get_bodyparts_from_xma(project, trial2_path, mode='rgb', split_markers=False, crossed_markers=False)
     markers_in_common = [marker for marker in bodyparts1 if marker in bodyparts2]
     bodyparts_xy = [f'{marker}_X' for marker in markers_in_common] + [f'{marker}_Y' for marker in markers_in_common]
     trial1_csv = pd.read_csv(os.path.join(trial1_path, project['trial_1_name'] + '.csv'))
