@@ -150,12 +150,11 @@ def load_project(working_dir=os.getcwd()):
         warnings.warn('Project nframes tracked does not match 2D Points file. \
         If this is intentional, ignore this message')
 
+    data_processor = XMADataProcessor(config=project)
     # Check the current nframes against the threshold value * the number of frames in the cam1 video
-    cam1_video_path = f'{training_data_path}/{trial}/{trial}_cam1.avi'
-    try:
-        video = cv2.VideoCapture(cam1_video_path)
-    except FileNotFoundError:
-        raise FileNotFoundError(f'Please make sure that your cam 1 video file is named {trial}_cam1.avi') from None
+    trial_path = os.path.join(training_data_path, trial)
+    cam1_video_path = data_processor.find_cam_file(trial_path, "cam1")
+    video = cv2.VideoCapture(cam1_video_path)
 
     if project['nframes'] < int(video.get(cv2.CAP_PROP_FRAME_COUNT)) * project['tracking_threshold']:
         tracking_threshold = project['tracking_threshold']
@@ -166,9 +165,7 @@ def load_project(working_dir=os.getcwd()):
     bodyparts = get_bodyparts_from_xma(
         project,
         path_to_trial,
-        mode=project['tracking_mode'],
-        split_markers=project['swapped_markers'],
-        crossed_markers=project['crossed_markers'])
+        mode=project['tracking_mode'])
     
     dlc_config_loader = YAML()
     with open(project['path_config_file'], 'r') as dlc_config:
@@ -441,10 +438,10 @@ def show_crop(src, center, scale=5, contours=None, detected_marker=None):
     plt.imshow(image)
     plt.show()
 
-def get_bodyparts_from_xma(project, path_to_trial, mode, split_markers=False, crossed_markers=False):
+def get_bodyparts_from_xma(project, path_to_trial, mode):
     '''Pull the names of the XMAlab markers from the 2Dpoints file'''
     data_processor = XMADataProcessor(config=project)
-    return data_processor.get_bodyparts_from_xma(path_to_trial, mode, split_markers, crossed_markers)
+    return data_processor.get_bodyparts_from_xma(path_to_trial, mode)
 
 def split_rgb(trial_path, codec='avc1'):
     '''Takes a RGB video with different grayscale data written to the R, G, and B channels and splits it back into its component source videos.'''
@@ -748,8 +745,8 @@ def analyze_marker_similarity_trial(working_dir):
     
     # Get a list of markers that each trial have in commmon
     # Marker similarity is always in rgb mode.
-    bodyparts1 = get_bodyparts_from_xma(project, trial1_path, mode='rgb', split_markers=False, crossed_markers=False)
-    bodyparts2 = get_bodyparts_from_xma(project, trial2_path, mode='rgb', split_markers=False, crossed_markers=False)
+    bodyparts1 = get_bodyparts_from_xma(project, trial1_path, mode='rgb')
+    bodyparts2 = get_bodyparts_from_xma(project, trial2_path, mode='rgb')
     markers_in_common = [marker for marker in bodyparts1 if marker in bodyparts2]
     bodyparts_xy = [f'{marker}_X' for marker in markers_in_common] + [f'{marker}_Y' for marker in markers_in_common]
     trial1_csv = pd.read_csv(os.path.join(trial1_path, project['trial_1_name'] + '.csv'))

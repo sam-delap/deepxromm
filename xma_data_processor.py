@@ -1,5 +1,6 @@
 """Converts data from XMALab into the format useful for DLC training."""
 
+import glob
 import os
 
 import blend_modes
@@ -14,10 +15,10 @@ class XMADataProcessor:
 
     def __init__(self, config):
         self._config = config
+        self._swap_markers = config["swapped_markers"]
+        self._cross_markers = config["crossed_markers"]
 
-    def get_bodyparts_from_xma(
-        self, path_to_trial, mode, split_markers=False, crossed_markers=False
-    ):
+    def get_bodyparts_from_xma(self, path_to_trial, mode):
         """Pulls the names of the XMAlab markers from the 2Dpoints file"""
 
         csv_path = [file for file in os.listdir(path_to_trial) if file[-4:] == ".csv"]
@@ -39,9 +40,9 @@ class XMADataProcessor:
         names = trial_csv.columns.values
         if mode == "rgb":
             parts = [name.rsplit("_", 1)[0] for name in names]
-            if split_markers:
+            if self._swap_markers:
                 parts = parts + [f"sw_{part}" for part in parts]
-            if crossed_markers:
+            if self._cross_markers:
                 parts = parts + [
                     f"cx_{part}_cam1x2"
                     for part in [name.rsplit("_", 2)[0] for name in names]
@@ -73,16 +74,26 @@ class XMADataProcessor:
                 os.path.split(self._config["path_config_file"])[0],
                 substitute_data_relpath,
             )
+            # TODO: decouple the behavior for videos vs data points/image
+            # extraction. extract_matched_frames works for trials with an
+            # XMAlab-formatted CSV attached (typically training data), while merge_rgb
+            # works on all videos as long as there's a cam 1 and a cam2 video.
             self._extract_matched_frames_rgb(
                 path_to_trial,
                 substitute_data_abspath,
                 range(1, self._config["nframes"] + 1),
             )
-            self._splice_xma_to_dlc(
-                path_to_trial,
-                swap=self._config["swapped_markers"],
-                cross=self._config["crossed_markers"],
-            )
+            self._splice_xma_to_dlc(path_to_trial)
+
+    def find_cam_file(self, path, identifier):
+        """Searches a file for a given cam video in the trail folder."""
+        files = glob.glob(os.path.join(path, f"*{identifier}*.avi"))
+        if files:
+            result = files[0]
+            print(f"Found file {result} for {identifier}")
+            return files[0]
+        else:
+            raise FileNotFoundError(f"No video file found containing '{identifier}' in {path}")
 
     def _merge_rgb(self, trial_path, codec="avc1", mode="difference"):
         """
@@ -96,8 +107,11 @@ class XMADataProcessor:
         if os.path.exists(f"{trial_path}/{trial_name}_rgb.avi"):
             print("RGB video already created. Skipping.")
             return
-        cam1_video = cv2.VideoCapture(f"{trial_path}/{trial_name}_cam1.avi")
-        cam2_video = cv2.VideoCapture(f"{trial_path}/{trial_name}_cam2.avi")
+        cam1_video_path = self.find_cam_file(trial_path, "cam1")
+        cam1_video = cv2.VideoCapture(cam1_video_path)
+
+        cam2_video_path = self.find_cam_file(trial_path, "cam2")
+        cam2_video = cv2.VideoCapture(cam2_video_path)
 
         frame_width = int(cam1_video.get(3))
         frame_height = int(cam1_video.get(4))
@@ -162,9 +176,7 @@ class XMADataProcessor:
         cv2.destroyAllWindows()
         print(f"Merged RGB video created at {trial_path}/{trial_name}_rgb.avi!")
 
-    def _splice_xma_to_dlc(
-        self, trial_path, mode, outlier_mode=False, swap=False, cross=False
-    ):
+    def _splice_xma_to_dlc(self, trial_path, outlier_mode=False):
         """Takes csv of XMALab 2D XY coordinates from 2 cameras, outputs spliced hdf+csv data for DeepLabCut"""
         substitute_data_relpath = "labeled-data/" + self._config["dataset_name"]
         substitute_data_abspath = os.path.join(
@@ -172,6 +184,9 @@ class XMADataProcessor:
             substitute_data_relpath,
         )
         markers = self.get_bodyparts_from_xma(trial_path, mode='2D')
+        # TODO: this entire section can be solved with a creative call to
+        # get_bodyparts_from_xma and some dataFrame manipulation to be
+        # significantly shorter (and potentially faster?)
         try:
             trial_name = os.path.basename(os.path.normpath(trial_path))
             df = pd.read_csv(f"{trial_path}/{trial_name}.csv")
@@ -179,7 +194,7 @@ class XMADataProcessor:
             raise FileNotFoundError(
                 f"Please make sure that your trainingdata 2DPoints csv file is named {trial_name}.csv"
             ) from e
-        if swap:
+        if self._swap_markers:
             print("Creating cam1Y-cam2Y-swapped synthetic markers")
             swaps = []
             df_sw = pd.DataFrame()
@@ -199,7 +214,7 @@ class XMADataProcessor:
                 swaps.extend([swap_name_x1, swap_name_y1, swap_name_x2, swap_name_y2])
             df = df.join(df_sw)
             print(swaps)
-        if cross:
+        if self._cross_markers:
             print("Creating cam1-cam2-crossed synthetic markers")
             crosses = []
             df_cx = pd.DataFrame()
@@ -338,7 +353,9 @@ class XMADataProcessor:
             out_name = "img"
         if not os.path.exists(output_dir):
             os.makedirs(output_dir)
+        print("===== try this")
         cap = cv2.VideoCapture(video_path)
+        print("===== end this")
         while cap.isOpened():
             ret, frame = cap.read()
             if ret is False:
