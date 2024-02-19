@@ -169,17 +169,16 @@ def load_project(working_dir=os.getcwd()):
         mode=project['tracking_mode'],
         split_markers=project['swapped_markers'],
         crossed_markers=project['crossed_markers'])
+    
+    dlc_config_loader = YAML()
     with open(project['path_config_file'], 'r') as dlc_config:
-        default_bodyparts = ['bodypart1', 'bodypart2', 'bodypart3', 'objectA']
-
-        dlc_config_loader = YAML()
-
         dlc_yaml = dlc_config_loader.load(dlc_config)
 
-        if dlc_yaml['bodyparts'] == default_bodyparts:
-            dlc_yaml['bodyparts'] = bodyparts
-        elif dlc_yaml['bodyparts'] != bodyparts:
-            raise SyntaxError('XMAlab CSV marker names are different than DLC bodyparts.')
+    default_bodyparts = ['bodypart1', 'bodypart2', 'bodypart3', 'objectA']
+    if dlc_yaml['bodyparts'] == default_bodyparts:
+        dlc_yaml['bodyparts'] = bodyparts
+    elif dlc_yaml['bodyparts'] != bodyparts:
+        raise SyntaxError('XMAlab CSV marker names are different than DLC bodyparts.')
 
     with open(project['path_config_file'], 'w') as dlc_config:
         yaml.dump(dlc_yaml, dlc_config)

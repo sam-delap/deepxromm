@@ -46,6 +46,8 @@ class Network:
         else:
             raise AttributeError(f"Unsupportede mode: {mode}")
 
+        # TODO: instead of having just 1 train function, have separate functions
+        # to create training dataset, train model, and evaluate the model.
         deeplabcut.create_training_dataset(self._config["path_config_file"])
         deeplabcut.train_network(
             self._config["path_config_file"], maxiters=self._config["maxiters"]

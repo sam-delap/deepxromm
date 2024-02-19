@@ -30,7 +30,7 @@ class XMADataProcessor:
                 "Couldn't find a CSV file for trial: " + path_to_trial
             )
         trial_csv = pd.read_csv(
-            path_to_trial + "/" + csv_path[0],
+            os.path.join(path_to_trial, csv_path[0]),
             sep=",",
             header=0,
             dtype="float",
@@ -96,18 +96,8 @@ class XMADataProcessor:
         if os.path.exists(f"{trial_path}/{trial_name}_rgb.avi"):
             print("RGB video already created. Skipping.")
             return
-        try:
-            cam1_video = cv2.VideoCapture(f"{trial_path}/{trial_name}_cam1.avi")
-        except FileNotFoundError as e:
-            raise FileNotFoundError(
-                f"Make sure your cam1 video for trial {trial_name} is named {trial_name}_cam1.avi"
-            ) from e
-        try:
-            cam2_video = cv2.VideoCapture(f"{trial_path}/{trial_name}_cam2.avi")
-        except FileNotFoundError as e:
-            raise FileNotFoundError(
-                f"Make sure your cam2 video for trial {trial_name} is named {trial_name}_cam2.avi"
-            ) from e
+        cam1_video = cv2.VideoCapture(f"{trial_path}/{trial_name}_cam1.avi")
+        cam2_video = cv2.VideoCapture(f"{trial_path}/{trial_name}_cam2.avi")
 
         frame_width = int(cam1_video.get(3))
         frame_height = int(cam1_video.get(4))
