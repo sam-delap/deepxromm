@@ -322,7 +322,7 @@ class XMADataProcessor:
         labeled_data_path = (
             os.path.split(self._config["path_config_file"])[0]
             + "/labeled-data/"
-            + self._config["task"]
+            + self._config["dataset_name"]
         )
         frames_from_vid = self._vid_to_pngs(
             video_path,
