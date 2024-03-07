@@ -41,7 +41,7 @@ class Network:
                 nframes=self._config["nframes"],
                 nnetworks=2,
             )
-        elif mode == "RGB":
+        elif mode == "rgb":
             self._data_processor.make_rgb_video(self._data_path)
         else:
             raise AttributeError(f"Unsupportede mode: {mode}")
