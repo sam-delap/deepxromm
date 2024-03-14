@@ -534,12 +534,6 @@ def get_max_dissimilarity_for_trial(trial_path, window):
     analyzer = Analyzer(config=project)
     return analyzer.get_max_dissimilarity_for_trial(trial_path, window)
 
-def find_dissimilar_regions(hashes1, hashes2, window):
-    '''Find the region of maximum dissimilarity given 2 lists of hashes and a sliding window (how many frames)'''
-    project = load_project()
-    analyzer = Analyzer(config=project)
-    return analyzer.find_dissimilar_regions(hashes1, hashes2, window)
-
 def analyze_marker_similarity_project(working_dir):
     '''Analyze all videos in a project and get their average rhythmicity. This assumes that all cam1/2 pairs are either the same or different!'''
     project = load_project(working_dir)
