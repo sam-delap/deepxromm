@@ -84,14 +84,22 @@ class Analyzer:
 
         # Compare hashes based on the camera views configuration
         if self._config['cam1s_are_the_same_view']:
-            cam1_dif, noc1 = self._compare_two_videos(videos[(trials[0], 'cam1')], videos[(trials[1], 'cam1')])
-            cam2_dif, noc2 = self._compare_two_videos(videos[(trials[0], 'cam2')], videos[(trials[1], 'cam2')])
+            cam1_diff, noc1 = self._compare_two_videos(videos[(trials[0], 'cam1')], videos[(trials[1], 'cam1')])
+            cam2_diff, noc2 = self._compare_two_videos(videos[(trials[0], 'cam2')], videos[(trials[1], 'cam2')])
         else:
-            cam1_dif, noc1 = self._compare_two_videos(videos[(trials[0], 'cam1')], videos[(trials[1], 'cam2')])
-            cam2_dif, noc2 = self._compare_two_videos(videos[(trials[0], 'cam2')], videos[(trials[1], 'cam1')])
+            cam1_diff, noc1 = self._compare_two_videos(videos[(trials[0], 'cam1')], videos[(trials[1], 'cam2')])
+            cam2_diff, noc2 = self._compare_two_videos(videos[(trials[0], 'cam2')], videos[(trials[1], 'cam1')])
 
-        # Calculate and return the average difference
-        return (cam1_dif + cam2_dif) / (noc1 + noc2)
+        # Calculate the average difference for each camera view
+        cam1_avg_diff = cam1_diff / noc1 if noc1 > 0 else 0
+        cam2_avg_diff = cam2_diff / noc2 if noc2 > 0 else 0
+
+        # Calculate the overall trial average difference
+        trial_avg_diff = (cam1_avg_diff + cam2_avg_diff) / 2
+
+        # Note: The number of comparisons (noc) grows with video size, which could potentially affect the similarity measure,
+        # making larger videos appear more similar than they actually are. This aspect may need further consideration.
+        return trial_avg_diff
 
     def analyze_marker_similarity_project(self):
         '''Analyze all videos in a project and get their average rhythmicity. This assumes that all cam1/2 pairs are either the same or different!'''
@@ -109,23 +117,32 @@ class Analyzer:
         return marker_similarity
 
     def analyze_marker_similarity_trial(self):
-        '''Analyze marker similarity for a pair of trials. Returns the mean difference for paired marker positions (X - X, Y - Y for each marker)'''
+        '''Analyze marker similarity for a pair of trials using the distance formula.'''
         # Find CSVs for each trial
         trial1 = self._config['trial_1_name']
         trial2 = self._config['trial_2_name']
         trial1_path = os.path.join(self._trials_path, trial1)
         trial2_path = os.path.join(self._trials_path, trial2)
-        # Get a list of markers that each trial have in commmon
-        # Marker similarity is always in rgb mode.
+
+        # Get a list of markers that each trial have in common
         bodyparts1 = self._data_processor.get_bodyparts_from_xma(trial1_path, mode='rgb')
         bodyparts2 = self._data_processor.get_bodyparts_from_xma(trial2_path, mode='rgb')
-
         markers_in_common = [marker for marker in bodyparts1 if marker in bodyparts2]
-        bodyparts_xy = [f'{marker}_X' for marker in markers_in_common] + [f'{marker}_Y' for marker in markers_in_common]
-        trial1_csv = pd.read_csv(os.path.join(trial1_path, trial1 + '.csv'))
-        trial2_csv = pd.read_csv(os.path.join(trial2_path, trial2 + '.csv'))
 
-        marker_similarity = sum((trial1_csv[marker] - trial2_csv[marker]).sum() / (len(trial1_csv[marker]) + len(trial2_csv[marker])) for marker in bodyparts_xy) / len(bodyparts_xy)
+        trial1_csv = pd.read_csv(os.path.join(trial1_path, f'{trial1}.csv'))
+        trial2_csv = pd.read_csv(os.path.join(trial2_path, f'{trial2}.csv'))
+
+        avg_distances = []
+        for marker in markers_in_common:
+            avg_x1, avg_y1 = trial1_csv[f'{marker}_X'].mean(), trial1_csv[f'{marker}_Y'].mean()
+            avg_x2, avg_y2 = trial2_csv[f'{marker}_X'].mean(), trial2_csv[f'{marker}_Y'].mean()
+  
+            # Calculate the distance between the average positions for this marker in the two trials
+            distance = math.sqrt((avg_x2 - avg_x1) ** 2 + (avg_y2 - avg_y1) ** 2)
+            avg_distances.append(distance)
+
+        # Calculate the mean of the distances to get an overall similarity measure
+        marker_similarity = sum(avg_distances) / len(avg_distances) if avg_distances else 0
 
         return marker_similarity
 
