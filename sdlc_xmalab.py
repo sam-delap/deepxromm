@@ -3,19 +3,17 @@
 import math
 import os
 import warnings
-from itertools import combinations
 from subprocess import PIPE, Popen
 
 import cv2
 import deeplabcut
-import imagehash
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 from PIL import Image
 from ruamel.yaml import YAML
 
-import xrommtools
+from analyzer import Analyzer
 from network import Network
 from xma_data_processor import XMADataProcessor
 
@@ -225,38 +223,9 @@ def train_network(working_dir=os.getcwd()):
 
 def analyze_videos(working_dir=os.getcwd()):
     '''Analyze videos with a pre-existing network'''
-    # Open the config
     project = load_project(working_dir)
-
-    # Error if trials directory is empty
-    new_data_path = os.path.join(working_dir, 'trials')
-    trials = [folder for folder in os.listdir(new_data_path) if os.path.isdir(os.path.join(new_data_path, folder)) and not folder.startswith('.')]
-    if len(trials) <= 0:
-        raise FileNotFoundError(f'Empty trials directory found. Please put trials to be analyzed after training into the {working_dir}/trials folder')
-
-    # Establish project vars
-    yaml = YAML()
-    with open(project['path_config_file']) as dlc_config:
-        dlc = yaml.load(dlc_config)
-    iteration = dlc['iteration']
-
-    if project['tracking_mode'] == '2D':
-        xrommtools.analyze_xromm_videos(project['path_config_file'], new_data_path, iteration)
-    elif project['tracking_mode'] == 'per_cam':
-        xrommtools.analyze_xromm_videos(path_config_file=project['path_config_file'],
-                                        path_config_file_cam2=project['path_config_file_2'],
-                                        path_data_to_analyze=new_data_path,
-                                        iteration=iteration,
-                                        nnetworks=2)
-    else:
-        for trial in trials:
-            data_processor = XMADataProcessor(config=project)
-            video_path = f'{working_dir}/trials/{trial}/{trial}_rgb.avi'
-            if not os.path.exists(video_path):
-                data_processor.make_rgb_video(os.path.join(working_dir, 'trials', trial))
-            destfolder = f'{working_dir}/trials/{trial}/it{iteration}/'
-            deeplabcut.analyze_videos(project['path_config_file'], video_path, destfolder=destfolder, save_as_csv=True)
-            split_dlc_to_xma(project, trial)
+    analyzer = Analyzer(config=project)
+    analyzer.analyze_videos()
 
 def autocorrect_trial(working_dir=os.getcwd()): #try 0.05 also
     '''Do XMAlab-style autocorrect on the tracked beads'''
@@ -546,242 +515,36 @@ def split_rgb(trial_path, codec='avc1'):
     print(f"Cam2 grayscale video created at {trial_path}/{out_name}cam2.avi!")
     print(f"Blue channel grayscale video created at {trial_path}/{out_name}blue.avi!")
 
-def split_dlc_to_xma(project, trial, save_hdf=True):
-    '''Takes the output from RGB deeplabcut and splits it into XMAlab-readable output'''
-    bodyparts_xy = []
-    yaml = YAML()
-    with open(project['path_config_file']) as dlc_config:
-        dlc = yaml.load(dlc_config)
-    iteration = dlc['iteration']
-    trial_path = project['working_dir'] + f'/trials/{trial}'
-
-    rgb_parts = get_bodyparts_from_xma(project, trial_path, mode='rgb')
-    for part in rgb_parts:
-        bodyparts_xy.append(part+'_X')
-        bodyparts_xy.append(part+'_Y')
-
-    csv_path = [file for file in os.listdir(f'{trial_path}/it{iteration}') if '.csv' in file and '-2DPoints' not in file]
-    if len(csv_path) > 1:
-        raise FileExistsError('Found more than 1 data CSV for RGB trial. Please remove CSVs from older analyses from this folder before analyzing.')
-    if len(csv_path) < 1:
-        raise FileNotFoundError(f'Couldn\'t find data CSV for trial {trial}. Something wrong with DeepLabCut?')
-
-    csv_path = csv_path[0]
-    xma_csv_path = f'{trial_path}/it{iteration}/{trial}-Predicted2DPoints.csv'
-
-    df = pd.read_csv(f'{trial_path}/it{iteration}/{csv_path}', skiprows=1)
-    df.index = df['bodyparts']
-    df = df.drop(columns=df.columns[[df.loc['coords'] == 'likelihood']])
-    df = df.drop(columns=[column for column in df.columns if column not in rgb_parts and column not in [f'{bodypart}.1' for bodypart in rgb_parts]])
-    df.columns = bodyparts_xy
-    df = df.drop(index='coords')
-    df.to_csv(xma_csv_path, index=False)
-    print("Successfully split DLC format to XMALab 2D points; saved "+str(xma_csv_path))
-    if save_hdf:
-        tracked_hdf = os.path.splitext(csv_path)[0]+'.h5'
-        df.to_hdf(tracked_hdf, 'df_with_missing', format='table', mode='w', nan_rep='NaN')
-
 def analyze_video_similarity_project(working_dir):
     '''Analyze all videos in a project and take their average similar. This is dangerous, as it will assume that all cam1/cam2 pairs match
     or don't match!'''
     project = load_project(working_dir)
-    similarity_score = {}
-    new_data_path = os.path.join(working_dir, 'trials')
-    list_of_trials = [folder for folder in os.listdir(new_data_path) if os.path.isdir(os.path.join(new_data_path, folder)) and not folder.startswith('.')]
-    yaml = YAML()
-
-    trial_perms = combinations(list_of_trials, 2)
-    for trial1, trial2 in trial_perms:
-        project['trial_1_name'] = trial1
-        project['trial_2_name'] = trial2
-        with open(os.path.join(working_dir, 'project_config.yaml'), 'w') as file:
-            yaml.dump(project, file)
-        similarity_score[(trial1, trial2)] = analyze_video_similarity_trial(working_dir)
-    
-    return similarity_score
+    analyzer = Analyzer(config=project)
+    return analyzer.analyze_video_similarity_project()
 
 def analyze_video_similarity_trial(working_dir):
     '''Analyze the average similarity between trials using image hashing'''
     project = load_project(working_dir)
-
-    # Find videos for each trial
-    trial1_cam1 = cv2.VideoCapture(os.path.join(f'{working_dir}/trials', project['trial_1_name'], project['trial_1_name'] + '_cam1.avi'))
-    trial2_cam1 = cv2.VideoCapture(os.path.join(f'{working_dir}/trials', project['trial_2_name'], project['trial_2_name'] + '_cam1.avi'))
-    trial1_cam2 = cv2.VideoCapture(os.path.join(f'{working_dir}/trials', project['trial_1_name'], project['trial_1_name'] + '_cam2.avi'))
-    trial2_cam2 = cv2.VideoCapture(os.path.join(f'{working_dir}/trials', project['trial_2_name'], project['trial_2_name'] + '_cam2.avi'))
-    
-    # Compare hashes
-    if project['cam1s_are_the_same_view']:
-        cam1_dif, noc1 = compare_two_videos(trial1_cam1, trial2_cam1)
-        cam2_dif, noc2 = compare_two_videos(trial1_cam2, trial2_cam2)
-    else:
-        cam1_dif, noc1 = compare_two_videos(trial1_cam1, trial2_cam2)
-        cam2_dif, noc2 = compare_two_videos(trial1_cam2, trial2_cam1)
-
-    return (cam1_dif + cam2_dif) / (noc1 + noc2)
-
-def compare_two_videos(video1, video2):
-    '''Do an image hashing between two videos'''
-    video1_frames = int(video1.get(cv2.CAP_PROP_FRAME_COUNT))
-    video2_frames = int(video2.get(cv2.CAP_PROP_FRAME_COUNT))
-    noc = math.perm(video1_frames + video2_frames, 2)
-    print(f'Video 1 frames: {video1_frames}')
-    print(f'Video 2 frames: {video2_frames}')
-    hash_dif = 0
-
-    hashes1 = []
-    print ('Creating hashes for video 1')
-    for i in range(video1_frames):
-        print(f'Current frame (video 1): {i}')
-        ret, frame1 = video1.read()
-        if not ret:
-            print('Error reading video 1 frame')
-            cv2.destroyAllWindows()
-            break
-        hashes1.append(imagehash.phash(Image.fromarray(frame1)))
-
-    print('Creating hashes for video 2')
-    hashes2 = []
-    for j in range(video2_frames):
-        print(f'Current frame (video 2): {j}')
-        ret, frame2 = video2.read()
-        if not ret:
-            print('Error reading video 2 frame')
-            cv2.destroyAllWindows()
-            break
-        hashes2.append(imagehash.phash(Image.fromarray(frame2)))
-    
-    print('Comparing hashes between videos')
-    for hash1 in hashes1:
-        for hash2 in hashes2:
-            hash_dif = hash_dif + (hash1 - hash2)
-    
-    return hash_dif, noc
+    analyzer = Analyzer(config=project)
+    return analyzer.analyze_video_similarity_trial()
 
 def get_max_dissimilarity_for_trial(trial_path, window):
-    trial_name = os.path.basename(trial_path)
-    video1 = cv2.VideoCapture(os.path.join(trial_path, f'{trial_name}_cam1.avi'))
-    video2 = cv2.VideoCapture(os.path.join(trial_path, f'{trial_name}_cam2.avi'))
-
-    hashes1, hashes2 = hash_trial_videos(video1, video2)
-    return find_dissimilar_regions(hashes1, hashes2, window)
-
-def hash_trial_videos(video1, video2):
-    '''Do an image hashing between two videos'''
-    video1_frames = int(video1.get(cv2.CAP_PROP_FRAME_COUNT))
-    video2_frames = int(video2.get(cv2.CAP_PROP_FRAME_COUNT))
-    print(f'Video 1 frames: {video1_frames}')
-    print(f'Video 2 frames: {video2_frames}')
-
-    hashes1 = []
-    print ('Creating hashes for video 1')
-    for i in range(video1_frames):
-        print(f'Current frame (video 1): {i}')
-        ret, frame1 = video1.read()
-        if not ret:
-            print('Error reading video 1 frame')
-            cv2.destroyAllWindows()
-            break
-        hashes1.append(imagehash.phash(Image.fromarray(frame1)))
-
-    print('Creating hashes for video 2')
-    hashes2 = []
-    for j in range(video2_frames):
-        print(f'Current frame (video 2): {j}')
-        ret, frame2 = video2.read()
-        if not ret:
-            print('Error reading video 2 frame')
-            cv2.destroyAllWindows()
-            break
-        hashes2.append(imagehash.phash(Image.fromarray(frame2)))
-
-    return hashes1, hashes2
-
-def find_dissimilar_regions(hashes1, hashes2, window):
-    '''Find the region of maximum dissimilarity given 2 lists of hashes and a sliding window (how many frames)'''
-    start_frame_vid1 = 0
-    start_frame_vid2 = 0
-    max_hash_dif_vid1 = 0
-    max_hash_dif_vid2 = 0
-    hash_dif_vid1 = 0
-    hash_dif_vid2 = 0
-
-    for slider in range(0, len(hashes1) // window):
-        print(f'Current start frame {slider * window}')
-        hash_dif_vid1, hash_dif_vid2 = compare_hash_sets(hashes1[slider * window:(slider + 1) * window], hashes2[slider * window:(slider + 1) * window])
-
-        print(f'Current hash diff (vid 1): {hash_dif_vid1}')
-        print(f'Current hash diff (vid 2): {hash_dif_vid2}')
-        if hash_dif_vid1 > max_hash_dif_vid1:
-            max_hash_dif_vid1 = hash_dif_vid1
-            start_frame_vid1 = slider * window
-
-        if hash_dif_vid2 > max_hash_dif_vid2:
-            max_hash_dif_vid2 = hash_dif_vid2
-            start_frame_vid2 = slider * window
-
-        print(f'Max hash diff (vid 1): {max_hash_dif_vid1}')
-        print(f'Max hash diff (vid 2): {max_hash_dif_vid2}')
-
-        print(f'Start frame (vid 1): {start_frame_vid1}')
-        print(f'Start frame (vid 2): {start_frame_vid2}')
-
-    return start_frame_vid1, start_frame_vid2
-
-def compare_hash_sets(hashes1, hashes2):
-    '''Compares two sets of image hashes to find dissimilarities'''
-    hash1_dif = 0
-    hash2_dif = 0
-
-    print(f'Hash set 1 {hashes1[0]}')
-    print(f'Hash set 2 {hashes2[0]}')
-    # Compares all possible combinations of images
-    for combination in combinations(hashes1, 2):
-        hash1_dif = hash1_dif + (combination[0] - combination[1])
-
-    for combination in combinations(hashes2, 2):
-        hash2_dif = hash2_dif + (combination[0] - combination[1])
-
-    return hash1_dif, hash2_dif
+    '''Calculate the dissimilarity within the trial given the frame sliding window.'''
+    project = load_project()
+    analyzer = Analyzer(config=project)
+    return analyzer.get_max_dissimilarity_for_trial(trial_path, window)
 
 def analyze_marker_similarity_project(working_dir):
     '''Analyze all videos in a project and get their average rhythmicity. This assumes that all cam1/2 pairs are either the same or different!'''
     project = load_project(working_dir)
-    marker_similarity = {}
-    new_data_path = os.path.join(working_dir, 'trials')
-    list_of_trials = [folder for folder in os.listdir(new_data_path) if os.path.isdir(os.path.join(new_data_path, folder)) and not folder.startswith('.')]
-    yaml = YAML()
-
-    trial_perms = combinations(list_of_trials, 2)
-    for trial1, trial2 in trial_perms:
-        project['trial_1_name'] = trial1
-        project['trial_2_name'] = trial2
-        with open(os.path.join(working_dir, 'project_config.yaml'), 'w') as file:
-            yaml.dump(project, file)
-        marker_similarity[(trial1, trial2)] = abs(analyze_marker_similarity_trial(working_dir))
-    
-    return marker_similarity
+    analyzer = Analyzer(config=project)
+    return analyzer.analyze_marker_similarity_project()
 
 def analyze_marker_similarity_trial(working_dir):
     '''Analyze marker similarity for a pair of trials. Returns the mean difference for paired marker positions (X - X, Y - Y for each marker)'''
     project = load_project(working_dir)
-
-    # Find CSVs for each trial
-    trial1_path = os.path.join(f'{working_dir}/trials', project['trial_1_name'])
-    trial2_path = os.path.join(f'{working_dir}/trials', project['trial_2_name'])
-    
-    # Get a list of markers that each trial have in commmon
-    # Marker similarity is always in rgb mode.
-    bodyparts1 = get_bodyparts_from_xma(project, trial1_path, mode='rgb')
-    bodyparts2 = get_bodyparts_from_xma(project, trial2_path, mode='rgb')
-    markers_in_common = [marker for marker in bodyparts1 if marker in bodyparts2]
-    bodyparts_xy = [f'{marker}_X' for marker in markers_in_common] + [f'{marker}_Y' for marker in markers_in_common]
-    trial1_csv = pd.read_csv(os.path.join(trial1_path, project['trial_1_name'] + '.csv'))
-    trial2_csv = pd.read_csv(os.path.join(trial2_path, project['trial_2_name'] + '.csv'))
-
-    marker_similarity = sum([(trial1_csv[marker] - trial2_csv[marker]).sum() / (len(trial1_csv[marker]) + len(trial2_csv[marker])) for marker in bodyparts_xy]) / len(bodyparts_xy)
-
-    return marker_similarity
+    analyzer = Analyzer(config=project)
+    return analyzer.analyze_marker_similarity_trial()
 
 def train_many_projects(parent_dir):
     '''Train and analyze multiple SDLC_XMALAB projects given a parent folder'''
