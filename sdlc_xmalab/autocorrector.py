@@ -9,7 +9,7 @@ import numpy as np
 import pandas as pd
 from ruamel.yaml import YAML
 
-from xma_data_processor import XMADataProcessor
+from .xma_data_processor import XMADataProcessor
 
 
 class Autocorrector:
