@@ -406,8 +406,28 @@ class TestSampleTrial(unittest.TestCase):
         function_output = function_output.round(6)
         sample_output = sample_output.round(6)
 
-        # Make sure the output hasn't changed
-        assert_frame_equal(function_output, sample_output, check_exact=False, rtol=1e-6, atol=1e-6)
+        # # Make sure the output hasn't changed
+        # self.assertTrue(function_output.equals(sample_output))
+        try:
+            # Use assert_frame_equal to check if the data frames are the same
+            assert_frame_equal(function_output, sample_output, check_exact=False, rtol=1e-6, atol=1e-6)
+        except AssertionError as e:
+            # If there's an AssertionError, print the differences and the full CSVs
+            print("Differences found between function output and sample output.")
+
+            # Convert the DataFrames to CSV format using StringIO as an in-memory file
+            function_output_buffer = io.StringIO()
+            sample_output_buffer = io.StringIO()
+
+            function_output.to_csv(function_output_buffer, index=False)
+            sample_output.to_csv(sample_output_buffer, index=False)
+
+            # Print the CSV contents
+            print("\nFunction Output (Actual):\n", function_output_buffer.getvalue())
+            print("\nSample Output (Expected):\n", sample_output_buffer.getvalue())
+
+            # Re-raise the error to fail the test
+            raise e
 
     def test_image_hashing_identical_trials_returns_0(self):
         '''Make sure the image hashing function is working properly'''
