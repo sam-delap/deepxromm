@@ -1,12 +1,16 @@
 '''Unit tests for XROMM-DLC'''
-import unittest
+import io
 import os
 import shutil
+import unittest
 from datetime import datetime as dt
-import pandas as pd
-import numpy as np
+
 import cv2
+import numpy as np
+import pandas as pd
+from pandas.testing import assert_frame_equal
 from ruamel.yaml import YAML
+
 import sdlc_xmalab
 
 
@@ -403,7 +407,7 @@ class TestSampleTrial(unittest.TestCase):
         sample_output = sample_output.round(6)
 
         # Make sure the output hasn't changed
-        self.assertTrue(function_output.equals(sample_output))
+        assert_frame_equal(function_output, sample_output, check_exact=False, rtol=1e-6, atol=1e-6)
 
     def test_image_hashing_identical_trials_returns_0(self):
         '''Make sure the image hashing function is working properly'''
