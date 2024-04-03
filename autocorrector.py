@@ -39,8 +39,9 @@ class Autocorrector:
 
             try:
                 csv = pd.read_csv(os.path.join(iteration_path, f'{trial}-Predicted2DPoints.csv'))
-            except FileNotFoundError:
-                raise FileNotFoundError(f'Could not find predicted 2D points file. Please check the it{iteration} folder for trial {trial}') from None
+            except FileNotFoundError as e:
+                print(f'Could not find predicted 2D points file. Please check the it{iteration} folder for trial {trial}')
+                raise e
             out_name = os.path.join(iteration_path, f'{trial}-AutoCorrected2DPoints.csv')
 
             if self._config['test_autocorrect']:
