@@ -184,6 +184,10 @@ def load_project(working_dir=os.getcwd()):
     # Check DLC bodyparts (marker names) for config 2 if needed
     if project['tracking_mode'] == 'per_cam':
         dlc_config_loader = YAML()
+        if 'path_config_file_2' not in project.keys(): 
+            print('Couldn\'t find a reference to a second config file')
+            print('Make sure you run create_new_project with mode=\'per_cam\'')
+            raise KeyError('path_config_file_2')
         with open(project['path_config_file_2'], 'r') as dlc_config:
             dlc_yaml = dlc_config_loader.load(dlc_config)
         # Better conditional logic could definitely be had to reduce function calls here
