@@ -95,6 +95,16 @@ class XMADataProcessor:
         else:
             raise FileNotFoundError(f"No video file found containing '{identifier}' in {path}")
 
+    def list_trials(self):
+        path = os.path.join(self._config["working_dir"], "trials")
+        """Returns a list of trials or throws an exception if folder is empty"""
+        trials = [folder for folder in os.listdir(path) if os.path.isdir(os.path.join(path, folder)) and not folder.startswith('.')]
+
+        if len(trials) <= 0:
+            raise FileNotFoundError(f'Empty trials directory found. Please put trials to be '
+                                     'analyzed after training into the {path} folder')
+        return trials
+
     def _merge_rgb(self, trial_path, codec="avc1", mode="difference"):
         """
         Takes the path to a trial subfolder and exports a single new video with

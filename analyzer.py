@@ -26,11 +26,7 @@ class Analyzer:
 
     def analyze_videos(self):
         '''Analyze videos with a pre-existing network'''
-
-        # Error if trials directory is empty
-        trials = self._get_trial_folders()
-        if len(trials) <= 0:
-            raise FileNotFoundError(f'Empty trials directory found. Please put trials to be analyzed after training into the {self._trials_path} folder')
+        trials = self._data_processor.list_trials()
 
         # Establish project vars
         yaml = YAML()
@@ -62,7 +58,7 @@ class Analyzer:
         or don't match!'''
         similarity_score = {}
         yaml = YAML()
-        trial_perms = combinations(self._get_trial_folders(), 2)
+        trial_perms = combinations(self._data_processor.list_trials(), 2)
         for trial1, trial2 in trial_perms:
             self._config['trial_1_name'] = trial1
             self._config['trial_2_name'] = trial2
@@ -106,7 +102,7 @@ class Analyzer:
         marker_similarity = {}
         yaml = YAML()
 
-        trial_perms = combinations(self._get_trial_folders(), 2)
+        trial_perms = combinations(self._data_processor.list_trials(), 2)
         for trial1, trial2 in trial_perms:
             self._config['trial_1_name'] = trial1
             self._config['trial_2_name'] = trial2
@@ -272,6 +268,3 @@ class Analyzer:
             hash2_dif = hash2_dif + (combination[0] - combination[1])
 
         return hash1_dif, hash2_dif
-
-    def _get_trial_folders(self):
-        return [folder for folder in os.listdir(self._trials_path) if os.path.isdir(os.path.join(self._trials_path, folder)) and not folder.startswith('.')]
