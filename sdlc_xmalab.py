@@ -15,96 +15,64 @@ from network import Network
 from xma_data_processor import XMADataProcessor
 
 
-def create_new_project(working_dir=os.getcwd(), experimenter='NA', mode='2D'):
-    '''Create a new xrommtools project'''
+def create_new_project(working_dir=os.getcwd(), experimenter="NA", mode="2D"):
+    """Create a new xrommtools project"""
     if not os.path.exists(working_dir):
         os.mkdir(working_dir)
     dirs = ["trainingdata", "trials"]
     for folder in dirs:
-        if not os.path.exists(f'{working_dir}/{folder}'):
-            os.mkdir(f'{working_dir}/{folder}')
+        if not os.path.exists(f"{working_dir}/{folder}"):
+            os.mkdir(f"{working_dir}/{folder}")
 
     # Create a fake video to pass into the deeplabcut workflow
-    frame = np.zeros((480, 480, 3), np.uint8)
-    out = cv2.VideoWriter(f'{working_dir}/dummy.avi',
-                          cv2.VideoWriter_fourcc(*'DIVX'),
-                          15,
-                          (480,480))
+    dummy_video_path = os.path.join(working_dir, "dummy.avi")
+    frame = np.zeros((480, 480, 3), dtype=np.uint8)
+    out = cv2.VideoWriter(dummy_video_path, cv2.VideoWriter_fourcc(*"DIVX"), 15, (480, 480))
     out.write(frame)
     out.release()
 
     # Create a new project
-    yaml = YAML()
     task = os.path.basename(working_dir)
-    path_config_file = deeplabcut.create_new_project(task, experimenter,
-                                                    [os.path.join(working_dir,
-                                                                  "dummy.avi")],
-                                                    working_dir + os.path.sep,
-                                                     copy_videos=True)
+    path_config_file = deeplabcut.create_new_project(
+        task,
+        experimenter,
+        [dummy_video_path],
+        working_dir + os.path.sep,
+        copy_videos=True,
+    )
 
-    if isinstance(path_config_file, str):
-        template = f"""
-    task: {task}
-    experimenter: {experimenter}
-    working_dir: {working_dir}
-    path_config_file: {path_config_file}
-    dataset_name: MyData
-    nframes: 0
-    maxiters: 150000
-    tracking_threshold: 0.1 # Fraction of total frames included in training sample
-    tracking_mode: 2D
-    swapped_markers: false
-    crossed_markers: false
+    yaml = YAML()
+    config_data = yaml.load(open("default_config.yaml"))
+    config_data.update({"task": task,
+                        "experimenter": experimenter,
+                        "working_dir": str(working_dir),
+                        "path_config_file": path_config_file})
 
-# Image Processing Vars
-    search_area: 15
-    threshold: 8
-    krad: 17
-    gsigma: 10
-    img_wt: 3.6
-    blur_wt: -2.9
-    gamma: 0.1
+    if mode == "per_cam":
+        task_2 = f"{task}_cam2"
+        path_config_file_2 = deeplabcut.create_new_project(
+            task_2,
+            experimenter,
+            [os.path.join(working_dir, "dummy.avi")],
+            working_dir + os.path.sep,
+            copy_videos=True,
+        )
+        config_data["path_config_file_2"] = path_config_file_2
 
-# Autocorrect() Testing Vars
+    with open(f"{working_dir}/project_config.yaml", "w") as config:
+        yaml.dump(config_data, config)
 
-    trial_name: your_trial_here
-    cam: cam1
-    frame_num: 1
-    marker: your_marker_here
-    test_autocorrect: false # Set to true if you want to see autocorrect's output in Jupyter
+    try:
+        os.rmdir(path_config_file[:path_config_file.find("config")] + os.path.join("labeled-data","dummy"))
+    except FileNotFoundError:
+        pass
 
-# Video Similarity Analysis Vars
-    cam1s_are_the_same_view: true    
-        """
+    try:
+        os.remove(os.path.join(path_config_file[:path_config_file.find("config")], "videos", "dummy.avi"))
+    except FileNotFoundError:
+        pass
 
-        tmp = yaml.load(template)
-
-        if mode == 'per_cam':
-            task_2 = f'{task}_cam2'
-            path_config_file_2 = deeplabcut.create_new_project(task_2,
-                                                               experimenter,
-                                                               [os.path.join(working_dir,
-                                                                            "dummy.avi")],
-                                                               working_dir
-                                                               + os.path.sep,
-                                                               copy_videos=True)
-            tmp['path_config_file_2'] = path_config_file_2
-
-        with open(f"{working_dir}/project_config.yaml", 'w') as config:
-            yaml.dump(tmp, config)
-
-        try:
-            os.rmdir(path_config_file[:path_config_file.find("config")] + os.path.join("labeled-data","dummy"))
-        except FileNotFoundError:
-            pass
-
-        try:
-            os.remove(os.path.join(path_config_file[:path_config_file.find("config")], "videos", "dummy.avi"))
-        except FileNotFoundError:
-            pass
-    
-    os.remove(f'{working_dir}/dummy.avi')
-
+    os.remove(dummy_video_path)
 
 def load_project(working_dir=os.getcwd()):
     '''Load an existing project (only used internally/in testing)'''
