@@ -1,15 +1,12 @@
 '''A Complete Set of User-Friendly Tools for DeepLabCut-XMAlab marker tracking'''
 # Import packages
-import math
 import os
 import warnings
-from subprocess import PIPE, Popen
 
 import cv2
 import deeplabcut
 import numpy as np
 import pandas as pd
-from PIL import Image
 from ruamel.yaml import YAML
 
 from analyzer import Analyzer
@@ -240,79 +237,9 @@ def get_bodyparts_from_xma(project, path_to_trial, mode):
 
 def split_rgb(trial_path, codec='avc1'):
     '''Takes a RGB video with different grayscale data written to the R, G, and B channels and splits it back into its component source videos.'''
-    trial_name = os.path.basename(os.path.normpath(trial_path))
-    out_name = trial_name+'_split_'
-
-    try:
-        rgb_video = cv2.VideoCapture(f'{trial_path}/{trial_name}_rgb.avi')
-    except FileNotFoundError as e:
-        raise FileNotFoundError(f'Couldn\'t find video at {trial_path}/{trial_name}_rgb.avi') from e
-    frame_width = int(rgb_video.get(3))
-    frame_height = int(rgb_video.get(4))
-    frame_rate = round(rgb_video.get(5),2)
-    if codec == 'uncompressed':
-        pix_format = 'gray'   ##change to 'yuv420p' for color or 'gray' for grayscale. 'pal8' doesn't play on macs
-        cam1_split_ffmpeg = Popen(['ffmpeg', '-y', '-f', 'image2pipe', '-vcodec', 'png', '-r', str(int(frame_rate)),
-        '-i', '-', '-vcodec', 'rawvideo','-pix_fmt',pix_format,'-r', str(int(frame_rate)), f'{trial_path}/{out_name}'+'cam1.avi'], stdin=PIPE)
-        cam2_split_ffmpeg = Popen(['ffmpeg', '-y', '-f', 'image2pipe', '-vcodec', 'png', '-r', str(int(frame_rate)),
-        '-i', '-', '-vcodec', 'rawvideo','-pix_fmt',pix_format,'-r', str(int(frame_rate)), f'{trial_path}/{out_name}'+'cam2.avi'], stdin=PIPE)
-        blue_split_ffmpeg = Popen(['ffmpeg', '-y', '-f', 'image2pipe', '-vcodec', 'png', '-r', str(int(frame_rate)),
-        '-i', '-', '-vcodec', 'rawvideo','-pix_fmt',pix_format,'-r', str(int(frame_rate)), f'{trial_path}/{out_name}'+'blue.avi'], stdin=PIPE)
-    else:
-        if codec == 0:
-            fourcc = 0
-        else:
-            fourcc = cv2.VideoWriter_fourcc(*codec)
-        cam1 = cv2.VideoWriter(f'{trial_path}/{out_name}'+'cam1.avi',
-                                fourcc,
-                                frame_rate,(frame_width, frame_height))
-        cam2 = cv2.VideoWriter(f'{trial_path}/{out_name}'+'cam2.avi',
-                                fourcc,
-                                frame_rate,(frame_width, frame_height))
-        blue_channel = cv2.VideoWriter(f'{trial_path}/{out_name}'+'blue.avi',
-                                fourcc,
-                                frame_rate,(frame_width, frame_height))
-
-    i = 1
-    while rgb_video.isOpened():
-        ret, frame = rgb_video.read()
-        print(f'Current Frame: {i}')
-        i = i + 1
-        if ret:
-            B, G, R = cv2.split(frame)
-            if codec == 'uncompressed':
-                im_r = Image.fromarray(R)
-                im_g = Image.fromarray(G)
-                im_b = Image.fromarray(B)
-                im_r.save(cam1_split_ffmpeg.stdin, 'PNG')
-                im_g.save(cam2_split_ffmpeg.stdin, 'PNG')
-                im_b.save(blue_split_ffmpeg.stdin, 'PNG')
-                if cv2.waitKey(1) & 0xFF == ord('q'):
-                    break
-            else:
-                cam1.write(R)
-                cam2.write(G)
-                blue_channel.write(B)
-                if cv2.waitKey(1) & 0xFF == ord('q'):
-                    break
-        else:
-            break
-    if codec == 'uncompressed':
-        cam1_split_ffmpeg.stdin.close()
-        cam1_split_ffmpeg.wait()
-        cam2_split_ffmpeg.stdin.close()
-        cam2_split_ffmpeg.wait()
-        blue_split_ffmpeg.stdin.close()
-        blue_split_ffmpeg.wait()
-    else:
-        cam1.release()
-        cam2.release()
-        blue_channel.release()
-    rgb_video.release()
-    cv2.destroyAllWindows()
-    print(f"Cam1 grayscale video created at {trial_path}/{out_name}cam1.avi!")
-    print(f"Cam2 grayscale video created at {trial_path}/{out_name}cam2.avi!")
-    print(f"Blue channel grayscale video created at {trial_path}/{out_name}blue.avi!")
+    project = load_project(os.getcwd())
+    data_processor = XMADataProcessor(config=project)
+    return data_processor.split_rgb(trial_path, codec)
 
 def analyze_video_similarity_project(working_dir):
     '''Analyze all videos in a project and take their average similar. This is dangerous, as it will assume that all cam1/cam2 pairs match
