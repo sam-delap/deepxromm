@@ -26,7 +26,7 @@ There are two ways to use this package. You can either:
     ```
 1. From the terminal, run the following commands (replacing `/path/to/project-folder` with the path to the folder for your project and `SD` with your initials):
     ```python
-    from sdlc_xmalab import sdlc_xmalab
+    import sdlc_xmalab
     working_dir = '/path/to/project-folder'
     experimenter = 'SD'
     sdlc_xmalab.create_new_project(working_dir, experimenter)

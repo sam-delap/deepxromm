@@ -10,7 +10,7 @@ import pandas as pd
 from pandas.testing import assert_frame_equal
 from ruamel.yaml import YAML
 
-from sdlc_xmalab import sdlc_xmalab
+import sdlc_xmalab
 
 
 SAMPLE_FRAME = Path(__file__).parent / 'sample_frame.jpg'
