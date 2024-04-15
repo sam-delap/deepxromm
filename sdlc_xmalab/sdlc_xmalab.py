@@ -7,42 +7,45 @@ import cv2
 import deeplabcut
 import numpy as np
 import pandas as pd
+from pathlib import Path
+import importlib.resources as pkg_resources
 from ruamel.yaml import YAML
 
-from analyzer import Analyzer
-from autocorrector import Autocorrector
-from network import Network
-from xma_data_processor import XMADataProcessor
+from .analyzer import Analyzer
+from .autocorrector import Autocorrector
+from .network import Network
+from .xma_data_processor import XMADataProcessor
 
 
-def create_new_project(working_dir=os.getcwd(), experimenter="NA", mode="2D"):
+def create_new_project(working_dir=None, experimenter="NA", mode="2D"):
     """Create a new xrommtools project"""
-    if not os.path.exists(working_dir):
-        os.mkdir(working_dir)
-    dirs = ["trainingdata", "trials"]
-    for folder in dirs:
-        if not os.path.exists(f"{working_dir}/{folder}"):
-            os.mkdir(f"{working_dir}/{folder}")
+    working_dir = Path(working_dir) if working_dir is not None else Path.cwd()
+    working_dir.mkdir(exist_ok=True)
+    (working_dir / "trainingdata").mkdir(exist_ok=True)
+    (working_dir / "trials").mkdir(exist_ok=True)
 
     # Create a fake video to pass into the deeplabcut workflow
-    dummy_video_path = os.path.join(working_dir, "dummy.avi")
+    dummy_video_path = working_dir / "dummy.avi"
     frame = np.zeros((480, 480, 3), dtype=np.uint8)
-    out = cv2.VideoWriter(dummy_video_path, cv2.VideoWriter_fourcc(*"DIVX"), 15, (480, 480))
+    out = cv2.VideoWriter(str(dummy_video_path), cv2.VideoWriter_fourcc(*"DIVX"), 15, (480, 480))
     out.write(frame)
     out.release()
 
     # Create a new project
-    task = os.path.basename(working_dir)
+    task = working_dir.name
     path_config_file = deeplabcut.create_new_project(
         task,
         experimenter,
-        [dummy_video_path],
-        working_dir + os.path.sep,
-        copy_videos=True,
+        [str(dummy_video_path)],
+        str(working_dir) + '/',
+        copy_videos=True
     )
 
+    config_path = Path(__file__).parent / 'default_config.yaml'
     yaml = YAML()
-    config_data = yaml.load(open("default_config.yaml"))
+    with config_path.open() as file:
+        config_data = yaml.load(file)
+    
     config_data.update({"task": task,
                         "experimenter": experimenter,
                         "working_dir": str(working_dir),
@@ -53,32 +56,38 @@ def create_new_project(working_dir=os.getcwd(), experimenter="NA", mode="2D"):
         path_config_file_2 = deeplabcut.create_new_project(
             task_2,
             experimenter,
-            [os.path.join(working_dir, "dummy.avi")],
-            working_dir + os.path.sep,
+            [str(dummy_video_path)],
+            str(working_dir) + '/',
             copy_videos=True,
         )
         config_data["path_config_file_2"] = path_config_file_2
 
-    with open(f"{working_dir}/project_config.yaml", "w") as config:
+    # Save configuration
+    config_file = working_dir / "project_config.yaml"
+    with config_file.open('w') as config:
         yaml.dump(config_data, config)
 
+    # Cleanup
     try:
-        os.rmdir(path_config_file[:path_config_file.find("config")] + os.path.join("labeled-data","dummy"))
+        (Path(path_config_file).parent / "labeled-data/dummy").rmdir()
     except FileNotFoundError:
         pass
 
     try:
-        os.remove(os.path.join(path_config_file[:path_config_file.find("config")], "videos", "dummy.avi"))
+        (Path(path_config_file).parent / "videos/dummy.avi").unlink()
     except FileNotFoundError:
         pass
 
-    os.remove(dummy_video_path)
+    dummy_video_path.unlink()
 
-def load_project(working_dir=os.getcwd()):
+def load_project(working_dir=None):
     '''Load an existing project (only used internally/in testing)'''
+    working_dir = Path(working_dir) if working_dir is not None else Path.cwd()
+
     # Open the config
-    with open(os.path.join(working_dir, "project_config.yaml"), 'r') as config_file:
-        yaml = YAML()
+    config_path = working_dir / "project_config.yaml"
+    yaml = YAML()
+    with config_path.open('r') as config_file:
         project = yaml.load(config_file)
 
     experimenter = str(project['experimenter'])
@@ -86,14 +95,18 @@ def load_project(working_dir=os.getcwd()):
     if project['dataset_name'] == 'MyData':
         warnings.warn('Default project name in use', SyntaxWarning)
 
-    training_data_path = os.path.join(project['working_dir'], "trainingdata")
-    trial = [folder for folder in os.listdir(training_data_path) if os.path.isdir(os.path.join(training_data_path, folder)) and not folder.startswith('.')][0] 
-    trial_path = os.path.join(training_data_path, trial)
+    # Navigate to the training data directory
+    training_data_path = working_dir / "trainingdata"
+    trials = [folder for folder in training_data_path.iterdir() if folder.is_dir() and not folder.name.startswith('.')]
+    trial = trials[0] if trials else None  # Assuming there's at least one trial directory
+    trial_path = training_data_path / trial.name
+
     # Load trial CSV
-    try:     
-        trial_csv = pd.read_csv(os.path.join(trial_path, f'{trial}.csv'))
+    try:
+        trial_csv_path = trial_path / f'{trial.name}.csv'
+        trial_csv = pd.read_csv(trial_csv_path)
     except FileNotFoundError as e:
-        print(f'Please make sure that your trainingdata 2DPoints csv file is named {trial}.csv')
+        print(f'Please make sure that your trainingdata 2DPoints csv file is named {trial.name}.csv')
         raise e
 
     # Give search_area a minimum of 10
@@ -117,8 +130,7 @@ def load_project(working_dir=os.getcwd()):
 
     data_processor = XMADataProcessor(config=project)
     # Check the current nframes against the threshold value * the number of frames in the cam1 video
-    trial_path = os.path.join(training_data_path, trial)
-    cam1_video_path = data_processor.find_cam_file(trial_path, "cam1")
+    cam1_video_path = data_processor.find_cam_file(str(trial_path), "cam1")
     video = cv2.VideoCapture(cam1_video_path)
 
     if project['nframes'] < int(video.get(cv2.CAP_PROP_FRAME_COUNT)) * project['tracking_threshold']:
@@ -127,15 +139,15 @@ def load_project(working_dir=os.getcwd()):
 
     # Check DLC bodyparts (marker names)
     default_bodyparts = ['bodypart1', 'bodypart2', 'bodypart3', 'objectA']
-
-    path_to_trial = os.path.join(working_dir, 'trainingdata', trial)
+    path_to_trial = working_dir / 'trainingdata' / trial
     bodyparts = get_bodyparts_from_xma(
         project,
-        path_to_trial,
+        str(path_to_trial),
         mode=project['tracking_mode'])
     
     dlc_config_loader = YAML()
-    with open(project['path_config_file'], 'r') as dlc_config:
+    dlc_config_path = Path(project['path_config_file'])
+    with dlc_config_path.open('r') as dlc_config:
         dlc_yaml = dlc_config_loader.load(dlc_config)
 
     if dlc_yaml['bodyparts'] == default_bodyparts:
@@ -143,13 +155,14 @@ def load_project(working_dir=os.getcwd()):
     elif dlc_yaml['bodyparts'] != bodyparts:
         raise SyntaxError('XMAlab CSV marker names are different than DLC bodyparts.')
 
-    with open(project['path_config_file'], 'w') as dlc_config:
+    with dlc_config_path.open('w') as dlc_config:
         yaml.dump(dlc_yaml, dlc_config)
 
     # Check DLC bodyparts (marker names) for config 2 if needed
     if project['tracking_mode'] == 'per_cam':
         dlc_config_loader = YAML()
-        with open(project['path_config_file_2'], 'r') as dlc_config:
+        dlc_config_path_2 = Path(project['path_config_file_2'])
+        with dlc_config_path_2.open('r') as dlc_config:
             dlc_yaml = dlc_config_loader.load(dlc_config)
         # Better conditional logic could definitely be had to reduce function calls here
         if dlc_yaml['bodyparts'] == default_bodyparts:
@@ -164,7 +177,7 @@ def load_project(working_dir=os.getcwd()):
                                                              project['crossed_markers']):
             raise SyntaxError('XMAlab CSV marker names are different than DLC bodyparts.')
 
-        with open(project['path_config_file_2'], 'w') as dlc_config:
+        with dlc_config_path_2.open('w') as dlc_config:
             yaml.dump(dlc_yaml, dlc_config)
 
     # Check test_autocorrect params for defaults
@@ -175,7 +188,7 @@ def load_project(working_dir=os.getcwd()):
             raise SyntaxError('Please specify a marker to test autocorrect() with')
 
     # Update changed attributes to match in the file
-    with open(os.path.join(working_dir, 'project_config.yaml'), 'w') as file:
+    with config_path.open('w') as file:
         yaml.dump(project, file)
 
     return project
