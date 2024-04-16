@@ -57,7 +57,7 @@ def create_new_project(working_dir=None, experimenter="NA", mode="2D"):
             task_2,
             experimenter,
             [str(dummy_video_path)],
-            str(working_dir) + '/',
+            str(working_dir / ''),  # Add the trailing slash
             copy_videos=True,
         )
         config_data["path_config_file_2"] = path_config_file_2

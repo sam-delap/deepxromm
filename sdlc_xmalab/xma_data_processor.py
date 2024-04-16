@@ -116,7 +116,8 @@ class XMADataProcessor:
         try:
             rgb_video = cv2.VideoCapture(f'{trial_path}/{trial_name}_rgb.avi')
         except FileNotFoundError as e:
-            raise FileNotFoundError(f'Couldn\'t find video at {trial_path}/{trial_name}_rgb.avi') from e
+            print(f'Couldn\'t find video at {trial_path}/{trial_name}_rgb.avi')
+            raise e
         frame_width = int(rgb_video.get(3))
         frame_height = int(rgb_video.get(4))
         frame_rate = round(rgb_video.get(5),2)
