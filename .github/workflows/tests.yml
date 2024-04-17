@@ -12,4 +12,4 @@ jobs:
           cache: 'pip'
       - run: pip install --upgrade pip
       - run: pip install -r requirements.txt
-      - run: python test_sdlc_xmalab.py
+      - run: python -m tests.test_sdlc_xmalab

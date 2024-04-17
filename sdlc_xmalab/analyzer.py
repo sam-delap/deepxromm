@@ -11,8 +11,8 @@ import pandas as pd
 from PIL import Image
 from ruamel.yaml import YAML
 
-import xrommtools
-from xma_data_processor import XMADataProcessor
+from .xma_data_processor import XMADataProcessor
+from .xrommtools import analyze_xromm_videos
 
 
 class Analyzer:
@@ -36,9 +36,9 @@ class Analyzer:
 
         mode = self._config['tracking_mode']
         if mode == '2D':
-            xrommtools.analyze_xromm_videos(self._dlc_config, self._trials_path, iteration)
+            analyze_xromm_videos(self._dlc_config, self._trials_path, iteration)
         elif mode == 'per_cam':
-            xrommtools.analyze_xromm_videos(path_config_file=self._dlc_config,
+            analyze_xromm_videos(path_config_file=self._dlc_config,
                                             path_config_file_cam2=self._config['path_config_file_2'],
                                             path_data_to_analyze=self._trials_path,
                                             iteration=iteration,

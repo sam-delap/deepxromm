@@ -1,0 +1,30 @@
+task: "{task}"
+experimenter: "{experimenter}"
+working_dir: "{working_dir}"
+path_config_file: "{path_config_file}"
+dataset_name: "MyData"
+nframes: 0
+maxiters: 150000
+tracking_threshold: 0.1 # Fraction of total frames included in training sample
+tracking_mode: "2D"
+swapped_markers: false
+crossed_markers: false
+
+# Image Processing Vars
+search_area: 15
+threshold: 8
+krad: 17
+gsigma: 10
+img_wt: 3.6
+blur_wt: -2.9
+gamma: 0.1
+
+# Autocorrect() Testing Vars
+trial_name: "your_trial_here"
+cam: "cam1"
+frame_num: 1
+marker: "your_marker_here"
+test_autocorrect: false # Set to true if you want to see autocorrect's output in Jupyter
+
+# Video Similarity Analysis Vars
+cam1s_are_the_same_view: true

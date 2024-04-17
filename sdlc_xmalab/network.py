@@ -4,8 +4,8 @@ import os
 
 import deeplabcut
 
-import xrommtools
-from xma_data_processor import XMADataProcessor
+from .xrommtools import xma_to_dlc
+from .xma_data_processor import XMADataProcessor
 
 
 class Network:
@@ -22,7 +22,7 @@ class Network:
         mode = self._config["tracking_mode"]
         if mode == "2D":
             try:
-                xrommtools.xma_to_dlc(
+                xma_to_dlc(
                     self._config["path_config_file"],
                     self._data_path,
                     self._config["dataset_name"],
@@ -32,7 +32,7 @@ class Network:
             except UnboundLocalError:
                 pass
         elif mode == "per_cam":
-            xrommtools.xma_to_dlc(
+            xma_to_dlc(
                 path_config_file=self._config["path_config_file"],
                 path_config_file_cam2=self._config["path_config_file_2"],
                 data_path=self._data_path,
