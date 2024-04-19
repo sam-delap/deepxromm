@@ -10,7 +10,7 @@ import pandas as pd
 from pandas.testing import assert_frame_equal
 from ruamel.yaml import YAML
 
-import sdlc_xmalab
+import deepxromm
 
 
 SAMPLE_FRAME = Path(__file__).parent / 'sample_frame.jpg'
@@ -25,7 +25,7 @@ class TestProjectCreation(unittest.TestCase):
         '''Create a sample project'''
         super(TestProjectCreation, cls).setUpClass()
         cls.project_dir = Path.cwd() / 'tmp'
-        sdlc_xmalab.create_new_project(cls.project_dir)
+        deepxromm.create_new_project(cls.project_dir)
 
     def test_project_creates_correct_folders(self):
         '''Do we have all of the correct folders?'''
@@ -85,7 +85,7 @@ class TestDefaultsPerformance(unittest.TestCase):
         '''Create a sample project where the user only inputs XMAlab data'''
         self.working_dir = Path.cwd() / 'tmp'
         self.config = self.working_dir / 'project_config.yaml'
-        sdlc_xmalab.create_new_project(self.working_dir)
+        deepxromm.create_new_project(self.working_dir)
         frame = cv2.imread(str(SAMPLE_FRAME))
 
         # Make a trial directory
@@ -114,18 +114,18 @@ class TestDefaultsPerformance(unittest.TestCase):
     def test_can_find_frames_from_csv(self):
         '''Can I accurately find the number of frames in the video if the user doesn't tell me?'''
         print(list(self.working_dir.iterdir()))
-        project = sdlc_xmalab.load_project(self.working_dir)
+        project = deepxromm.load_project(self.working_dir)
         self.assertEqual(project['nframes'], 1, msg=f"Actual nframes: {project['nframes']}")
 
     def test_analyze_errors_if_no_folders_in_trials_dir(self):
         '''If there are no trials to analyze, do we return an error?'''
         with self.assertRaises(FileNotFoundError):
-            sdlc_xmalab.analyze_videos(self.working_dir)
+            deepxromm.analyze_videos(self.working_dir)
 
     def test_autocorrect_errors_if_no_folders_in_trials_dir(self):
         '''If there are no trials to autocorrect, do we return an error?'''
         with self.assertRaises(FileNotFoundError):
-            sdlc_xmalab.autocorrect_trial(self.working_dir)
+            deepxromm.autocorrect_trial(self.working_dir)
 
     def test_warn_users_if_nframes_doesnt_match_csv(self):
         '''If the number of frames in the CSV doesn't match the number of frames specified, do I issue a warning?'''
@@ -140,13 +140,13 @@ class TestDefaultsPerformance(unittest.TestCase):
 
         # Check that the user is warned
         with self.assertWarns(UserWarning):
-            sdlc_xmalab.load_project(self.working_dir)
+            deepxromm.load_project(self.working_dir)
 
     def test_yaml_file_updates_nframes_after_load_if_frames_is_0(self):
         '''If the user doesn't specify how many frames they want analyzed,
         does their YAML file get updated with how many are in the CSV?'''
         yaml = YAML()
-        sdlc_xmalab.load_project(self.working_dir)
+        deepxromm.load_project(self.working_dir)
         with self.config.open() as config:
             tmp = yaml.load(config)
         self.assertEqual(tmp['nframes'], 1, msg=f"Actual nframes: {tmp['nframes']}")
@@ -154,7 +154,7 @@ class TestDefaultsPerformance(unittest.TestCase):
     def test_warn_if_user_has_tracked_less_than_threshold_frames(self):
         '''If the user has tracked less than threshold % of their trial,
         do I give them a warning?'''
-        sdlc_xmalab.load_project(self.working_dir)
+        deepxromm.load_project(self.working_dir)
 
         # Increase the number of frames in the video to 100 so I can test this
         frame = cv2.imread(str(SAMPLE_FRAME))
@@ -166,13 +166,13 @@ class TestDefaultsPerformance(unittest.TestCase):
 
         # Check that the user is warned
         with self.assertWarns(UserWarning):
-            sdlc_xmalab.load_project(self.working_dir)
+            deepxromm.load_project(self.working_dir)
 
     def test_bodyparts_add_from_csv_if_not_defined(self):
         '''If the user hasn't specified the bodyparts from their trial, we can pull them from the CSV'''
         yaml = YAML()
         date = dt.today().strftime("%Y-%m-%d")
-        sdlc_xmalab.load_project(self.working_dir)
+        deepxromm.load_project(self.working_dir)
         config_path = Path(self.working_dir) / f'tmp-NA-{date}' / 'config.yaml'
 
         with config_path.open() as dlc_config:
@@ -188,7 +188,7 @@ class TestDefaultsPerformance(unittest.TestCase):
         tmp['tracking_mode'] = 'rgb'
         with self.config.open('w') as fp:
             yaml.dump(tmp, fp)
-        sdlc_xmalab.load_project(self.working_dir)
+        deepxromm.load_project(self.working_dir)
 
         path_to_config = self.working_dir / f'tmp-NA-{date}' / 'config.yaml'
         yaml = YAML()
@@ -208,7 +208,7 @@ class TestDefaultsPerformance(unittest.TestCase):
         tmp['swapped_markers'] = True
         with self.config.open('w') as fp:
             yaml.dump(tmp, fp)
-        sdlc_xmalab.load_project(self.working_dir)
+        deepxromm.load_project(self.working_dir)
 
         path_to_config = self.working_dir / f'tmp-NA-{date}' / 'config.yaml'
         yaml = YAML()
@@ -240,7 +240,7 @@ class TestDefaultsPerformance(unittest.TestCase):
         tmp['crossed_markers'] = True
         with self.config.open('w') as fp:
             yaml.dump(tmp, fp)
-        sdlc_xmalab.load_project(self.working_dir)
+        deepxromm.load_project(self.working_dir)
 
         path_to_config = self.working_dir / f'tmp-NA-{date}' / 'config.yaml'
         yaml = YAML()
@@ -261,7 +261,7 @@ class TestDefaultsPerformance(unittest.TestCase):
         tmp['crossed_markers'] = True
         with self.config.open('w') as fp:
             yaml.dump(tmp, fp)
-        sdlc_xmalab.load_project(self.working_dir)
+        deepxromm.load_project(self.working_dir)
 
         path_to_config = self.working_dir / f'tmp-NA-{date}' / 'config.yaml'
         yaml = YAML()
@@ -300,7 +300,7 @@ class TestDefaultsPerformance(unittest.TestCase):
             yaml.dump(config_dlc, dlc_config)
 
         with self.assertRaises(SyntaxError):
-            sdlc_xmalab.load_project(self.working_dir)
+            deepxromm.load_project(self.working_dir)
 
     def test_autocorrect_error_if_trial_not_set(self):
         '''If the user doesn't specify a trial to test autocorrect with, do we error?'''
@@ -314,7 +314,7 @@ class TestDefaultsPerformance(unittest.TestCase):
             yaml.dump(tmp, fp)
 
         with self.assertRaises(SyntaxError):
-            sdlc_xmalab.load_project(self.working_dir)
+            deepxromm.load_project(self.working_dir)
 
     def test_autocorrect_error_if_marker_not_set(self):
         '''If the user doesn't specify a marker to test autocorrect with, do we error?'''
@@ -330,7 +330,7 @@ class TestDefaultsPerformance(unittest.TestCase):
             yaml.dump(tmp, fp)
 
         with self.assertRaises(SyntaxError):
-            sdlc_xmalab.load_project(self.working_dir)
+            deepxromm.load_project(self.working_dir)
 
     def tearDown(self):
         '''Remove the created temp project'''
@@ -341,7 +341,7 @@ class TestSampleTrial(unittest.TestCase):
     def setUp(self):
         '''Create trial'''
         self.working_dir = Path.cwd() / 'tmp'
-        sdlc_xmalab.create_new_project(self.working_dir)
+        deepxromm.create_new_project(self.working_dir)
         frame = cv2.imread(str(SAMPLE_FRAME))
 
         # Make a trial directory
@@ -376,7 +376,7 @@ class TestSampleTrial(unittest.TestCase):
     def test_autocorrect_is_working(self):
         '''Make sure that autocorrect still works properly after making changes'''
         # Run autocorrect on the sample frame
-        sdlc_xmalab.autocorrect_trial(self.working_dir)
+        deepxromm.autocorrect_trial(self.working_dir)
 
         # Load CSVs
         function_output_path = self.working_dir / 'trials/test/it0/test-AutoCorrected2DPoints.csv'
@@ -412,7 +412,7 @@ class TestSampleTrial(unittest.TestCase):
             out.release()
 
         # Do similarity comparison
-        similarity = sdlc_xmalab.analyze_video_similarity_project(self.working_dir)
+        similarity = deepxromm.analyze_video_similarity_project(self.working_dir)
         # Since both videos are the same, the image similarity output should be 0
         self.assertEqual(sum(similarity.values()), 0)
 
@@ -431,7 +431,7 @@ class TestSampleTrial(unittest.TestCase):
             out.release()
 
         # Do similarity comparison
-        similarity = sdlc_xmalab.analyze_video_similarity_project(self.working_dir)
+        similarity = deepxromm.analyze_video_similarity_project(self.working_dir)
         # Since the videos are different, should return nonzero answer
         self.assertNotEqual(sum(similarity.values()), 0)
 
@@ -445,7 +445,7 @@ class TestSampleTrial(unittest.TestCase):
         shutil.copy(str(SAMPLE_FRAME_INPUT), str(self.working_dir / 'trials/test2/test2.csv'))
 
         # Do cross-correlation
-        marker_similarity = sdlc_xmalab.analyze_marker_similarity_project(self.working_dir)
+        marker_similarity = deepxromm.analyze_marker_similarity_project(self.working_dir)
         self.assertEqual(sum(marker_similarity.values()), 0)
 
     def test_marker_similarity_returns_not_0_if_different(self):
@@ -458,7 +458,7 @@ class TestSampleTrial(unittest.TestCase):
         shutil.copy(str(SAMPLE_AUTOCORRECT_OUTPUT), str(self.working_dir / 'trials/test2/test2.csv'))
 
         # Do cross-correlation
-        marker_similarity = sdlc_xmalab.analyze_marker_similarity_project(self.working_dir)
+        marker_similarity = deepxromm.analyze_marker_similarity_project(self.working_dir)
         self.assertNotEqual(sum(marker_similarity.values()), 0)
 
     def tearDown(self):
