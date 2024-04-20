@@ -26,10 +26,10 @@ There are two ways to use this package. You can either:
     ```
 1. From the terminal, run the following commands (replacing `/path/to/project-folder` with the path to the folder for your project and `SD` with your initials):
     ```python
-    import sdlc_xmalab
+    from deepxromm import DeepXROMM 
     working_dir = '/path/to/project-folder'
     experimenter = 'SD'
-    sdlc_xmalab.create_new_project(working_dir, experimenter)
+    deepxromm = DeepXROMM.create_new_project(working_dir, experimenter)
     ```
     1. Keep your Python session open. We'll be running more commands here shortly
 1. You should now see something that looks like this inside of your project folder:
@@ -48,14 +48,14 @@ There are two ways to use this package. You can either:
 1. There are also a number of options for customization in the project_config.yaml file. Check out the [config file reference](config.md) to learn more about what each variable does
 1. To start training your network, run the following in your Python terminal
     ```python
-    sdlc_xmalab.train_network(working_dir)
+    deepxromm.train_network()
     ```
 
 ## Using a trained network to track your trial(s)
 1. Make sure any trials that you want to analyze are in appropriately named folders in the `trials` directory, and each folder contains a CSV and distorted cam1/cam2 videos that are named **folder_name**.csv, **folder_name**_cam1.avi, and **folder_name**_cam2.avi, respectively
-1. Import the package and your working_dir variable and run the following command in your Python terminal:
+1. Import the package and initialize a deepxromm instance as a above, and run the following command in your Python terminal:
     ```python
-    sdlc_xmalab.analyze_videos(working_dir)
+    deepxromm.analyze_videos()
     ```
 1. This will save a file named **trial_name**-Predicted2DPoints.csv to the it# file (where number is the number next to iteration: in your project_folder/project-name-SD-YYYY-MM-DD/config.yaml file) inside of your trials/trial_name folder
 1. You can analyze the network's performance by importing this CSV as a 2D Points file into XMAlab with the following settings
@@ -72,9 +72,9 @@ You'll need a Python environment that is capable of displaying images, like a [J
     test_autocorrect: true
     ```
 1. Specify a trial (trial_name), camera (cam), frame number (frame_num), and marker name (marker) to test the autocorrect function on  
-1. Import the package and your working_dir variable and run the following code snippet
+1. Import the package and initialize a deepxromm instance as a above and run the following code snippet
     ```python
-    sdlc_xmalab.autocorrect_trial(working_dir)
+    deepxromm.autocorrect_trial(working_dir)
     ```
 1. Tune autocorrect() settings until you are satisfied with the testing output
 ### Using autocorrect for a whole trial
@@ -82,9 +82,9 @@ You'll need a Python environment that is capable of displaying images, like a [J
     ```YAML
     test_autocorrect: false
     ```
-1. Import the package and your working_dir variable and run the following code snippet
+1. Import the package and initialize a deepxromm instance as a above and run the following code snippet
     ```python
-    sdlc_xmalab.autocorrect_trial(working_dir)
+    deepxromm.autocorrect_trial()
     ```
 1. This will save a file named **trial_name**-AutoCorrected2DPoints.csv to the it# file (where number is the number next to iteration: in your project_folder/project-name-SD-YYYY-MM-DD/config.yaml file) inside of your trials/trial_name folder
     ```YAML
