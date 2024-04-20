@@ -1,3 +1,3 @@
 # deepxromm/__init__.py
 
-from .deepxromm import *
+from .deepxromm import DeepXROMM
