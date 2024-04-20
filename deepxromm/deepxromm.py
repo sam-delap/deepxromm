@@ -1,5 +1,6 @@
 """A Complete Set of User-Friendly Tools for DeepLabCut-XMAlab marker tracking"""
 from pathlib import Path
+from ruamel.yaml.comments import CommentedMap
 
 from .analyzer import Analyzer
 from .autocorrector import Autocorrector
@@ -11,6 +12,7 @@ from .xma_data_processor import XMADataProcessor
 class DeepXROMM:
     """A Complete Set of User-Friendly Tools for DeepLabCut-XMAlab marker tracking"""
 
+    config: CommentedMap
     _analyzer: Analyzer
     _autocorrector: Autocorrector
     _network: Network
@@ -24,24 +26,24 @@ class DeepXROMM:
     @classmethod
     def create_new_project(cls, working_dir=None, experimenter="NA", mode="2D"):
         '''Create a new xrommtools project'''
-        deepxrom = DeepXROMM.__new__(DeepXROMM)
-        config = Project.create_new_config(working_dir, experimenter, mode)
-        deepxrom._analyzer = Analyzer(config)
-        deepxrom._autocorrector = Autocorrector(config)
-        deepxrom._network = Network(config)
-        deepxrom._data_processor = XMADataProcessor(config)
-        return deepxrom
+        deepxromm = DeepXROMM.__new__(DeepXROMM)
+        deepxromm.config = Project.create_new_config(working_dir, experimenter, mode)
+        deepxromm._analyzer = Analyzer(deepxromm.config)
+        deepxromm._autocorrector = Autocorrector(deepxromm.config)
+        deepxromm._network = Network(deepxromm.config)
+        deepxromm._data_processor = XMADataProcessor(deepxromm.config)
+        return deepxromm
 
     @classmethod
     def load_project(cls, working_dir=None):
         '''Create a new xrommtools project'''
-        deepxrom = DeepXROMM.__new__(DeepXROMM)
-        config = Project.load_config(working_dir)
-        deepxrom._analyzer = Analyzer(config)
-        deepxrom._autocorrector = Autocorrector(config)
-        deepxrom._network = Network(config)
-        deepxrom._data_processor = XMADataProcessor(config)
-        return deepxrom
+        deepxromm = DeepXROMM.__new__(DeepXROMM)
+        deepxromm.config = Project.load_config(working_dir)
+        deepxromm._analyzer = Analyzer(deepxromm.config)
+        deepxromm._autocorrector = Autocorrector(deepxromm.config)
+        deepxromm._network = Network(deepxromm.config)
+        deepxromm._data_processor = XMADataProcessor(deepxromm.config)
+        return deepxromm
 
     def train_network(self):
         '''Starts training the network using xrommtools-compatible data in the working directory.'''
