@@ -1,4 +1,4 @@
-# Welcome to SDLC_XMALab!
+# Welcome to DeepXROMM!
 
 ## Getting started
 1. Follow the steps on our [Installation](install.md) page to get the package and its dependencies set up
