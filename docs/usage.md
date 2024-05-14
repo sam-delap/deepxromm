@@ -11,7 +11,7 @@ There are two ways to use this package. You can either:
     ```bash
     conda activate your-env-name
     ```
-1. Change into the folder where you stored the source code for this package (use \ instead of / on Windows)
+1. Change into the folder where you want to run the code from (use \ instead of / on Windows)
     1. Windows
         ```powershell
         cd Documents\sdlc_xmalab
@@ -43,9 +43,15 @@ There are two ways to use this package. You can either:
     └───XMA_files
     ```
 
-## Importing your data and beginning network training
+## Importing your data and loading the project
 1. The simplest approach is to create a new folder inside of the trainingdata folder named after your trial and place your raw videos, as well as distorted 2D points from tracking, in the folder.
 1. There are also a number of options for customization in the project_config.yaml file. Check out the [config file reference](config.md) to learn more about what each variable does
+1. After you have added the trainingdata and/or trial folders, make sure to load the project. You should also reload it every time you update any settings.
+    ```python
+    deepxromm = DeepXROMM.load_project(working_dir, experimenter)
+    ```
+
+## Training the project
 1. To start training your network, run the following in your Python terminal
     ```python
     deepxromm.train_network()

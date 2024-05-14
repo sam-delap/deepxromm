@@ -14,20 +14,7 @@ conda create -n your-env-name python=your-py-version
     ```bash
     conda activate your-env-name
     ```
-1. Change to a folder to store the code in, clone the GitHub repository, and change into the project directory
-   1. Windows example (make sure you install [Git bash](https://git-scm.com/download/win) first!)
-       ```powershell
-        cd Documents
-        git clone https://github.com/sam-delap/sdlc_xmalab.git
-        cd sdlc_xmalab
-       ```
-    1. macOS/Linux example
-        ```bash
-        cd
-        git clone https://github.com/sam-delap/sdlc_xmalab.git
-        cd sdlc_xmalab
-        ```
-1. Install all of the pip requirements
+1. Once you've configured Conda environment to support DeepLabCut, simply install the package via pip:
     ```bash
-    pip install -r requirements.txt
+    pip install deepxromm
     ```
