@@ -11,15 +11,6 @@ There are two ways to use this package. You can either:
     ```bash
     conda activate your-env-name
     ```
-1. Change into the folder where you want to run the code from (use \ instead of / on Windows)
-    1. Windows
-        ```powershell
-        cd Documents\sdlc_xmalab
-        ```
-    2. macOS/Linux
-        ```bash
-        cd ~/sdlc_xmalab
-        ```
 1. Open an interactive Python session
     ```bash
     ipython

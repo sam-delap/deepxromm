@@ -18,3 +18,7 @@ conda create -n your-env-name python=your-py-version
     ```bash
     pip install deepxromm
     ```
+1. Optionally, if you plan on following the usage guide, install ipython to do interactive python at the command line
+    ```bash
+    pip install ipython
+    ```
