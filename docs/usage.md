@@ -2,11 +2,11 @@
 There are two ways to use this package. You can either:
 
 1. Follow the usage guide below to run everything locally.
-1. Use the colab_tutortial.ipynb [Jupyter Notebook](https://drive.google.com/drive/folders/1X91DYNbcu4_tV1FMvF-28XB7p7SS-MBt) and an online computing platform like [Google Colab](https://colab.research.google.com/)
+1. Use the colab_tutorial.ipynb [Jupyter Notebook](https://drive.google.com/drive/folders/1X91DYNbcu4_tV1FMvF-28XB7p7SS-MBt) and an online computing platform like [Google Colab](https://colab.research.google.com/)
     1. If you are using this option, be sure to make a copy of the notebook before using it so that you can save your changes!
 
 ## Getting started and creating a new project
-1. If you haven't already, follow the steps in the [installation guide](install.md) to install this package's dependencies!
+1. If you haven't already, follow the steps in the [installation guide](install.md) to install this package!
 1. Activate your conda environment
     ```bash
     conda activate your-env-name
@@ -58,8 +58,11 @@ There are two ways to use this package. You can either:
 
 ## Using a trained network to track your trial(s)
 1. Make sure any trials that you want to analyze are in appropriately named folders in the `trials` directory, and each folder contains a CSV and distorted cam1/cam2 videos that are named **folder_name**.csv, **folder_name**_cam1.avi, and **folder_name**_cam2.avi, respectively
-1. Import the package and initialize a deepxromm instance as a above, and run the following command in your Python terminal:
+1. Run the following commands in your Python terminal:
     ```python
+    from deepxromm import DeepXROMM
+    working_dir = '/path/to/project-folder'
+    deepxromm = DeepXROMM.load_project(working_dir)
     deepxromm.analyze_videos()
     ```
 1. This will save a file named **trial_name**-Predicted2DPoints.csv to the it# file (where number is the number next to iteration: in your project_folder/project-name-SD-YYYY-MM-DD/config.yaml file) inside of your trials/trial_name folder

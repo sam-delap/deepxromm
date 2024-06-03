@@ -14,7 +14,7 @@ conda create -n your-env-name python=your-py-version
     ```bash
     conda activate your-env-name
     ```
-1. If you are going to be following the tutorial in the (usage guide)[usage.md], install this package + ipython:
+1. If you are going to be following the tutorial in the [usage guide](usage.md), install this package + ipython:
     ```bash
     pip install deepxromm[cli]
     ```
