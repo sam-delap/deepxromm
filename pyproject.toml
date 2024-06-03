@@ -18,9 +18,9 @@ classifiers = [
 ]
 keywords = ["deepxromm", "XMALab", "DeepLabCut", "XROMM"]
 dependencies = [
+    "blend_modes",
     "deeplabcut[tf]",
-    "imagehash",
-    "blend_modes"
+    "imagehash"
 ]
 requires-python = ">=3.9"
 
