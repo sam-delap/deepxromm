@@ -51,7 +51,7 @@ class Project:
                             "experimenter": experimenter,
                             "working_dir": str(working_dir),
                             "path_config_file": path_config_file,
-                            "mode": mode})
+                            "tracking_mode": mode})
 
         if mode == "per_cam":
             task_2 = f"{task}_cam2"
