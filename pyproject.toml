@@ -5,10 +5,10 @@ requires = ["setuptools>=61.0.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "deepxromm"
+name = "deepxromm-fix"
 version = "0.1.1"
 authors = [{name = "Sam DeLap", email = "sjcdelap@gmail.com"}]
-description = "A set of user-friendly tools for DeepLabCut-XMALab marker tracking"
+description = "A set of user-friendly tools for DeepLabCut-XMALab marker tracking. Normally under deepxromm, but I as the author do not currently have access"
 readme = "README.md"
 license = {file = "LICENSE"}
 classifiers = [

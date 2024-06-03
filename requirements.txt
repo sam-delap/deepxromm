@@ -1,6 +1,8 @@
 blend_modes==2.1.0
+build==1.2.1
 deeplabcut[tf]==2.3.9
 imagehash==4.3.1
 ipython==8.18.1
 mkdocs==1.6.0
 mkdocs-material==9.5.25
+twine==5.1.0
