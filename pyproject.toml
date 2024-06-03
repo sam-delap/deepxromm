@@ -29,3 +29,6 @@ Homepage = "https://github.com/sam-delap/sdlc_xmalab"
 
 [tool.setuptools]
 packages = ["deepxromm"]
+
+[tools.setuptools.package-data]
+deepxromm = ["*.yaml"]
