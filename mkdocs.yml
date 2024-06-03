@@ -1,5 +1,5 @@
-site_name: Sam's DeepLabCut-XMAlab (sdlc-xmalab) Docs
-site_url: https://sam-delap.github.io/sdlc_xmalab/
+site_name: DeepLabCut integration for XROMM (DeepXROMM) Docs
+site_url: https://sam-delap.github.io/deepxromm/
 nav:
   - Home: index.md
   - Installation: install.md
