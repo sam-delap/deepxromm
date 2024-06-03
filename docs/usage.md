@@ -22,6 +22,10 @@ There are two ways to use this package. You can either:
     experimenter = 'SD'
     deepxromm = DeepXROMM.create_new_project(working_dir, experimenter)
     ```
+    1. Optionally, you can change the way your input data is fed into DeepLabCut to create one network per camera view (`per_cam`) or blend the grayscale videos into an RGB video (`rgb`) by specifying the "mode" parameter. For example, for per_cam:
+    ```python
+    deepxromm = DeepXROMM.create_new_project(working_dir, experimenter, mode='per_cam')
+    ```
     1. Keep your Python session open. We'll be running more commands here shortly
 1. You should now see something that looks like this inside of your project folder:
     ```bash
@@ -31,7 +35,6 @@ There are two ways to use this package. You can either:
     ├───sample-proj-SD-YYYY-MM-DD
     ├───trainingdata
     ├───trials
-    └───XMA_files
     ```
 
 ## Exporting your data from XMAlab in a usable format
