@@ -13,7 +13,7 @@ from .xma_data_processor import XMADataProcessor
 class Project:
     def __init__(self):
         raise NotImplementedError("Use create_new_config or load_config instead.")
-    
+
     @staticmethod
     def create_new_config(working_dir=None, experimenter="NA", mode="2D"):
         """Creates a new config from scratch."""
@@ -46,7 +46,7 @@ class Project:
         yaml = YAML()
         with config_path.open() as file:
             config_data = yaml.load(file)
-        
+
         config_data.update({"task": task,
                             "experimenter": experimenter,
                             "working_dir": str(working_dir),
@@ -147,7 +147,7 @@ class Project:
         bodyparts = data_processor.get_bodyparts_from_xma(
             str(path_to_trial),
             mode=project['tracking_mode'])
-        
+
         dlc_config_loader = YAML()
         dlc_config_path = Path(project['path_config_file'])
         with dlc_config_path.open('r') as dlc_config:

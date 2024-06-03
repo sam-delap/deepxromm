@@ -132,7 +132,7 @@ class Analyzer:
         for marker in markers_in_common:
             avg_x1, avg_y1 = trial1_csv[f'{marker}_X'].mean(), trial1_csv[f'{marker}_Y'].mean()
             avg_x2, avg_y2 = trial2_csv[f'{marker}_X'].mean(), trial2_csv[f'{marker}_Y'].mean()
-  
+
             # Calculate the distance between the average positions for this marker in the two trials
             distance = math.sqrt((avg_x2 - avg_x1) ** 2 + (avg_y2 - avg_y1) ** 2)
             avg_distances.append(distance)
@@ -143,7 +143,7 @@ class Analyzer:
         return marker_similarity
 
     def get_max_dissimilarity_for_trial(self, trial_path, window):
-        '''Calculate the dissimilarity within the trial given the frame sliding window.'''        
+        '''Calculate the dissimilarity within the trial given the frame sliding window.'''
         video1 = cv2.VideoCapture(self._data_processor.find_cam_file(trial_path, 'cam1'))
         video2 = cv2.VideoCapture(self._data_processor.find_cam_file(trial_path, 'cam2'))
 
