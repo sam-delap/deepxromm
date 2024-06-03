@@ -85,7 +85,7 @@ class Project:
 
     @staticmethod
     def load_config(working_dir=None):
-        '''Load an existing project (only used internally/in testing)'''
+        '''Load an existing project'''
         working_dir = Path(working_dir) if working_dir is not None else Path.cwd()
 
         # Open the config
@@ -102,7 +102,9 @@ class Project:
         # Navigate to the training data directory
         training_data_path = working_dir / "trainingdata"
         trials = [folder for folder in training_data_path.iterdir() if folder.is_dir() and not folder.name.startswith('.')]
-        trial = trials[0] if trials else None  # Assuming there's at least one trial directory
+        if len(trials) == 0:
+            raise FileNotFoundError("Empty trials directory found. Expected trial folders within the 'trainingdata' directory")
+        trial = trials[0] # Assuming there's at least one trial directory
         trial_path = training_data_path / trial.name
 
         # Load trial CSV
