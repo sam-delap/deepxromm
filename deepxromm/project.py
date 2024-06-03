@@ -18,9 +18,9 @@ class Project:
     def create_new_config(working_dir=None, experimenter="NA", mode="2D"):
         """Creates a new config from scratch."""
         try:
-            working_dir = Path(working_dir).mkdir(parents=True) if working_dir is not None else Path.cwd().mkdir(parents=True)
-            (working_dir / "trainingdata").mkdir()
-            (working_dir / "trials").mkdir()
+            working_dir = Path(working_dir) if working_dir is not None else Path.cwd()
+            (working_dir / "trainingdata").mkdir(parents=True)
+            (working_dir / "trials").mkdir(parents=True)
         except FileExistsError as e:
             print('It looks like this project folder already exists. Try importing it with DeepXROMM.load_project(working_dir)')
             raise e
