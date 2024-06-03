@@ -14,11 +14,11 @@ conda create -n your-env-name python=your-py-version
     ```bash
     conda activate your-env-name
     ```
-1. Once you've configured Conda environment to support DeepLabCut, simply install the package via pip:
+1. If you are going to be following the tutorial in the (usage guide)[usage.md], install this package + ipython:
+    ```bash
+    pip install deepxromm[cli]
+    ```
+1. If you are a developer looking to install and use/extend this package in other Python scripts:
     ```bash
     pip install deepxromm
-    ```
-1. Optionally, if you plan on following the usage guide, install ipython to do interactive python at the command line
-    ```bash
-    pip install ipython
     ```
