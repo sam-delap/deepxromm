@@ -166,7 +166,12 @@ class Project:
         # Check DLC bodyparts (marker names) for config 2 if needed
         if project['tracking_mode'] == 'per_cam':
             dlc_config_loader = YAML()
-            dlc_config_path_2 = Path(project['path_config_file_2'])
+            try:
+                dlc_config_path_2 = Path(project['path_config_file_2'])
+            except KeyError as e:
+                print("Path to second DLC config not found. Did you create the project as a per-cam project?")
+                print("If not, re-run 'create_new_project' using mode='per_cam'")
+                raise e
             with dlc_config_path_2.open('r') as dlc_config:
                 dlc_yaml = dlc_config_loader.load(dlc_config)
             # Better conditional logic could definitely be had to reduce function calls here
