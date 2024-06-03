@@ -34,6 +34,11 @@ There are two ways to use this package. You can either:
     └───XMA_files
     ```
 
+## Exporting your data from XMAlab in a usable format
+1. For now, DeepXROMM only supports analyzing **full distorted videos (.avi)**. However, we understand that many labs use distorted .tif or .jpg stacks and plan to add support for these in a later release
+1. Along with your distorted videos, DeepXROMM expects CSV training data (XMAlab 2D points) exported with the following settings
+![XMAlab training data settings](XMA_export_settings.png){: .center}
+
 ## Importing your data and loading the project
 1. The simplest approach is to create a new folder inside of the trainingdata folder named after your trial and place your raw videos, as well as distorted 2D points from tracking, in the folder.
 1. There are also a number of options for customization in the project_config.yaml file. Check out the [config file reference](config.md) to learn more about what each variable does
