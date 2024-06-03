@@ -17,12 +17,12 @@ import pandas as pd
 import numpy as np
 import cv2
 import random
-from deeplabcut.pose_estimation_tensorflow.predict_videos import analyze_videos 
+from deeplabcut.pose_estimation_tensorflow.predict_videos import analyze_videos
 
 def xma_to_dlc(path_config_file,data_path,dataset_name,scorer,nframes,nnetworks = 1, path_config_file_cam2 = []):
     config = path_config_file[:-12]
     cameras = [1,2]
-    picked_frames = [] 
+    picked_frames = []
     dfs = []
     idx = []
     pnames = []
@@ -60,7 +60,7 @@ def xma_to_dlc(path_config_file,data_path,dataset_name,scorer,nframes,nnetworks 
     if sum(len(x) for x in idx) < nframes:
         raise ValueError('nframes is bigger than number of detected frames')
 
-    #if pointnames aren't the same across trials    
+    #if pointnames aren't the same across trials
     if any(pnames[0] != x for x in pnames):
         raise ValueError('Make sure point names are consistent across trials')
 
@@ -81,12 +81,12 @@ def xma_to_dlc(path_config_file,data_path,dataset_name,scorer,nframes,nnetworks 
 
     if nnetworks == 2:
         configs = [path_config_file[:-12], path_config_file_cam2[:-12]]
-        
+
         for camera in cameras:
             print("Extracting camera %d trial images and 2D points..."%camera)
             relnames = []
             data = pd.DataFrame()
-            # new training dataset folder  
+            # new training dataset folder
             newpath = configs[camera-1]+"/labeled-data/"+dataset_name+"_cam"+str(camera)
             h5_save_path = newpath+"/CollectedData_"+scorer+".h5"
             csv_save_path = newpath+"/CollectedData_"+scorer+".csv"
@@ -122,11 +122,11 @@ def xma_to_dlc(path_config_file,data_path,dataset_name,scorer,nframes,nnetworks 
                             image = cv2.imread(imgpath+"/"+img)
                             relname = relpath + trial + "_%s.png" % str(count+1).zfill(4)
                             relnames = relnames + [relname]
-                            cv2.imwrite(newpath + "/" + trial + "_%s.png" % str(count+1).zfill(4), image) # save frame 
+                            cv2.imwrite(newpath + "/" + trial + "_%s.png" % str(count+1).zfill(4), image) # save frame
 
 
                 else:
-                # file is actually a file        
+                # file is actually a file
                 # extract frames from video and convert to png
                     video = data_path+"/"+trial+"/"+file
                     relpath = "labeled-data/"+dataset_name+"_cam"+str(camera)+"/"
@@ -139,7 +139,7 @@ def xma_to_dlc(path_config_file,data_path,dataset_name,scorer,nframes,nnetworks 
                         if count in frames:
                             relname = relpath + trial + "_%s.png" % str(count+1).zfill(4)
                             relnames = relnames + [relname]
-                            cv2.imwrite(newpath + "/" + trial + "_%s.png" % str(count+1).zfill(4), image) # save frame      
+                            cv2.imwrite(newpath + "/" + trial + "_%s.png" % str(count+1).zfill(4), image) # save frame
                         success,image = cap.read()
                         count += 1
                     cap.release()
@@ -168,12 +168,12 @@ def xma_to_dlc(path_config_file,data_path,dataset_name,scorer,nframes,nnetworks 
             dataFrame.to_hdf(h5_save_path, key="df_with_missing", mode="w")
             dataFrame.to_csv(csv_save_path,na_rep='NaN')
             print("...done.")
-        
+
     else:
 
         relnames = []
         data = pd.DataFrame()
-        # new training dataset folder  
+        # new training dataset folder
         newpath = config+"/labeled-data/"+dataset_name
         h5_save_path = newpath+"/CollectedData_"+scorer+".h5"
         csv_save_path = newpath+"/CollectedData_"+scorer+".csv"
@@ -212,11 +212,11 @@ def xma_to_dlc(path_config_file,data_path,dataset_name,scorer,nframes,nnetworks 
                             image = cv2.imread(imgpath+"/"+img)
                             relname = relpath + trial + "_cam"+str(camera)+ "_%s.png" % str(count+1).zfill(4)
                             relnames = relnames + [relname]
-                            cv2.imwrite(newpath + "/" + trial + "_cam"+str(camera)+ "_%s.png" % str(count+1).zfill(4), image) # save frame 
+                            cv2.imwrite(newpath + "/" + trial + "_cam"+str(camera)+ "_%s.png" % str(count+1).zfill(4), image) # save frame
 
 
                 else:
-                # file is actually a file        
+                # file is actually a file
                 # extract frames from video and convert to png
                     video = data_path+"/"+trial+"/"+file
                     relpath = "labeled-data/"+dataset_name+"/"
@@ -263,17 +263,17 @@ def xma_to_dlc(path_config_file,data_path,dataset_name,scorer,nframes,nnetworks 
     print("Training data extracted to projectpath/labeled-data. Now use deeplabcut.create_training_dataset")
 
 def dlc_to_xma(cam1data,cam2data,trialname,savepath):
-    
+
     h5_save_path = savepath+"/"+trialname+"-Predicted2DPoints.h5"
     csv_save_path = savepath+"/"+trialname+"-Predicted2DPoints.csv"
-    
+
     if isinstance(cam1data, str): #is string
         if ".csv" in cam1data:
 
             cam1data=pd.read_csv(cam1data, sep=',',header=None)
             cam2data=pd.read_csv(cam2data, sep=',',header=None)
             pointnames = list(cam1data.loc[1,1:].unique())
-            
+
             # reformat CSV / get rid of headers
             cam1data = cam1data.loc[3:,1:]
             cam1data.columns = range(cam1data.shape[1])
@@ -281,7 +281,7 @@ def dlc_to_xma(cam1data,cam2data,trialname,savepath):
             cam2data = cam2data.loc[3:,1:]
             cam2data.columns = range(cam2data.shape[1])
             cam2data.index = range(cam2data.shape[0])
-            
+
         elif ".h5" in cam1data:# is .h5 file
             cam1data = pd.read_hdf(cam1data)
             cam2data = pd.read_hdf(cam2data)
@@ -290,9 +290,9 @@ def dlc_to_xma(cam1data,cam2data,trialname,savepath):
         else:
             raise ValueError('2D point input is not in correct format')
     else:
-        
+
         pointnames = list(cam1data.columns.get_level_values('bodyparts').unique())
-    
+
     # make new column names
     nvar = len(pointnames)
     pointnames = [item for item in pointnames for repetitions in range(4)]
@@ -328,7 +328,7 @@ def analyze_xromm_videos(path_config_file,path_data_to_analyze,iteration,nnetwor
     configs = [path_config_file, path_config_file_cam2]
     subs =[["c01","c1","C01","C1","Cam1","cam1","Cam01","cam01","Camera1","camera1"],["c02","c2","C02","C2","Cam2","cam2","Cam02","cam02","Camera2","camera2"]]
     trialnames = [folder for folder in os.listdir(path_data_to_analyze) if os.path.isdir(os.path.join(path_data_to_analyze, folder)) and not folder.startswith('.')]
-    
+
     for trialnum,trial in enumerate(trialnames):
         trialpath = os.path.join(path_data_to_analyze,trial)
         contents = os.listdir(trialpath)
@@ -346,7 +346,7 @@ def analyze_xromm_videos(path_config_file,path_data_to_analyze,iteration,nnetwor
                     filename = name
             if not filename:
                 raise ValueError('Cannot locate %s video file or image folder' %trial)
-            
+
             video = os.path.join(trialpath, filename)
             print(video)
             #analyze video
@@ -361,20 +361,20 @@ def analyze_xromm_videos(path_config_file,path_data_to_analyze,iteration,nnetwor
         if not datafiles:
             raise ValueError('Cannot find predicted points. Some wrong with DeepLabCut?')
         cam1data = pd.read_hdf(savepath+"/"+datafiles[0])
-        cam2data = pd.read_hdf(savepath+"/"+datafiles[1]) 
+        cam2data = pd.read_hdf(savepath+"/"+datafiles[1])
         dlc_to_xma(cam1data,cam2data,trial,savepath)
-            
+
 def add_frames(path_config_file, data_path, iteration, frames, nnetworks = 1, path_config_file_cam2 = "enterpathofcam2config"):
 
     #input: config file paths, path of data to add to trainingdataset, frames-csv file where first col is trialnames and following cols are frame numbers
     # will look for 2D points file based on name (if there are multiple csv files)
-    
+
     configs = [path_config_file[:-12], path_config_file_cam2[:-12]]
     cameras = [1,2]
     subs =[["c01","c1","C01","C1","Cam1","cam1","Cam01","cam01","Camera1","camera1"],["c02","c2","C02","C2","Cam2","cam2","Cam02","cam02","Camera2","camera2"]]
     pts = ["2Dpts","2dpts","2DPts","2dPts","pts2D","Pts2D","pts2d","points2D","Points2d","points2d","2Dpoints","2dpoints","2DPoints"]
     corr = ["correct","Correct","corrected","Corrected"]
-    # read frames from csv 
+    # read frames from csv
     if '.csv' in frames:
         f = pd.read_csv(frames,header=None)
         trialnames = list(f.iloc[:,0]) # first row of frames file must be trialnames
@@ -390,7 +390,7 @@ def add_frames(path_config_file, data_path, iteration, frames, nnetworks = 1, pa
         raise ValueError('frames must be a .csv file with trialnames and frame numbers')
 
     if nnetworks == 2:
-        
+
         for camera in cameras:
             contents = os.listdir(configs[camera-1]+'/'+'labeled-data')
             if len(contents) == 1:
@@ -410,7 +410,7 @@ def add_frames(path_config_file, data_path, iteration, frames, nnetworks = 1, pa
             # get video file
                 file = []
                 relnames = []
-                contents = os.listdir(data_path+"/"+trial)       
+                contents = os.listdir(data_path+"/"+trial)
                 for name in contents:
                     if any(x in name for x in subs[camera-1]):
                         file = name
@@ -430,9 +430,9 @@ def add_frames(path_config_file, data_path, iteration, frames, nnetworks = 1, pa
                             image = cv2.imread(imgpath+"/"+img)
                             relname = relpath + trial + "_%s.png" % str(count+1).zfill(4)
                             relnames = relnames + [relname]
-                            cv2.imwrite(labeleddata_path + "/" + trial + "_%s.png" % str(count+1).zfill(4), image) # save frame 
+                            cv2.imwrite(labeleddata_path + "/" + trial + "_%s.png" % str(count+1).zfill(4), image) # save frame
                 else:
-                # file is actually a file        
+                # file is actually a file
                 # extract frames from video and convert to png
                     video = data_path+"/"+trial+"/"+file
                     relpath = "labeled-data/"+dataset_name+"/"
@@ -445,12 +445,12 @@ def add_frames(path_config_file, data_path, iteration, frames, nnetworks = 1, pa
                         if count+1 in frames:
                             relname = relpath + trial + "_%s.png" % str(count+1).zfill(4)
                             relnames = relnames + [relname]
-                            cv2.imwrite(labeleddata_path + "/" + trial + "_%s.png" % str(count+1).zfill(4), image) # save frame      
+                            cv2.imwrite(labeleddata_path + "/" + trial + "_%s.png" % str(count+1).zfill(4), image) # save frame
                         success,image = cap.read()
                         count += 1
                     cap.release()
 
-                # get 2D points file / data    
+                # get 2D points file / data
                 # extract 2D points data
                 contents = os.listdir(data_path+"/"+trial+"/"+"it"+str(iteration))
                 pointsfile = [x for x in contents if '.csv' in x]
@@ -496,7 +496,7 @@ def add_frames(path_config_file, data_path, iteration, frames, nnetworks = 1, pa
             data = data.apply(pd.to_numeric)
             data.to_hdf(labeleddata_path+'/'+h5file[0], key="df_with_missing", mode="w")
             data.to_csv(labeleddata_path+'/'+csvfile[0],na_rep='NaN')
-            
+
     else: # default, one network for both videos
         config = path_config_file[:-12]
         contents = os.listdir(config+'/'+'labeled-data')
@@ -520,7 +520,7 @@ def add_frames(path_config_file, data_path, iteration, frames, nnetworks = 1, pa
                 relnames = []
                 file = []
 
-                contents = os.listdir(data_path+"/"+trial)       
+                contents = os.listdir(data_path+"/"+trial)
                 for name in contents:
                     if any(x in name for x in subs[camera-1]):
                         file = name
@@ -540,9 +540,9 @@ def add_frames(path_config_file, data_path, iteration, frames, nnetworks = 1, pa
                             image = cv2.imread(imgpath+"/"+img)
                             relname = relpath + trial + "_cam"+str(camera) +"_%s.png" % str(count+1).zfill(4)
                             relnames = relnames + [relname]
-                            cv2.imwrite(labeleddata_path + "/" + trial + "_cam"+str(camera) + "_%s.png" % str(count+1).zfill(4), image) # save frame 
+                            cv2.imwrite(labeleddata_path + "/" + trial + "_cam"+str(camera) + "_%s.png" % str(count+1).zfill(4), image) # save frame
                 else:
-                # file is actually a file        
+                # file is actually a file
                 # extract frames from video and convert to png
                     video = data_path+"/"+trial+"/"+file
                     relpath = "labeled-data/"+dataset_name+"/"
@@ -555,12 +555,12 @@ def add_frames(path_config_file, data_path, iteration, frames, nnetworks = 1, pa
                         if count+1 in frames:
                             relname = relpath + trial + "_cam"+str(camera) + "_%s.png" % str(count+1).zfill(4)
                             relnames = relnames + [relname]
-                            cv2.imwrite(labeleddata_path + "/" + trial + "_cam"+str(camera)+ "_%s.png" % str(count+1).zfill(4), image) # save frame      
+                            cv2.imwrite(labeleddata_path + "/" + trial + "_cam"+str(camera)+ "_%s.png" % str(count+1).zfill(4), image) # save frame
                         success,image = cap.read()
                         count += 1
                     cap.release()
 
-                # get 2D points file / data    
+                # get 2D points file / data
                 # extract 2D points data
                 contents = os.listdir(data_path+"/"+trial+"/"+"it"+str(iteration))
                 pointsfile = [x for x in contents if '.csv' in x]
@@ -603,5 +603,5 @@ def add_frames(path_config_file, data_path, iteration, frames, nnetworks = 1, pa
         data = data.apply(pd.to_numeric)
         data.to_hdf(labeleddata_path+'/'+h5file[0], key="df_with_missing", mode="w")
         data.to_csv(labeleddata_path+'/'+csvfile[0],na_rep='NaN')
-            
+
     print('Frames from %d trials successfully added to training dataset'%len(trialnames))

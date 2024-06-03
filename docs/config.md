@@ -13,6 +13,7 @@
 **tracking_mode**: Determines the mode that sdlc_xmalab will attempt to train your network with:  
 
 - **2D** - cam1 and cam2 will both be passed to the network from their respective video files  
+- **per_cam** - cam1 and cam2 have their own networks
 - **rgb** - cam1 and cam2 will be merged into an RGB video, with cam1 as the red channel, cam2 as the green channel, and a blank frame as the blue channel  
 
 **swapped_markers**: Set to ‘true’ to create artificial markers with swapped y coordinates (y coordinates of swapped-cam1 will be cam2’s y coordinates). Only valid for the rgb tracking_mode  

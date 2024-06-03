@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "deepxromm"
-version = "0.1.0"
+version = "0.1.1"
 authors = [{name = "Sam DeLap", email = "sjcdelap@gmail.com"}]
 description = "A set of user-friendly tools for DeepLabCut-XMALab marker tracking"
 readme = "README.md"
@@ -18,14 +18,21 @@ classifiers = [
 ]
 keywords = ["deepxromm", "XMALab", "DeepLabCut", "XROMM"]
 dependencies = [
+    "blend_modes",
     "deeplabcut[tf]",
-    "imagehash",
-    "blend_modes"
+    "imagehash"
 ]
 requires-python = ">=3.9"
 
+[project.optional-dependencies]
+cli = ["ipython"]
+
 [project.urls]
-Homepage = "https://github.com/sam-delap/sdlc_xmalab"
+Homepage = "https://github.com/sam-delap/deepxromm"
+Documentation = "https://sam-delap.github.io/deepxromm"
 
 [tool.setuptools]
 packages = ["deepxromm"]
+
+[tool.setuptools.package-data]
+deepxromm = ["*.yaml"]

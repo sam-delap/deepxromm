@@ -13,14 +13,17 @@ from .xma_data_processor import XMADataProcessor
 class Project:
     def __init__(self):
         raise NotImplementedError("Use create_new_config or load_config instead.")
-    
+
     @staticmethod
     def create_new_config(working_dir=None, experimenter="NA", mode="2D"):
         """Creates a new config from scratch."""
-        working_dir = Path(working_dir) if working_dir is not None else Path.cwd()
-        working_dir.mkdir(exist_ok=True)
-        (working_dir / "trainingdata").mkdir(exist_ok=True)
-        (working_dir / "trials").mkdir(exist_ok=True)
+        try:
+            working_dir = Path(working_dir) if working_dir is not None else Path.cwd()
+            (working_dir / "trainingdata").mkdir(parents=True)
+            (working_dir / "trials").mkdir(parents=True)
+        except FileExistsError as e:
+            print('It looks like this project folder already exists. Try importing it with DeepXROMM.load_project(working_dir)')
+            raise e
 
         # Create a fake video to pass into the deeplabcut workflow
         dummy_video_path = working_dir / "dummy.avi"
@@ -43,11 +46,12 @@ class Project:
         yaml = YAML()
         with config_path.open() as file:
             config_data = yaml.load(file)
-        
+
         config_data.update({"task": task,
                             "experimenter": experimenter,
                             "working_dir": str(working_dir),
-                            "path_config_file": path_config_file})
+                            "path_config_file": path_config_file,
+                            "tracking_mode": mode})
 
         if mode == "per_cam":
             task_2 = f"{task}_cam2"
@@ -81,7 +85,7 @@ class Project:
 
     @staticmethod
     def load_config(working_dir=None):
-        '''Load an existing project (only used internally/in testing)'''
+        '''Load an existing project'''
         working_dir = Path(working_dir) if working_dir is not None else Path.cwd()
 
         # Open the config
@@ -98,7 +102,9 @@ class Project:
         # Navigate to the training data directory
         training_data_path = working_dir / "trainingdata"
         trials = [folder for folder in training_data_path.iterdir() if folder.is_dir() and not folder.name.startswith('.')]
-        trial = trials[0] if trials else None  # Assuming there's at least one trial directory
+        if len(trials) == 0:
+            raise FileNotFoundError("Empty trials directory found. Expected trial folders within the 'trainingdata' directory")
+        trial = trials[0] # Assuming there's at least one trial directory
         trial_path = training_data_path / trial.name
 
         # Load trial CSV
@@ -143,7 +149,7 @@ class Project:
         bodyparts = data_processor.get_bodyparts_from_xma(
             str(path_to_trial),
             mode=project['tracking_mode'])
-        
+
         dlc_config_loader = YAML()
         dlc_config_path = Path(project['path_config_file'])
         with dlc_config_path.open('r') as dlc_config:
@@ -160,7 +166,12 @@ class Project:
         # Check DLC bodyparts (marker names) for config 2 if needed
         if project['tracking_mode'] == 'per_cam':
             dlc_config_loader = YAML()
-            dlc_config_path_2 = Path(project['path_config_file_2'])
+            try:
+                dlc_config_path_2 = Path(project['path_config_file_2'])
+            except KeyError as e:
+                print("Path to second DLC config not found. Did you create the project as a per-cam project?")
+                print("If not, re-run 'create_new_project' using mode='per_cam'")
+                raise e
             with dlc_config_path_2.open('r') as dlc_config:
                 dlc_yaml = dlc_config_loader.load(dlc_config)
             # Better conditional logic could definitely be had to reduce function calls here

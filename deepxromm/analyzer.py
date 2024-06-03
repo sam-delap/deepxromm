@@ -38,11 +38,17 @@ class Analyzer:
         if mode == '2D':
             analyze_xromm_videos(self._dlc_config, self._trials_path, iteration)
         elif mode == 'per_cam':
-            analyze_xromm_videos(path_config_file=self._dlc_config,
-                                            path_config_file_cam2=self._config['path_config_file_2'],
-                                            path_data_to_analyze=self._trials_path,
-                                            iteration=iteration,
-                                            nnetworks=2)
+            try:
+                analyze_xromm_videos(path_config_file=self._dlc_config,
+                                    path_config_file_cam2=self._config['path_config_file_2'],
+                                    path_data_to_analyze=self._trials_path,
+                                    iteration=iteration,
+                                    nnetworks=2)
+            except KeyError as e:
+                print("Path to second DLC config not found. Did you create the project as a per-cam project?")
+                print("If not, re-run 'create_new_project' using mode='per_cam'")
+                raise e
+
         else:
             for trial in trials:
                 trial_path =  os.path.join(self._trials_path, trial)
@@ -132,7 +138,7 @@ class Analyzer:
         for marker in markers_in_common:
             avg_x1, avg_y1 = trial1_csv[f'{marker}_X'].mean(), trial1_csv[f'{marker}_Y'].mean()
             avg_x2, avg_y2 = trial2_csv[f'{marker}_X'].mean(), trial2_csv[f'{marker}_Y'].mean()
-  
+
             # Calculate the distance between the average positions for this marker in the two trials
             distance = math.sqrt((avg_x2 - avg_x1) ** 2 + (avg_y2 - avg_y1) ** 2)
             avg_distances.append(distance)
@@ -143,7 +149,7 @@ class Analyzer:
         return marker_similarity
 
     def get_max_dissimilarity_for_trial(self, trial_path, window):
-        '''Calculate the dissimilarity within the trial given the frame sliding window.'''        
+        '''Calculate the dissimilarity within the trial given the frame sliding window.'''
         video1 = cv2.VideoCapture(self._data_processor.find_cam_file(trial_path, 'cam1'))
         video2 = cv2.VideoCapture(self._data_processor.find_cam_file(trial_path, 'cam2'))
 
