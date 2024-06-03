@@ -25,7 +25,8 @@ dependencies = [
 requires-python = ">=3.9"
 
 [project.urls]
-Homepage = "https://github.com/sam-delap/sdlc_xmalab"
+Homepage = "https://github.com/sam-delap/deepxromm"
+Documentation = "https://sam-delap.github.io/deepxromm"
 
 [tool.setuptools]
 packages = ["deepxromm"]
