@@ -38,11 +38,17 @@ class Analyzer:
         if mode == '2D':
             analyze_xromm_videos(self._dlc_config, self._trials_path, iteration)
         elif mode == 'per_cam':
-            analyze_xromm_videos(path_config_file=self._dlc_config,
-                                            path_config_file_cam2=self._config['path_config_file_2'],
-                                            path_data_to_analyze=self._trials_path,
-                                            iteration=iteration,
-                                            nnetworks=2)
+            try:
+                analyze_xromm_videos(path_config_file=self._dlc_config,
+                                    path_config_file_cam2=self._config['path_config_file_2'],
+                                    path_data_to_analyze=self._trials_path,
+                                    iteration=iteration,
+                                    nnetworks=2)
+            except KeyError as e:
+                print("Path to second DLC config not found. Did you create the project as a per-cam project?")
+                print("If not, re-run 'create_new_project' using mode='per_cam'")
+                raise e
+
         else:
             for trial in trials:
                 trial_path =  os.path.join(self._trials_path, trial)
