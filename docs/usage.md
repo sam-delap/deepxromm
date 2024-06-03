@@ -44,7 +44,7 @@ There are two ways to use this package. You can either:
 1. There are also a number of options for customization in the project_config.yaml file. Check out the [config file reference](config.md) to learn more about what each variable does
 1. After you have added the trainingdata and/or trial folders, make sure to load the project. You should also reload it every time you update any settings.
     ```python
-    deepxromm = DeepXROMM.load_project(working_dir, experimenter)
+    deepxromm = DeepXROMM.load_project(working_dir)
     ```
 
 ## Training the project
