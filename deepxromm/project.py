@@ -17,10 +17,13 @@ class Project:
     @staticmethod
     def create_new_config(working_dir=None, experimenter="NA", mode="2D"):
         """Creates a new config from scratch."""
-        working_dir = Path(working_dir) if working_dir is not None else Path.cwd()
-        working_dir.mkdir(exist_ok=True)
-        (working_dir / "trainingdata").mkdir(exist_ok=True)
-        (working_dir / "trials").mkdir(exist_ok=True)
+        try:
+            working_dir = Path(working_dir).mkdir(parents=True) if working_dir is not None else Path.cwd().mkdir(parents=True)
+            (working_dir / "trainingdata").mkdir()
+            (working_dir / "trials").mkdir()
+        except FileExistsError as e:
+            print('It looks like this project folder already exists. Try importing it with DeepXROMM.load_project(working_dir)')
+            raise e
 
         # Create a fake video to pass into the deeplabcut workflow
         dummy_video_path = working_dir / "dummy.avi"
