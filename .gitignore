@@ -12,3 +12,7 @@
 
 # PyCache
 *.pyc*
+
+# Source Dists
+dist/*
+deepxromm.egg-info/*
