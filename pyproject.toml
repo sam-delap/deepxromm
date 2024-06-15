@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "deepxromm"
-version = "0.1.1"
+dynamic = ["version"]
 authors = [{name = "Sam DeLap", email = "sjcdelap@gmail.com"}]
 description = "A set of user-friendly tools for DeepLabCut-XMALab marker tracking"
 readme = "README.md"
@@ -33,6 +33,8 @@ Documentation = "https://sam-delap.github.io/deepxromm"
 
 [tool.setuptools]
 packages = ["deepxromm"]
+
+[tool.setuptools_scm]
 
 [tool.setuptools.package-data]
 deepxromm = ["*.yaml"]
