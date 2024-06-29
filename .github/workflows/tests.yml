@@ -1,4 +1,4 @@
-name: Run test suite and publish to testPyPI on PR
+name: Run test suite and publish to testPyPI
 run-name: Run tests for ${{ github.head_ref }}
 on: [pull_request]
 jobs:

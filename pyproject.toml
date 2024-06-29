@@ -20,7 +20,8 @@ keywords = ["deepxromm", "XMALab", "DeepLabCut", "XROMM"]
 dependencies = [
     "blend_modes",
     "deeplabcut[tf]",
-    "imagehash"
+    "imagehash",
+    "numpy<2"
 ]
 requires-python = ">=3.9"
 
