@@ -102,4 +102,21 @@ You'll need a Python environment that is capable of displaying images, like a [J
 
 ![XMAlab import settings](XMA_import_settings.png){: .center}
 
- 
+## Choosing regions with high variation
+
+One thing that has been previously shown to help with neural network performance is variation of movement.
+To assist with finding regions of maximal dissimilarity within trial videos, we developed an automated function finds
+the portion of your videos with the most movement.
+To change how large the region we find is, simply change the size of the sliding window to suit your tracking needs.
+
+To use this function:
+
+1. Boot up your conda environment
+1. Import the package
+1. Load your project
+1. Run the following function
+    1. Replace **/path/to/your/trial** with the folder where your raw videos are stored
+    1. Replace **size_of_window** with how many frames you want to track
+```python
+deepxromm.get_max_dissimilarity_for_trial('/path/to/your/trial', size_of_window)
+```

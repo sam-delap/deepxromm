@@ -72,11 +72,19 @@ class XMADataProcessor:
         for trial in trials:
             path_to_trial = f"{data_path}/{trial}"
             self._merge_rgb(path_to_trial)
+            try:
+                trial_name = os.path.basename(os.path.normpath(path_to_trial))
+                df = pd.read_csv(f"{path_to_trial}/{trial_name}.csv")
+            except FileNotFoundError as e:
+                print(f"Please make sure that your trainingdata 2DPoints csv file is named {trial_name}.csv")
+                raise e
             substitute_data_relpath = "labeled-data/" + self._config["dataset_name"]
             substitute_data_abspath = os.path.join(
                 os.path.split(self._config["path_config_file"])[0],
                 substitute_data_relpath,
             )
+            df = df.dropna(how="all")
+            list_of_frames = df.index + 1
             # TODO: decouple the behavior for videos vs data points/image
             # extraction. extract_matched_frames works for trials with an
             # XMAlab-formatted CSV attached (typically training data), while merge_rgb
@@ -84,7 +92,7 @@ class XMADataProcessor:
             self._extract_matched_frames_rgb(
                 path_to_trial,
                 substitute_data_abspath,
-                range(1, self._config["nframes"] + 1),
+                list_of_frames,
             )
             self._splice_xma_to_dlc(path_to_trial)
 
@@ -338,12 +346,9 @@ class XMADataProcessor:
             yaml.dump(dlc_proj, dlc_config)
 
         df = df.dropna(how="all")
-        unique_frames_set = {}
-        unique_frames_set = {
-            index
-            for index in range(1, self._config["nframes"] + 1)
-            if index not in unique_frames_set
-        }
+        print(df.index)
+        list_of_frames = df.index + 1
+        unique_frames_set = set(list_of_frames)
         unique_frames = sorted(unique_frames_set)
         print("Importing frames: ")
         print(unique_frames)
