@@ -346,7 +346,6 @@ class XMADataProcessor:
             yaml.dump(dlc_proj, dlc_config)
 
         df = df.dropna(how="all")
-        print(df.index)
         list_of_frames = df.index + 1
         unique_frames_set = set(list_of_frames)
         unique_frames = sorted(unique_frames_set)
