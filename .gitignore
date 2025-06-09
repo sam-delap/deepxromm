@@ -9,6 +9,7 @@
 
 # Logs
 *.tfevents*
+*.log
 
 # PyCache
 *.pyc*

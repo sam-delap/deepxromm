@@ -17,7 +17,6 @@ SAMPLE_FRAME = Path(__file__).parent / 'sample_frame.jpg'
 SAMPLE_FRAME_INPUT = Path(__file__).parent / 'sample_frame_input.csv'
 SAMPLE_AUTOCORRECT_OUTPUT = Path(__file__).parent / 'sample_autocorrect_output.csv'
 
-
 class TestProjectCreation(unittest.TestCase):
     '''Tests behaviors related to XMA-DLC project creation'''
     @classmethod
@@ -379,19 +378,21 @@ class TestSampleTrial(unittest.TestCase):
 
         # Delete other CSVs to ensure autocorrect is only running against the it0 CSV
         # Main trial CSV
-        test_trial_csv = Path(self.working_dir / 'trials/test/test.csv')
-        test_trial_csv.unlink()
+        # test_trial_csv = Path(self.working_dir / 'trials/test/test.csv')
+        # test_trial_csv.unlink()
 
         # Training data CSV
-        training_data_csv = Path(self.working_dir / 'trainingdata/test/test.csv')
-        training_data_csv.unlink()
+        # training_data_csv = Path(self.working_dir / 'trainingdata/test/test.csv')
+        # training_data_csv.unlink()
 
         # Run autocorrect
         self.deepxromm.autocorrect_trials()
 
         # Copy CSVs back in to make sure other tests pass (better way to do?)
-        shutil.copy(str(SAMPLE_FRAME_INPUT), str(test_trial_csv))
-        shutil.copy(str(SAMPLE_FRAME_INPUT), str(training_data_csv))
+        new_trial_csv = Path(self.working_dir / 'trials/test/test.csv')
+        new_training_data_csv = Path(self.working_dir / 'trainingdata/test/test.csv')
+        shutil.copy(str(SAMPLE_FRAME_INPUT), str(new_trial_csv))
+        shutil.copy(str(SAMPLE_FRAME_INPUT), str(new_training_data_csv))
 
     def test_autocorrect_search_file_can_be_overridden(self):
         '''Test that autocorrect can be overridden to use a different source CSV to support training-only autocorrect usage'''

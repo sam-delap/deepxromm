@@ -22,8 +22,11 @@ class XMADataProcessor:
         self._cross_markers = config["crossed_markers"]
 
     def find_trial_csv(self,
-                       trial_path: str):
-        """Finds the name of the trial CSV in a given folder"""
+                       trial_path: str) -> str:
+        """
+        Takes the path to a trial and returns the path to a trial CSV.
+        Errors if there is not exactly 1 trial CSV in a trial folder.
+        """
         csv_path = [file for file in os.listdir(trial_path) if file[-4:] == ".csv"]
         if len(csv_path) > 1:
             raise FileExistsError(
@@ -34,7 +37,7 @@ class XMADataProcessor:
                 "Couldn't find a CSV file for trial: " + trial_path
             )
 
-        return csv_path[0]
+        return os.path.join(trial_path, csv_path[0])
 
     def get_bodyparts_from_xma(self,
                                csv_path: str,
