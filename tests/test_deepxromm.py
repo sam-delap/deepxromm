@@ -389,6 +389,10 @@ class TestSampleTrial(unittest.TestCase):
         # Run autocorrect
         self.deepxromm.autocorrect_trials()
 
+        # Copy CSVs back in to make sure other tests pass (better way to do?)
+        shutil.copy(str(SAMPLE_FRAME_INPUT), str(test_trial_csv))
+        shutil.copy(str(SAMPLE_FRAME_INPUT), str(training_data_csv))
+
     def test_autocorrect_search_file_can_be_overridden(self):
         '''Test that autocorrect can be overridden to use a different source CSV to support training-only autocorrect usage'''
 
