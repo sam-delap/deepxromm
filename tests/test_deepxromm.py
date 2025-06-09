@@ -126,7 +126,7 @@ class TestDefaultsPerformance(unittest.TestCase):
     def test_autocorrect_errors_if_no_folders_in_trials_dir(self):
         '''If there are no trials to autocorrect, do we return an error?'''
         with self.assertRaises(FileNotFoundError):
-            self.deepxromm.autocorrect_trial()
+            self.deepxromm.autocorrect_trials()
 
     def test_warn_users_if_nframes_doesnt_match_csv(self):
         '''If the number of frames in the CSV doesn't match the number of frames specified, do I issue a warning?'''
@@ -374,10 +374,28 @@ class TestSampleTrial(unittest.TestCase):
 
         cv2.destroyAllWindows()
 
-    def test_autocorrect_is_working(self):
-        '''Make sure that autocorrect still works properly after making changes'''
+    def test_autocorrect_always_uses_pred_points_csv(self):
+        '''Test that autocorrect always uses predicted points file'''
+
+        # Delete other CSVs to ensure autocorrect is only running against the it0 CSV
+        # Main trial CSV
+        test_trial_csv = Path(self.working_dir / 'trials/test/test.csv')
+        test_trial_csv.unlink()
+
+        # Training data CSV
+        training_data_csv = Path(self.working_dir / 'trainingdata/test/test.csv')
+        training_data_csv.unlink()
+
+        # Run autocorrect
+        self.deepxromm.autocorrect_trials()
+
+    def test_autocorrect_search_file_can_be_overridden(self):
+        '''Test that autocorrect can be overridden to use a different source CSV to support training-only autocorrect usage'''
+
+    def test_autocorrect_does_correction(self):
+        '''Make sure that autocorrect corrects the frame after making changes'''
         # Run autocorrect on the sample frame
-        self.deepxromm.autocorrect_trial()
+        self.deepxromm.autocorrect_trials()
 
         # Load CSVs
         function_output_path = self.working_dir / 'trials/test/it0/test-AutoCorrected2DPoints.csv'

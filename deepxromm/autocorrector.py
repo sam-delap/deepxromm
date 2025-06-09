@@ -21,8 +21,8 @@ class Autocorrector:
         self._config = config
         self._dlc_config = config['path_config_file']
 
-    def autocorrect_trial(self):
-        '''Do XMAlab-style autocorrect on the tracked beads'''
+    def autocorrect_trials(self):
+        '''Do XMAlab-style autocorrect on the tracked beads for all trials'''
         trials = self._data_processor.list_trials()
 
         # Establish project vars
@@ -47,7 +47,7 @@ class Autocorrector:
             if self._config['test_autocorrect']:
                 cams = [self._config['cam']]
             else:
-                cams = ['cam1', 'cam2']
+                cams = ['cam1', 'cam2'] # Assumes 2-camera setup
 
             # For each camera
             for cam in cams:
