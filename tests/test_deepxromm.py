@@ -394,9 +394,6 @@ class TestSampleTrial(unittest.TestCase):
         shutil.copy(str(SAMPLE_FRAME_INPUT), str(new_trial_csv))
         shutil.copy(str(SAMPLE_FRAME_INPUT), str(new_training_data_csv))
 
-    def test_autocorrect_search_file_can_be_overridden(self):
-        '''Test that autocorrect can be overridden to use a different source CSV to support training-only autocorrect usage'''
-
     def test_autocorrect_does_correction(self):
         '''Make sure that autocorrect corrects the frame after making changes'''
         # Run autocorrect on the sample frame
