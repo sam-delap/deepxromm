@@ -91,7 +91,12 @@ class Autocorrector:
         if self._config['test_autocorrect']:
             parts_unique = [self._config['marker']]
         else:
-            trial_csv_path = self._data_processor.find_trial_csv(trial_path)
+            yaml = YAML()
+            with open(self._dlc_config) as dlc_config:
+                dlc = yaml.load(dlc_config)
+            iteration = dlc['iteration']
+            iteration_path = os.path.join(trial_path, f'it{iteration}')
+            trial_csv_path = self._data_processor.find_trial_csv(iteration_path)
             parts_unique = self._data_processor.get_bodyparts_from_xma(trial_csv_path,
                                                                        mode='2D')
         for part in parts_unique:
