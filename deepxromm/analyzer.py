@@ -58,10 +58,7 @@ class Analyzer:
             for trial in trials:
                 trial_path =  os.path.join(self._trials_path, trial)
                 current_files = os.listdir(trial_path)
-                logger.debug(f'Current files in directory {current_files}', extra={
-                    'function': 'analyze_vidoes',
-                    'trial': trial
-                    })
+                logger.debug(f'Current files in directory {current_files}')               
                 video_path = f'{trial_path}/{trial}_rgb.avi'
                 if not os.path.exists(video_path):
                     self._data_processor.make_rgb_video(trial_path)
@@ -142,26 +139,27 @@ class Analyzer:
         logger.debug(f'Current files in directory {trial2_path}: {current_files}')
 
         # Get a list of markers that each trial have in common
-        bodyparts1_csv = self._data_processor.find_trial_csv(trial1_path)
-        bodyparts2_csv = self._data_processor.find_trial_csv(trial2_path)
-        bodyparts1 = self._data_processor.get_bodyparts_from_xma(bodyparts1_csv,
+        bodyparts1_csv_path = self._data_processor.find_trial_csv(trial1_path)
+        bodyparts2_csv_path = self._data_processor.find_trial_csv(trial2_path)
+        bodyparts1 = self._data_processor.get_bodyparts_from_xma(bodyparts1_csv_path,
                                                                  mode='rgb')
-        bodyparts2 = self._data_processor.get_bodyparts_from_xma(bodyparts2_csv,
+        bodyparts2 = self._data_processor.get_bodyparts_from_xma(bodyparts2_csv_path,
                                                                  mode='rgb')
         markers_in_common = [marker for marker in bodyparts1 if marker in bodyparts2]
         logger.debug(f'Markers in common for similarity analysis: {markers_in_common}')
 
-        # This seems inefficient, but I'm not sure the implications of doing
-        # A deep copy (and/or reusing) bodyparts1/2 CSVs
-        trial1_csv = pd.read_csv(bodyparts1_csv)
-        trial2_csv = pd.read_csv(bodyparts2_csv)
-
+        # Analyze intermarker distances for each marker in common
+        trial1_csv = pd.read_csv(bodyparts1_csv_path)
+        trial2_csv = pd.read_csv(bodyparts2_csv_path)
         avg_distances = []
         for marker in markers_in_common:
+            # Debug logging
             x1_vals = trial1_csv[f'{marker}_X']
             logger.debug(f'Trial1 values for {marker}_X: {x1_vals}')
             x2_vals = trial2_csv[f'{marker}_X']
             logger.debug(f'Trial2 values for {marker}_X: {x2_vals}')
+
+            # Get mean positions for each marker
             avg_x1, avg_y1 = trial1_csv[f'{marker}_X'].mean(), trial1_csv[f'{marker}_Y'].mean()
             logger.debug(f'Average trial1 position for marker {marker}: ({avg_x1}, {avg_y1})')
             avg_x2, avg_y2 = trial2_csv[f'{marker}_X'].mean(), trial2_csv[f'{marker}_Y'].mean()
@@ -196,12 +194,8 @@ class Analyzer:
         iteration = dlc['iteration']
         trial_path = os.path.join(self._trials_path, trial)
         current_files = os.listdir(trial_path)
-        logger.debug(f'Current files in directory {current_files}', extra={
-            'function': 'analyze_vidoes',
-            'trial': trial
-            })
+        logger.debug(f'Current files in directory {current_files}')        
         trial_csv_path = self._data_processor.find_trial_csv(trial_path) 
-
         rgb_parts = self._data_processor.get_bodyparts_from_xma(trial_csv_path,
                                                                 mode='rgb')
         for part in rgb_parts:
