@@ -127,12 +127,18 @@ class Analyzer:
         trial2_path = os.path.join(self._trials_path, trial2)
 
         # Get a list of markers that each trial have in common
-        bodyparts1 = self._data_processor.get_bodyparts_from_xma(trial1_path, mode='rgb')
-        bodyparts2 = self._data_processor.get_bodyparts_from_xma(trial2_path, mode='rgb')
+        bodyparts1_csv = self._data_processor.find_trial_csv(trial1_path)
+        bodyparts2_csv = self._data_processor.find_trial_csv(trial1_path)
+        bodyparts1 = self._data_processor.get_bodyparts_from_xma(bodyparts1_csv,
+                                                                 mode='rgb')
+        bodyparts2 = self._data_processor.get_bodyparts_from_xma(bodyparts2_csv,
+                                                                 mode='rgb')
         markers_in_common = [marker for marker in bodyparts1 if marker in bodyparts2]
 
-        trial1_csv = pd.read_csv(os.path.join(trial1_path, f'{trial1}.csv'))
-        trial2_csv = pd.read_csv(os.path.join(trial2_path, f'{trial2}.csv'))
+        # This seems inefficient, but I'm not sure the implications of doing
+        # A deep copy (and/or reusing) bodyparts1/2 CSVs
+        trial1_csv = pd.read_csv(bodyparts1_csv)
+        trial2_csv = pd.read_csv(bodyparts2_csv)
 
         avg_distances = []
         for marker in markers_in_common:
@@ -166,12 +172,15 @@ class Analyzer:
             dlc = yaml.load(dlc_config)
         iteration = dlc['iteration']
         trial_path = os.path.join(self._trials_path, trial)
+        trial_csv_path = self._data_processor.find_trial_csv(trial_path) 
 
-        rgb_parts = self._data_processor.get_bodyparts_from_xma(trial_path, mode='rgb')
+        rgb_parts = self._data_processor.get_bodyparts_from_xma(trial_csv_path,
+                                                                mode='rgb')
         for part in rgb_parts:
             bodyparts_xy.append(part+'_X')
             bodyparts_xy.append(part+'_Y')
 
+        # REFACTOR: This should be added as a feature of find_trial_csv
         csv_path = [file for file in os.listdir(f'{trial_path}/it{iteration}') if '.csv' in file and '-2DPoints' not in file]
         if len(csv_path) > 1:
             raise FileExistsError('Found more than 1 data CSV for RGB trial. Please remove CSVs from older analyses from this folder before analyzing.')

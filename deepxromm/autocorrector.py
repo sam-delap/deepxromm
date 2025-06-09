@@ -91,7 +91,9 @@ class Autocorrector:
         if self._config['test_autocorrect']:
             parts_unique = [self._config['marker']]
         else:
-            parts_unique = self._data_processor.get_bodyparts_from_xma(trial_path, mode='2D')
+            trial_csv_path = self._data_processor.find_trial_csv(trial_path)
+            parts_unique = self._data_processor.get_bodyparts_from_xma(trial_csv_path,
+                                                                       mode='2D')
         for part in parts_unique:
             # Find point and offsets
             x_float = csv.loc[frame_index, part + '_' + cam + '_X']

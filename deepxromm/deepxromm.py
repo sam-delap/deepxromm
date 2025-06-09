@@ -57,9 +57,11 @@ class DeepXROMM:
         '''Do XMAlab-style autocorrect on the tracked beads for all trials'''
         self._autocorrector.autocorrect_trials()
 
-    def get_bodyparts_from_xma(self, path_to_trial, mode):
+    def get_bodyparts_from_xma(self,
+                               csv_path: str,
+                               mode: str):
         '''Pull the names of the XMAlab markers from the 2Dpoints file'''
-        return self._data_processor.get_bodyparts_from_xma(path_to_trial, mode)
+        return self._data_processor.get_bodyparts_from_xma(csv_path, mode)
 
     def split_rgb(self, trial_path, codec='avc1'):
         '''Takes a RGB video with different grayscale data written to the R, G,
