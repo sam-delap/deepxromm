@@ -378,12 +378,12 @@ class TestSampleTrial(unittest.TestCase):
 
         # Delete other CSVs to ensure autocorrect is only running against the it0 CSV
         # Main trial CSV
-        # test_trial_csv = Path(self.working_dir / 'trials/test/test.csv')
-        # test_trial_csv.unlink()
+        test_trial_csv = Path(self.working_dir / 'trials/test/test.csv')
+        test_trial_csv.unlink()
 
         # Training data CSV
-        # training_data_csv = Path(self.working_dir / 'trainingdata/test/test.csv')
-        # training_data_csv.unlink()
+        training_data_csv = Path(self.working_dir / 'trainingdata/test/test.csv')
+        training_data_csv.unlink()
 
         # Run autocorrect
         self.deepxromm.autocorrect_trials()
