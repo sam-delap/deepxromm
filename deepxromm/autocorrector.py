@@ -19,15 +19,15 @@ class Autocorrector:
         self._trials_path = os.path.join(config["working_dir"], "trials")
         self._data_processor = XMADataProcessor(config)
         self._config = config
-        self._dlc_config = config['path_config_file']
+        self._dlc_config_path = config['path_config_file']
 
-    def autocorrect_trial(self):
-        '''Do XMAlab-style autocorrect on the tracked beads'''
+    def autocorrect_trials(self):
+        '''Do XMAlab-style autocorrect on the tracked beads for all trials'''
         trials = self._data_processor.list_trials()
 
         # Establish project vars
         yaml = YAML()
-        with open(self._dlc_config) as dlc_config:
+        with open(self._dlc_config_path) as dlc_config:
             dlc = yaml.load(dlc_config)
 
         iteration = dlc['iteration']
@@ -47,7 +47,7 @@ class Autocorrector:
             if self._config['test_autocorrect']:
                 cams = [self._config['cam']]
             else:
-                cams = ['cam1', 'cam2']
+                cams = ['cam1', 'cam2'] # Assumes 2-camera setup
 
             # For each camera
             for cam in cams:
@@ -91,7 +91,14 @@ class Autocorrector:
         if self._config['test_autocorrect']:
             parts_unique = [self._config['marker']]
         else:
-            parts_unique = self._data_processor.get_bodyparts_from_xma(trial_path, mode='2D')
+            yaml = YAML()
+            with open(self._dlc_config_path) as dlc_config:
+                dlc = yaml.load(dlc_config)
+            iteration = dlc['iteration']
+            iteration_path = os.path.join(trial_path, f'it{iteration}')
+            trial_csv_path = self._data_processor.find_trial_csv(iteration_path)
+            parts_unique = self._data_processor.get_bodyparts_from_xma(trial_csv_path,
+                                                                       mode='2D')
         for part in parts_unique:
             # Find point and offsets
             x_float = csv.loc[frame_index, part + '_' + cam + '_X']

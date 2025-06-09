@@ -21,20 +21,31 @@ class XMADataProcessor:
         self._swap_markers = config["swapped_markers"]
         self._cross_markers = config["crossed_markers"]
 
-    def get_bodyparts_from_xma(self, path_to_trial, mode):
-        """Pulls the names of the XMAlab markers from the 2Dpoints file"""
-
-        csv_path = [file for file in os.listdir(path_to_trial) if file[-4:] == ".csv"]
+    def find_trial_csv(self,
+                       trial_path: str) -> str:
+        """
+        Takes the path to a trial and returns the path to a trial CSV.
+        Errors if there is not exactly 1 trial CSV in a trial folder.
+        """
+        csv_path = [file for file in os.listdir(trial_path) if file[-4:] == ".csv"]
         if len(csv_path) > 1:
             raise FileExistsError(
-                "Found more than 1 CSV file for trial: " + path_to_trial
+                "Found more than 1 CSV file for trial: " + trial_path
             )
         if len(csv_path) <= 0:
             raise FileNotFoundError(
-                "Couldn't find a CSV file for trial: " + path_to_trial
+                "Couldn't find a CSV file for trial: " + trial_path
             )
+
+        return os.path.join(trial_path, csv_path[0])
+
+    def get_bodyparts_from_xma(self,
+                               csv_path: str,
+                               mode: str):
+        """Takes the filepath of an XMAlab CSV file and returns marker names"""
+
         trial_csv = pd.read_csv(
-            os.path.join(path_to_trial, csv_path[0]),
+            csv_path,
             sep=",",
             header=0,
             dtype="float",
@@ -55,6 +66,8 @@ class XMADataProcessor:
         else:
             raise SyntaxError("Invalid value for mode parameter")
 
+        # I do it this way to maintain ordering in the list, since that's
+        # important for DeepLabCut
         parts_unique = []
         for part in parts:
             if part not in parts_unique:
@@ -281,7 +294,9 @@ class XMADataProcessor:
             os.path.sep.join(self._config["path_config_file"].split("\\")[:-1]),
             substitute_data_relpath,
         )
-        markers = self.get_bodyparts_from_xma(trial_path, mode='2D')
+        trial_csv_path = self.find_trial_csv(trial_path)
+        markers = self.get_bodyparts_from_xma(trial_csv_path, mode='2D')
+
         # TODO: this entire section can be solved with a creative call to
         # get_bodyparts_from_xma and some dataFrame manipulation to be
         # significantly shorter (and potentially faster?)

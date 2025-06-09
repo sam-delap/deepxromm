@@ -2,6 +2,7 @@
 
 import os
 import math
+import logging
 
 from itertools import combinations
 import cv2
@@ -14,6 +15,10 @@ from ruamel.yaml import YAML
 from .xma_data_processor import XMADataProcessor
 from .xrommtools import analyze_xromm_videos
 
+logger = logging.getLogger(__name__)
+logging.basicConfig(filename='analyzer.log',
+                    encoding='utf-8',
+                    level=os.environ.get('DEEPXROMM_LOG_LEVEL', 'INFO').upper())
 
 class Analyzer:
     """Analyzes XROMM videos using trained network."""
@@ -52,6 +57,8 @@ class Analyzer:
         else:
             for trial in trials:
                 trial_path =  os.path.join(self._trials_path, trial)
+                current_files = os.listdir(trial_path)
+                logger.debug(f'Current files in directory {current_files}')               
                 video_path = f'{trial_path}/{trial}_rgb.avi'
                 if not os.path.exists(video_path):
                     self._data_processor.make_rgb_video(trial_path)
@@ -109,6 +116,7 @@ class Analyzer:
         yaml = YAML()
 
         trial_perms = combinations(self._data_processor.list_trials(), 2)
+        logger.debug(f'Trial permutations for project: {trial_perms}')
         for trial1, trial2 in trial_perms:
             self._config['trial_1_name'] = trial1
             self._config['trial_2_name'] = trial2
@@ -124,25 +132,44 @@ class Analyzer:
         trial1 = self._config['trial_1_name']
         trial2 = self._config['trial_2_name']
         trial1_path = os.path.join(self._trials_path, trial1)
+        current_files = os.listdir(trial1_path)
+        logger.debug(f'Current files in directory {trial1_path}: {current_files}')
         trial2_path = os.path.join(self._trials_path, trial2)
+        current_files = os.listdir(trial2_path)
+        logger.debug(f'Current files in directory {trial2_path}: {current_files}')
 
         # Get a list of markers that each trial have in common
-        bodyparts1 = self._data_processor.get_bodyparts_from_xma(trial1_path, mode='rgb')
-        bodyparts2 = self._data_processor.get_bodyparts_from_xma(trial2_path, mode='rgb')
+        bodyparts1_csv_path = self._data_processor.find_trial_csv(trial1_path)
+        bodyparts2_csv_path = self._data_processor.find_trial_csv(trial2_path)
+        bodyparts1 = self._data_processor.get_bodyparts_from_xma(bodyparts1_csv_path,
+                                                                 mode='rgb')
+        bodyparts2 = self._data_processor.get_bodyparts_from_xma(bodyparts2_csv_path,
+                                                                 mode='rgb')
         markers_in_common = [marker for marker in bodyparts1 if marker in bodyparts2]
+        logger.debug(f'Markers in common for similarity analysis: {markers_in_common}')
 
-        trial1_csv = pd.read_csv(os.path.join(trial1_path, f'{trial1}.csv'))
-        trial2_csv = pd.read_csv(os.path.join(trial2_path, f'{trial2}.csv'))
-
+        # Analyze intermarker distances for each marker in common
+        trial1_csv = pd.read_csv(bodyparts1_csv_path)
+        trial2_csv = pd.read_csv(bodyparts2_csv_path)
         avg_distances = []
         for marker in markers_in_common:
+            # Debug logging
+            x1_vals = trial1_csv[f'{marker}_X']
+            logger.debug(f'Trial1 values for {marker}_X: {x1_vals}')
+            x2_vals = trial2_csv[f'{marker}_X']
+            logger.debug(f'Trial2 values for {marker}_X: {x2_vals}')
+
+            # Get mean positions for each marker
             avg_x1, avg_y1 = trial1_csv[f'{marker}_X'].mean(), trial1_csv[f'{marker}_Y'].mean()
+            logger.debug(f'Average trial1 position for marker {marker}: ({avg_x1}, {avg_y1})')
             avg_x2, avg_y2 = trial2_csv[f'{marker}_X'].mean(), trial2_csv[f'{marker}_Y'].mean()
+            logger.debug(f'Average trial2 position for marker {marker}: ({avg_x2}, {avg_y2})')
 
             # Calculate the distance between the average positions for this marker in the two trials
             distance = math.sqrt((avg_x2 - avg_x1) ** 2 + (avg_y2 - avg_y1) ** 2)
             avg_distances.append(distance)
 
+        logger.debug(f'Avg distances for trials {trial1} and {trial2}: {avg_distances}')
         # Calculate the mean of the distances to get an overall similarity measure
         marker_similarity = sum(avg_distances) / len(avg_distances) if avg_distances else 0
 
@@ -166,12 +193,16 @@ class Analyzer:
             dlc = yaml.load(dlc_config)
         iteration = dlc['iteration']
         trial_path = os.path.join(self._trials_path, trial)
-
-        rgb_parts = self._data_processor.get_bodyparts_from_xma(trial_path, mode='rgb')
+        current_files = os.listdir(trial_path)
+        logger.debug(f'Current files in directory {current_files}')        
+        trial_csv_path = self._data_processor.find_trial_csv(trial_path) 
+        rgb_parts = self._data_processor.get_bodyparts_from_xma(trial_csv_path,
+                                                                mode='rgb')
         for part in rgb_parts:
             bodyparts_xy.append(part+'_X')
             bodyparts_xy.append(part+'_Y')
 
+        # REFACTOR: This should be added as a feature of find_trial_csv
         csv_path = [file for file in os.listdir(f'{trial_path}/it{iteration}') if '.csv' in file and '-2DPoints' not in file]
         if len(csv_path) > 1:
             raise FileExistsError('Found more than 1 data CSV for RGB trial. Please remove CSVs from older analyses from this folder before analyzing.')

@@ -82,7 +82,7 @@ You'll need a Python environment that is capable of displaying images, like a [J
 1. Specify a trial (trial_name), camera (cam), frame number (frame_num), and marker name (marker) to test the autocorrect function on  
 1. Import the package and initialize a deepxromm instance as a above and run the following code snippet
     ```python
-    deepxromm.autocorrect_trial(working_dir)
+    deepxromm.autocorrect_trials(working_dir)
     ```
 1. Tune autocorrect() settings until you are satisfied with the testing output
 ### Using autocorrect for a whole trial
@@ -92,7 +92,7 @@ You'll need a Python environment that is capable of displaying images, like a [J
     ```
 1. Import the package and initialize a deepxromm instance as a above and run the following code snippet
     ```python
-    deepxromm.autocorrect_trial()
+    deepxromm.autocorrect_trials()
     ```
 1. This will save a file named **trial_name**-AutoCorrected2DPoints.csv to the it# file (where number is the number next to iteration: in your project_folder/project-name-SD-YYYY-MM-DD/config.yaml file) inside of your trials/trial_name folder
     ```YAML

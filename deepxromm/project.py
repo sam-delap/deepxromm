@@ -146,8 +146,9 @@ class Project:
         # Check DLC bodyparts (marker names)
         default_bodyparts = ['bodypart1', 'bodypart2', 'bodypart3', 'objectA']
         path_to_trial = working_dir / 'trainingdata' / trial
+        trial_csv_path = data_processor.find_trial_csv(str(path_to_trial))
         bodyparts = data_processor.get_bodyparts_from_xma(
-            str(path_to_trial),
+            trial_csv_path,
             mode=project['tracking_mode'])
 
         dlc_config_loader = YAML()
