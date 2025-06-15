@@ -26,7 +26,7 @@ class DeepXROMM:
 
     @classmethod
     def create_new_project(cls, working_dir=None, experimenter="NA", mode="2D"):
-        """Create a new xrommtools project"""
+        """Create a new deepxromm project"""
         deepxromm = DeepXROMM.__new__(DeepXROMM)
         deepxromm.config = Project.create_new_config(working_dir, experimenter, mode)
         deepxromm._analyzer = Analyzer(deepxromm.config)
@@ -37,7 +37,7 @@ class DeepXROMM:
 
     @classmethod
     def load_project(cls, working_dir=None):
-        """Create a new xrommtools project"""
+        """Create a new deepxromm project"""
         deepxromm = DeepXROMM.__new__(DeepXROMM)
         deepxromm.config = Project.load_config(working_dir)
         deepxromm._analyzer = Analyzer(deepxromm.config)
@@ -47,7 +47,7 @@ class DeepXROMM:
         return deepxromm
 
     def train_network(self):
-        """Starts training the network using xrommtools-compatible data in the working directory."""
+        """Starts training the network using DLC-compatible data in the working directory."""
         self._network.train()
 
     def analyze_videos(self):
@@ -93,7 +93,7 @@ class DeepXROMM:
 
     @staticmethod
     def train_many_projects(parent_dir):
-        """Train and analyze multiple SDLC_XMALAB projects given a parent folder"""
+        """Train and analyze multiple deepxromm projects given a parent folder"""
         parent_path = Path(parent_dir)
         for folder in parent_path.iterdir():
             if folder.is_dir():

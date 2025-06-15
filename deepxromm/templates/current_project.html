@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>{% block title %}DeepXROMM{% endblock %}</title>
+</head>
+<body>
+  <header>
+    <h1>DeepXROMM Web Interface</h1>
+    {% if current_project %}
+      <p><strong>Current Project:</strong> {{ current_project }}</p>
+    {% else %}
+      <p><em>No project loaded</em>
+
+      </p>
+    {% endif %}
+
+        <a href="{{ url_for('load_project') }}">Load Project</a>
+    <hr>
+  </header>
+
+  {% block content %}{% endblock %}
+</body>
+</html>
+

@@ -2,10 +2,19 @@
 This module implements a Flask webapp GUI for DeepXROMM
 """
 
-from flask import Flask, render_template, request
-import deepxromm
+from flask import Flask, render_template, request, session
+from deepxromm import DeepXROMM
 
 app = Flask(__name__)
+app.secret_key = "super-secret-key"  # required to use sessions
+
+
+@app.context_processor
+def inject_project():
+    return {
+        "current_project": session.get("current_project"),
+        "deepxromm": session.get("deepxromm"),
+    }
 
 
 @app.route("/")
@@ -21,10 +30,36 @@ def create_project():
 @app.post("/create-project")
 def create_project_now():
     experimenter = request.form["experimenter"]
-    mode = request.form["mode"]
+    mode = request.form.get("mode", None)
     working_dir = request.form["working_dir"]
 
-    return f"{experimenter}, {mode}, {working_dir}"
+    try:
+        if mode:
+            DeepXROMM.create_new_project(working_dir, experimenter, mode=mode)
+        else:
+            DeepXROMM.create_new_project(working_dir, experimenter)
+    except Exception as e:
+        return f"❌ Error creating project: {e}", 500
+
+    return f"✅ Project created in: {working_dir}"
+
+
+@app.get("/load-project")
+def load_project():
+    return render_template("load_project.html")
+
+
+@app.post("/load-project")
+def load_new_project():
+    working_dir = request.form["working_dir"]
+    try:
+        deepxromm = DeepXROMM.load_project(working_dir)
+    except Exception as e:
+        return f"❌ Error loading project: {e}", 500
+
+    session["current_project"] = deepxromm.config["task"]
+    session["deepxromm"] = deepxromm
+    return f"✅ Project loaded in: {working_dir}"
 
 
 @app.route("/import-data")

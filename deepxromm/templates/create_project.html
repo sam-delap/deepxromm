@@ -1,10 +1,8 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <title>Create New Project</title>
-</head>
-<body>
+{% extends "current_project.html" %}
+
+{% block title %}Create New Project{% endblock %}
+
+{% block content %}
     <h2>Create New DeepXROMM Project</h2>
     <form action="/create-project" method="POST" enctype="multipart/form-data">
         <label for="experimenter">Experimenter Initials:</label>
@@ -22,5 +20,4 @@
 
         <input type="submit" value="Create Project">
     </form>
-</body>
-</html>
+{% endblock %}
