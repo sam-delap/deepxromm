@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Welcome to DeepXROMM! How can I help?</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f4;
+            padding: 2rem;
+        }
+        h1 {
+            color: #333;
+        }
+        ul.nav {
+            list-style-type: none;
+            padding: 0;
+        }
+        ul.nav li {
+            margin: 0.5rem 0;
+        }
+        ul.nav li a {
+            text-decoration: none;
+            color: #007bff;
+            font-size: 1.1rem;
+        }
+        ul.nav li a:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <h1>Welcome to DeepXROMM! How can I help?</h1>
+    <ul class="nav">
+        <li><a href="{{ url_for('create_project') }}">Create a New Project</a></li>
+        <li><a href="{{ url_for('import_xmalab_data') }}">Export Training Data</a></li>
+        <li><a href="{{ url_for('export_dlc_data') }}">Import Training Data</a></li>
+        <li><a href="{{ url_for('train_network') }}">Train Network</a></li>
+        <li><a href="{{ url_for('track_new_trial') }}">Track New Trial</a></li>
+        <li><a href="{{ url_for('autocorrect_points') }}">Autocorrect Points</a></li>
+        <li><a href="{{ url_for('find_highest_variation') }}">Find Highest Variation</a></li>
+    </ul>
+</body>
+</html>
+

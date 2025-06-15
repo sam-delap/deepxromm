@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Create New Project</title>
+</head>
+<body>
+    <h2>Create New DeepXROMM Project</h2>
+    <form action="/create-project" method="POST" enctype="multipart/form-data">
+        <label for="experimenter">Experimenter Initials:</label>
+        <input type="text" id="experimenter" name="experimenter" required><br><br>
+
+        <label for="mode">Mode (optional):</label>
+        <select id="mode" name="mode">
+            <option value="">Default</option>
+            <option value="per_cam">per_cam</option>
+            <option value="rgb">rgb</option>
+        </select><br><br>
+
+        <label for="working_dir">Project Folder Path:</label><br>
+        <input type="text" id="working_dir" name="working_dir" placeholder="/path/to/project-folder" required><br><br>
+
+        <input type="submit" value="Create Project">
+    </form>
+</body>
+</html>
