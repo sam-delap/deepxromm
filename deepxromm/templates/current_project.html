@@ -3,23 +3,36 @@
 <head>
   <meta charset="UTF-8">
   <title>{% block title %}DeepXROMM{% endblock %}</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bulma@0.9.4/css/bulma.min.css">
 </head>
 <body>
-  <header>
-    <h1>DeepXROMM Web Interface</h1>
-    {% if current_project %}
-      <p><strong>Current Project:</strong> {{ current_project }}</p>
-    {% else %}
-      <p><em>No project loaded</em>
+  <section class="section">
+    <div class="container">
 
-      </p>
-    {% endif %}
+      <nav class="level">
+        <div class="level-left">
+          <div class="level-item">
+            <h1 class="title is-3">DeepXROMM Web Interface</h1>
+          </div>
+        </div>
+        <div class="level-right">
+          <div class="level-item">
+            {% if current_project %}
+              <p><strong>Current Project:</strong> {{ current_project }}</p>
+            {% else %}
+              <p><em>No project loaded</em></p>
+            {% endif %}
+            <a class="button is-small is-link ml-3" href="{{ url_for('load_project') }}">Load Project</a>
+          </div>
+        </div>
+      </nav>
 
-        <a href="{{ url_for('load_project') }}">Load Project</a>
-    <hr>
-  </header>
+      <hr>
 
-  {% block content %}{% endblock %}
+      {% block content %}{% endblock %}
+
+    </div>
+  </section>
 </body>
 </html>
 

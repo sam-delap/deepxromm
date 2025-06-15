@@ -3,11 +3,21 @@
 {% block title %}Load Project{% endblock %}
 
 {% block content %}
-    <h2>Load DeepXROMM Project</h2>
-    <form action="/load-project" method="POST" enctype="multipart/form-data">
-        <label for="working_dir">Project Folder Path:</label><br>
-        <input type="text" id="working_dir" name="working_dir" placeholder="/path/to/project-folder" required><br><br>
+  <h2 class="title is-4 mb-4">Load DeepXROMM Project</h2>
 
-        <input type="submit" value="Load DeepXROMM Project">
-    </form>
+  <form action="/load-project" method="POST" enctype="multipart/form-data">
+    <div class="field">
+      <label class="label" for="working_dir">Project Folder Path</label>
+      <div class="control">
+        <input class="input" type="text" id="working_dir" name="working_dir" placeholder="/path/to/project-folder" required>
+      </div>
+    </div>
+
+    <div class="field mt-5">
+      <div class="control">
+        <button type="submit" class="button is-link">Load DeepXROMM Project</button>
+      </div>
+    </div>
+  </form>
 {% endblock %}
+

@@ -3,21 +3,41 @@
 {% block title %}Create New Project{% endblock %}
 
 {% block content %}
-    <h2>Create New DeepXROMM Project</h2>
-    <form action="/create-project" method="POST" enctype="multipart/form-data">
-        <label for="experimenter">Experimenter Initials:</label>
-        <input type="text" id="experimenter" name="experimenter" required><br><br>
+  <h2 class="title is-4 mb-4">Create New DeepXROMM Project</h2>
+  <form action="/create-project" method="POST" enctype="multipart/form-data">
 
-        <label for="mode">Mode (optional):</label>
-        <select id="mode" name="mode">
+    <div class="field">
+      <label class="label" for="experimenter">Experimenter Initials</label>
+      <div class="control">
+        <input class="input" type="text" id="experimenter" name="experimenter" required>
+      </div>
+    </div>
+
+    <div class="field">
+      <label class="label" for="mode">Mode (optional)</label>
+      <div class="control">
+        <div class="select">
+          <select id="mode" name="mode">
             <option value="">Default</option>
             <option value="per_cam">per_cam</option>
             <option value="rgb">rgb</option>
-        </select><br><br>
+          </select>
+        </div>
+      </div>
+    </div>
 
-        <label for="working_dir">Project Folder Path:</label><br>
-        <input type="text" id="working_dir" name="working_dir" placeholder="/path/to/project-folder" required><br><br>
+    <div class="field">
+      <label class="label" for="working_dir">Project Folder Path</label>
+      <div class="control">
+        <input class="input" type="text" id="working_dir" name="working_dir" placeholder="/path/to/project-folder" required>
+      </div>
+    </div>
 
-        <input type="submit" value="Create Project">
-    </form>
+    <div class="field mt-5">
+      <div class="control">
+        <button type="submit" class="button is-link">Create Project</button>
+      </div>
+    </div>
+  </form>
 {% endblock %}
+

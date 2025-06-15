@@ -13,7 +13,6 @@ app.secret_key = "super-secret-key"  # required to use sessions
 def inject_project():
     return {
         "current_project": session.get("current_project"),
-        "deepxromm": session.get("deepxromm"),
     }
 
 
@@ -58,7 +57,6 @@ def load_new_project():
         return f"❌ Error loading project: {e}", 500
 
     session["current_project"] = deepxromm.config["task"]
-    session["deepxromm"] = deepxromm
     return f"✅ Project loaded in: {working_dir}"
 
 
