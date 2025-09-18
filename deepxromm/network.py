@@ -16,7 +16,7 @@ class Network:
         self._data_processor = XMADataProcessor(config)
         self._config = config
 
-    def set_up_training_data(self):
+    def xma_to_dlc(self):
         """Converts XMA-formatted data into something that is ready for DeepLabCut to analyze"""
         mode = self._config["tracking_mode"]
         if mode == "2D":
@@ -44,6 +44,12 @@ class Network:
             self._data_processor.make_rgb_video(self._data_path)
         else:
             raise AttributeError(f"Unsupported mode: {mode}")
+
+    def check_labels(self):
+        """Check labels for labeled data within the trial"""
+        deeplabcut.check_labels(self._config["path_config_file"], draw_skeleton=False)
+        if self._config["tracking_mode"] == "per_cam":
+            deeplabcut.check_labels(self._config["path_config_file_2"], draw_skeleton=False)
 
     def create_training_dataset(self):
         """Creates a training dataset for DeepLabCut data"""

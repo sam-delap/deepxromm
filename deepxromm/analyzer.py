@@ -66,6 +66,46 @@ class Analyzer:
                 deeplabcut.analyze_videos(self._dlc_config, video_path, destfolder=destfolder, save_as_csv=True)
                 self._split_dlc_to_xma(trial)
 
+    def extract_outlier_frames(self):
+        """Extracts outlier frames from an analyzed video pair"""
+        # TODO: Implement this
+        pass
+        trials = self._data_processor.list_trials()
+
+        # Establish project vars
+        yaml = YAML()
+        with open(self._dlc_config) as dlc_config:
+            dlc = yaml.load(dlc_config)
+        iteration = dlc['iteration']
+
+        mode = self._config['tracking_mode']
+        if mode == '2D':
+            analyze_xromm_videos(self._dlc_config, self._trials_path, iteration)
+        elif mode == 'per_cam':
+            try:
+                analyze_xromm_videos(path_config_file=self._dlc_config,
+                                    path_config_file_cam2=self._config['path_config_file_2'],
+                                    path_data_to_analyze=self._trials_path,
+                                    iteration=iteration,
+                                    nnetworks=2)
+            except KeyError as e:
+                print("Path to second DLC config not found. Did you create the project as a per-cam project?")
+                print("If not, re-run 'create_new_project' using mode='per_cam'")
+                raise e
+
+        else:
+            for trial in trials:
+                trial_path =  os.path.join(self._trials_path, trial)
+                current_files = os.listdir(trial_path)
+                logger.debug(f'Current files in directory {current_files}')               
+                video_path = f'{trial_path}/{trial}_rgb.avi'
+                if not os.path.exists(video_path):
+                    self._data_processor.make_rgb_video(trial_path)
+                destfolder = f'{trial_path}/it{iteration}/'
+                deeplabcut.analyze_videos(self._dlc_config, video_path, destfolder=destfolder, save_as_csv=True)
+                self._split_dlc_to_xma(trial)
+
+
     def analyze_video_similarity_project(self):
         '''Analyze all videos in a project and take their average similar. This is dangerous, as it will assume that all cam1/cam2 pairs match
         or don't match!'''

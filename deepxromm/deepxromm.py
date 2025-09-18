@@ -45,6 +45,18 @@ class DeepXROMM:
         deepxromm._data_processor = XMADataProcessor(deepxromm.config)
         return deepxromm
 
+    def xma_to_dlc(self):
+        """Converts XMA-formatted data to something that's ready for DLC to train on"""
+        self._network.xma_to_dlc()
+
+    def check_labels(self):
+        """Check labels for labeled data within the trial"""
+        self._network.check_labels()
+
+    def create_training_dataset(self):
+        """Creates a training dataset for DeepLabCut data"""
+        self._network.create_training_dataset()
+
     def train_network(self):
         '''Starts training the network using xrommtools-compatible data in the working directory.'''
         self._network.train()
@@ -52,6 +64,10 @@ class DeepXROMM:
     def analyze_videos(self):
         '''Analyze videos with a pre-existing network'''
         self._analyzer.analyze_videos()
+
+    def extract_outlier_frames(self):
+        """Extracts outliers from a video analyzed by a trained network"""
+        self._analyzer.extract_outlier_frames()
 
     def autocorrect_trials(self):
         '''Do XMAlab-style autocorrect on the tracked beads for all trials'''
