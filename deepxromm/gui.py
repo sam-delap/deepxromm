@@ -2,8 +2,10 @@
 This module implements a Flask webapp GUI for DeepXROMM
 """
 
-from flask import Flask, render_template, request, session
+import os
+from flask import Flask, render_template, request, session, send_file
 from deepxromm import DeepXROMM
+from .logging_utils import LOG_FILE
 
 app = Flask(__name__)
 app.secret_key = "super-secret-key"  # required to use sessions
@@ -16,9 +18,19 @@ def inject_project():
     }
 
 
+@app.errorhandler(500)
+def internal_error(error):
+    return render_template("errors/500.html", error=error), 500
+
+
 @app.route("/")
 def return_homepage():
     return render_template("index.html")
+
+
+@app.get("/logs")
+def get_logs():
+    return send_file(LOG_FILE, mimetype="text/plain")
 
 
 @app.get("/create-project")
@@ -38,7 +50,7 @@ def create_project_now():
         else:
             DeepXROMM.create_new_project(working_dir, experimenter)
     except Exception as e:
-        return f"❌ Error creating project: {e}", 500
+        return render_template("errors/500.html", error=e), 500
 
     return f"✅ Project created in: {working_dir}"
 
@@ -54,7 +66,7 @@ def load_new_project():
     try:
         deepxromm = DeepXROMM.load_project(working_dir)
     except Exception as e:
-        return f"❌ Error loading project: {e}", 500
+        return render_template("errors/500.html", error=e), 500
 
     session["current_project"] = deepxromm.config["task"]
     return f"✅ Project loaded in: {working_dir}"

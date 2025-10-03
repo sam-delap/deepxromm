@@ -1,0 +1,33 @@
+{% extends "current_project.html" %}
+<body>
+  <section class="section">
+    <div class="container">
+      <h1 class="title">DeepXROMM Log Viewer</h1>
+
+      <div class="box">
+        <div id="log-output">Loading logs...</div>
+      </div>
+
+      <div class="buttons">
+        <button class="button is-primary" onclick="loadLogs()">Refresh Now</button>
+      </div>
+    </div>
+  </section>
+
+  <script>
+    async function loadLogs() {
+      try {
+        const response = await fetch('/logs');
+        const text = await response.text();
+        document.getElementById('log-output').textContent = text;
+      } catch (err) {
+        document.getElementById('log-output').textContent = "Error loading logs.";
+      }
+    }
+
+    setInterval(loadLogs, 2000);
+    loadLogs();
+  </script>
+</body>
+</html>
+
