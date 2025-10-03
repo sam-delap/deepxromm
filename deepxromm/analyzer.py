@@ -69,7 +69,7 @@ class Analyzer:
     def extract_outlier_frames(self):
         """Extracts outlier frames from an analyzed video pair"""
         # TODO: Implement this
-        pass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
+        pass
         trials = self._data_processor.list_trials()
 
         # Establish project vars
