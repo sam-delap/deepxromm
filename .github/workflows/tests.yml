@@ -3,16 +3,24 @@ run-name: Run tests for ${{ github.head_ref }}
 on: [pull_request]
 jobs:
   tests:
+    name: Run unit tests
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-python@v4
+      - uses: actions/checkout@v5
+
+      - name: Install uv
+        uses: actions/setup-uv@v6
         with:
-          python-version: '3.9'
-          cache: 'pip'
-      - run: pip install --upgrade pip
-      - run: pip install -r requirements.txt
-      - run: python -m tests.test_deepxromm
+          version: 0.8.22
+
+      - name: Set up python
+        run: uv python install
+
+      - name: Install dependencies
+        run: uv sync --locked --all-extras --dev
+
+      - name: Run unit tests in the environment
+        run: uv run tests/test_deepxromm.py
 
   build:
     name: Build package distribution
