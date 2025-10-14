@@ -10,12 +10,21 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
         with:
-          python-version: 3.9
-      - uses: actions/cache@v2
+          version: 0.8.22
+
+      - name: Set up python
+        run: uv python install
+
+      - name: Install dependencies
+        run: uv sync --locked --all-extras --dev
+
+      - uses: actions/cache@v4
         with:
           key: ${{ github.ref }}
           path: .cache
-      - run: pip install mkdocs-material 
-      - run: mkdocs gh-deploy --force
+      - run: uv add --dev mkdocs-material 
+      - run: uv run mkdocs gh-deploy --force
