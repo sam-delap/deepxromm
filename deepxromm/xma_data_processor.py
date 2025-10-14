@@ -21,27 +21,20 @@ class XMADataProcessor:
         self._swap_markers = config["swapped_markers"]
         self._cross_markers = config["crossed_markers"]
 
-    def find_trial_csv(self,
-                       trial_path: str) -> str:
+    def find_trial_csv(self, trial_path: str) -> str:
         """
         Takes the path to a trial and returns the path to a trial CSV.
         Errors if there is not exactly 1 trial CSV in a trial folder.
         """
         csv_path = [file for file in os.listdir(trial_path) if file[-4:] == ".csv"]
         if len(csv_path) > 1:
-            raise FileExistsError(
-                "Found more than 1 CSV file for trial: " + trial_path
-            )
+            raise FileExistsError("Found more than 1 CSV file for trial: " + trial_path)
         if len(csv_path) <= 0:
-            raise FileNotFoundError(
-                "Couldn't find a CSV file for trial: " + trial_path
-            )
+            raise FileNotFoundError("Couldn't find a CSV file for trial: " + trial_path)
 
         return os.path.join(trial_path, csv_path[0])
 
-    def get_bodyparts_from_xma(self,
-                               csv_path: str,
-                               mode: str):
+    def get_bodyparts_from_xma(self, csv_path: str, mode: str):
         """Takes the filepath of an XMAlab CSV file and returns marker names"""
 
         trial_csv = pd.read_csv(
@@ -89,7 +82,9 @@ class XMADataProcessor:
                 trial_name = os.path.basename(os.path.normpath(path_to_trial))
                 df = pd.read_csv(f"{path_to_trial}/{trial_name}.csv")
             except FileNotFoundError as e:
-                print(f"Please make sure that your trainingdata 2DPoints csv file is named {trial_name}.csv")
+                print(
+                    f"Please make sure that your trainingdata 2DPoints csv file is named {trial_name}.csv"
+                )
                 raise e
             substitute_data_relpath = "labeled-data/" + self._config["dataset_name"]
             substitute_data_abspath = os.path.join(
@@ -117,79 +112,156 @@ class XMADataProcessor:
             print(f"Found file {result} for {identifier}")
             return files[0]
         else:
-            raise FileNotFoundError(f"No video file found containing '{identifier}' in {path}")
+            raise FileNotFoundError(
+                f"No video file found containing '{identifier}' in {path}"
+            )
 
     def list_trials(self):
         path = os.path.join(self._config["working_dir"], "trials")
         """Returns a list of trials or throws an exception if folder is empty"""
-        trials = [folder for folder in os.listdir(path) if os.path.isdir(os.path.join(path, folder)) and not folder.startswith('.')]
+        trials = [
+            folder
+            for folder in os.listdir(path)
+            if os.path.isdir(os.path.join(path, folder)) and not folder.startswith(".")
+        ]
 
         if len(trials) <= 0:
-            raise FileNotFoundError(f'Empty trials directory found. Please put trials to be '
-                                     'analyzed after training into the {path} folder')
+            raise FileNotFoundError(
+                f"Empty trials directory found. Please put trials to be "
+                "analyzed after training into the {path} folder"
+            )
         return trials
 
-    def split_rgb(self, trial_path, codec='avc1'):
-        '''Takes a RGB video with different grayscale data written to the R, G, and B channels and splits it back into its component source videos.'''
+    def split_rgb(self, trial_path, codec="avc1"):
+        """Takes a RGB video with different grayscale data written to the R, G, and B channels and splits it back into its component source videos."""
         trial_name = os.path.basename(os.path.normpath(trial_path))
-        out_name = trial_name + '_split_'
+        out_name = trial_name + "_split_"
 
         try:
-            rgb_video = cv2.VideoCapture(f'{trial_path}/{trial_name}_rgb.avi')
+            rgb_video = cv2.VideoCapture(f"{trial_path}/{trial_name}_rgb.avi")
         except FileNotFoundError as e:
-            print(f'Couldn\'t find video at {trial_path}/{trial_name}_rgb.avi')
+            print(f"Couldn't find video at {trial_path}/{trial_name}_rgb.avi")
             raise e
         frame_width = int(rgb_video.get(3))
         frame_height = int(rgb_video.get(4))
-        frame_rate = round(rgb_video.get(5),2)
-        if codec == 'uncompressed':
-            pix_format = 'gray'   ##change to 'yuv420p' for color or 'gray' for grayscale. 'pal8' doesn't play on macs
-            cam1_split_ffmpeg = Popen(['ffmpeg', '-y', '-f', 'image2pipe', '-vcodec', 'png', '-r', str(int(frame_rate)),
-            '-i', '-', '-vcodec', 'rawvideo','-pix_fmt',pix_format,'-r', str(int(frame_rate)), f'{trial_path}/{out_name}'+'cam1.avi'], stdin=PIPE)
-            cam2_split_ffmpeg = Popen(['ffmpeg', '-y', '-f', 'image2pipe', '-vcodec', 'png', '-r', str(int(frame_rate)),
-            '-i', '-', '-vcodec', 'rawvideo','-pix_fmt',pix_format,'-r', str(int(frame_rate)), f'{trial_path}/{out_name}'+'cam2.avi'], stdin=PIPE)
-            blue_split_ffmpeg = Popen(['ffmpeg', '-y', '-f', 'image2pipe', '-vcodec', 'png', '-r', str(int(frame_rate)),
-            '-i', '-', '-vcodec', 'rawvideo','-pix_fmt',pix_format,'-r', str(int(frame_rate)), f'{trial_path}/{out_name}'+'blue.avi'], stdin=PIPE)
+        frame_rate = round(rgb_video.get(5), 2)
+        if codec == "uncompressed":
+            pix_format = "gray"  ##change to 'yuv420p' for color or 'gray' for grayscale. 'pal8' doesn't play on macs
+            cam1_split_ffmpeg = Popen(
+                [
+                    "ffmpeg",
+                    "-y",
+                    "-f",
+                    "image2pipe",
+                    "-vcodec",
+                    "png",
+                    "-r",
+                    str(int(frame_rate)),
+                    "-i",
+                    "-",
+                    "-vcodec",
+                    "rawvideo",
+                    "-pix_fmt",
+                    pix_format,
+                    "-r",
+                    str(int(frame_rate)),
+                    f"{trial_path}/{out_name}" + "cam1.avi",
+                ],
+                stdin=PIPE,
+            )
+            cam2_split_ffmpeg = Popen(
+                [
+                    "ffmpeg",
+                    "-y",
+                    "-f",
+                    "image2pipe",
+                    "-vcodec",
+                    "png",
+                    "-r",
+                    str(int(frame_rate)),
+                    "-i",
+                    "-",
+                    "-vcodec",
+                    "rawvideo",
+                    "-pix_fmt",
+                    pix_format,
+                    "-r",
+                    str(int(frame_rate)),
+                    f"{trial_path}/{out_name}" + "cam2.avi",
+                ],
+                stdin=PIPE,
+            )
+            blue_split_ffmpeg = Popen(
+                [
+                    "ffmpeg",
+                    "-y",
+                    "-f",
+                    "image2pipe",
+                    "-vcodec",
+                    "png",
+                    "-r",
+                    str(int(frame_rate)),
+                    "-i",
+                    "-",
+                    "-vcodec",
+                    "rawvideo",
+                    "-pix_fmt",
+                    pix_format,
+                    "-r",
+                    str(int(frame_rate)),
+                    f"{trial_path}/{out_name}" + "blue.avi",
+                ],
+                stdin=PIPE,
+            )
         else:
             if codec == 0:
                 fourcc = 0
             else:
                 fourcc = cv2.VideoWriter_fourcc(*codec)
-            cam1 = cv2.VideoWriter(f'{trial_path}/{out_name}'+'cam1.avi',
-                                    fourcc,
-                                    frame_rate,(frame_width, frame_height))
-            cam2 = cv2.VideoWriter(f'{trial_path}/{out_name}'+'cam2.avi',
-                                    fourcc,
-                                    frame_rate,(frame_width, frame_height))
-            blue_channel = cv2.VideoWriter(f'{trial_path}/{out_name}'+'blue.avi',
-                                    fourcc,
-                                    frame_rate,(frame_width, frame_height))
+            cam1 = cv2.VideoWriter(
+                f"{trial_path}/{out_name}" + "cam1.avi",
+                fourcc,
+                frame_rate,
+                (frame_width, frame_height),
+            )
+            cam2 = cv2.VideoWriter(
+                f"{trial_path}/{out_name}" + "cam2.avi",
+                fourcc,
+                frame_rate,
+                (frame_width, frame_height),
+            )
+            blue_channel = cv2.VideoWriter(
+                f"{trial_path}/{out_name}" + "blue.avi",
+                fourcc,
+                frame_rate,
+                (frame_width, frame_height),
+            )
 
         i = 1
         while rgb_video.isOpened():
             ret, frame = rgb_video.read()
-            print(f'Current Frame: {i}')
+            print(f"Current Frame: {i}")
             i = i + 1
             if ret:
                 B, G, R = cv2.split(frame)
-                if codec == 'uncompressed':
+                if codec == "uncompressed":
                     im_r = Image.fromarray(R)
                     im_g = Image.fromarray(G)
                     im_b = Image.fromarray(B)
-                    im_r.save(cam1_split_ffmpeg.stdin, 'PNG')
-                    im_g.save(cam2_split_ffmpeg.stdin, 'PNG')
-                    im_b.save(blue_split_ffmpeg.stdin, 'PNG')
-                    if cv2.waitKey(1) & 0xFF == ord('q'):
+                    im_r.save(cam1_split_ffmpeg.stdin, "PNG")
+                    im_g.save(cam2_split_ffmpeg.stdin, "PNG")
+                    im_b.save(blue_split_ffmpeg.stdin, "PNG")
+                    if cv2.waitKey(1) & 0xFF == ord("q"):
                         break
                 else:
                     cam1.write(R)
                     cam2.write(G)
                     blue_channel.write(B)
-                    if cv2.waitKey(1) & 0xFF == ord('q'):
+                    if cv2.waitKey(1) & 0xFF == ord("q"):
                         break
             else:
                 break
-        if codec == 'uncompressed':
+        if codec == "uncompressed":
             cam1_split_ffmpeg.stdin.close()
             cam1_split_ffmpeg.wait()
             cam2_split_ffmpeg.stdin.close()
@@ -204,7 +276,9 @@ class XMADataProcessor:
         cv2.destroyAllWindows()
         print(f"Cam1 grayscale video created at {trial_path}/{out_name}cam1.avi!")
         print(f"Cam2 grayscale video created at {trial_path}/{out_name}cam2.avi!")
-        print(f"Blue channel grayscale video created at {trial_path}/{out_name}blue.avi!")
+        print(
+            f"Blue channel grayscale video created at {trial_path}/{out_name}blue.avi!"
+        )
 
     def _merge_rgb(self, trial_path, codec="avc1", mode="difference"):
         """
@@ -295,7 +369,7 @@ class XMADataProcessor:
             substitute_data_relpath,
         )
         trial_csv_path = self.find_trial_csv(trial_path)
-        markers = self.get_bodyparts_from_xma(trial_csv_path, mode='2D')
+        markers = self.get_bodyparts_from_xma(trial_csv_path, mode="2D")
 
         # TODO: this entire section can be solved with a creative call to
         # get_bodyparts_from_xma and some dataFrame manipulation to be
@@ -423,7 +497,8 @@ class XMADataProcessor:
         self, trial_path, labeled_data_path, indices, compression=1
     ):
         """Given a list of frame indices and a project path, produce a folder (in labeled-data) of matching frame pngs per source video.
-        Optionally, compress the output PNGs. Factor ranges from 0 (no compression) to 9 (most compression)"""
+        Optionally, compress the output PNGs. Factor ranges from 0 (no compression) to 9 (most compression)
+        """
         extracted_frames = []
         trainingdata_path = self._config["working_dir"] + "/trainingdata"
         trial_name = os.path.basename(os.path.normpath(trial_path))
@@ -452,7 +527,8 @@ class XMADataProcessor:
         compression=0,
     ):
         """Takes a list of frame numbers and exports matching frames from a video as pngs.
-        Optionally, compress the output PNGs. Factor ranges from 0 (no compression) to 9 (most compression)"""
+        Optionally, compress the output PNGs. Factor ranges from 0 (no compression) to 9 (most compression)
+        """
         frame_index = 1
         last_frame_to_analyze = max(indices_to_match)
         png_list = []
