@@ -5,6 +5,7 @@ nav:
   - Installation: install.md
   - Usage: usage.md
   - Config File Reference: config.md
+  - Contributing Guide: CONTRIBUTING.md
 theme:
   name: material
   features:
