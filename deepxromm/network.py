@@ -42,7 +42,8 @@ class Network:
                 nnetworks=2,
             )
         elif mode == "rgb":
-            self._data_processor.make_rgb_video(self._data_path)
+            self._data_processor.make_rgb_videos(self._data_path)
+            self._data_processor.xma_to_dlc_rgb(self._data_path)
         else:
             raise AttributeError(f"Unsupportede mode: {mode}")
 

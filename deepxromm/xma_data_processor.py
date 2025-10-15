@@ -67,7 +67,7 @@ class XMADataProcessor:
                 parts_unique.append(part)
         return parts_unique
 
-    def make_rgb_video(self, data_path):
+    def make_rgb_videos(self, data_path):
         """For all trials in given data path merges 2 videos into single RBG video."""
         trials = [
             folder
@@ -78,9 +78,19 @@ class XMADataProcessor:
         for trial in trials:
             path_to_trial = f"{data_path}/{trial}"
             self._merge_rgb(path_to_trial)
+
+    def xma_to_dlc_rgb(self, data_path: str):
+        """Convert XMAlab input into RGB-ready DLC input"""
+        trials = [
+            folder
+            for folder in os.listdir(data_path)
+            if os.path.isdir(os.path.join(data_path, folder))
+            and not folder.startswith(".")
+        ]
+        for trial_name in trials:
+            trial_path = os.path.join(data_path, trial_name)
             try:
-                trial_name = os.path.basename(os.path.normpath(path_to_trial))
-                df = pd.read_csv(f"{path_to_trial}/{trial_name}.csv")
+                df = pd.read_csv(self.find_trial_csv(trial_path))
             except FileNotFoundError as e:
                 print(
                     f"Please make sure that your trainingdata 2DPoints csv file is named {trial_name}.csv"
@@ -93,16 +103,12 @@ class XMADataProcessor:
             )
             df = df.dropna(how="all")
             list_of_frames = df.index + 1
-            # TODO: decouple the behavior for videos vs data points/image
-            # extraction. extract_matched_frames works for trials with an
-            # XMAlab-formatted CSV attached (typically training data), while merge_rgb
-            # works on all videos as long as there's a cam 1 and a cam2 video.
             self._extract_matched_frames_rgb(
-                path_to_trial,
+                trial_path,
                 substitute_data_abspath,
                 list_of_frames,
             )
-            self._splice_xma_to_dlc(path_to_trial)
+            self._splice_xma_to_dlc(trial_path)
 
     def find_cam_file(self, path, identifier):
         """Searches a file for a given cam video in the trail folder."""

@@ -68,7 +68,7 @@ class Analyzer:
                 logger.debug(f"Current files in directory {current_files}")
                 video_path = f"{trial_path}/{trial}_rgb.avi"
                 if not os.path.exists(video_path):
-                    self._data_processor.make_rgb_video(trial_path)
+                    self._data_processor.make_rgb_videos(trial_path)
                 destfolder = f"{trial_path}/it{iteration}/"
                 deeplabcut.analyze_videos(
                     self._dlc_config,
