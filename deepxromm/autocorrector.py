@@ -63,15 +63,14 @@ class Autocorrector:
             if not self._config["test_autocorrect"]:
                 print(f"Done! Saving to {out_name}")
                 csv.to_csv(out_name, index=False)
+                # Potential feature - write autocorrect to a DLC-compatible HDF?
 
     def _autocorrect_video(self, cam, trial_path, csv):
         """Run the autocorrect function on a single video within a single trial"""
         # Find the raw video
         video = cv2.VideoCapture(self._data_processor.find_cam_file(trial_path, cam))
         if not video.isOpened():
-            raise FileNotFoundError(
-                f"Couldn't find a video at file path: {trial_path}"
-            ) from None
+            raise FileNotFoundError(f"Couldn't find a video at file path: {trial_path}")
 
         if self._config["test_autocorrect"]:
             video.set(1, self._config["frame_num"] - 1)
@@ -188,6 +187,7 @@ class Autocorrector:
                     best_index = i
                     dist = dist_tmp
 
+            # Fix how this displays, because this logic does not track
             if self._config["test_autocorrect"]:
                 print("Raw")
                 self._show_crop(subimage, 15)

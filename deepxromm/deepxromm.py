@@ -93,11 +93,12 @@ class DeepXROMM:
 
     @staticmethod
     def train_many_projects(parent_dir):
-        """Train and analyze multiple SDLC_XMALAB projects given a parent folder"""
+        """Train and analyze multiple deepxromm projects given a parent folder"""
         parent_path = Path(parent_dir)
         for folder in parent_path.iterdir():
-            if folder.is_dir():
-                project_path = folder
-                deepxromm = DeepXROMM.load_project(str(project_path))
-                deepxromm.train_network()
-                deepxromm.analyze_videos()
+            if not folder.is_dir():
+                continue
+            project_path = folder
+            deepxromm = DeepXROMM.load_project(str(project_path))
+            deepxromm.train_network()
+            deepxromm.analyze_videos()

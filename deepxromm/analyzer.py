@@ -22,6 +22,7 @@ logging.basicConfig(
     level=os.environ.get("DEEPXROMM_LOG_LEVEL", "INFO").upper(),
 )
 
+
 class Analyzer:
     """Analyzes XROMM videos using trained network."""
 
@@ -46,9 +47,7 @@ class Analyzer:
             analyze_xromm_videos(self._dlc_config, self._trials_path, iteration)
         elif mode == "per_cam":
             if "path_config_file_2" not in self._config:
-                print(
-                    "Path to second DLC config not found."
-                )
+                print("Path to second DLC config not found.")
                 print("Did you create the project as a per-cam project?")
                 print("If not, re-run 'create_new_project' using mode='per_cam'")
                 raise KeyError("path_config_file_2")
@@ -57,7 +56,7 @@ class Analyzer:
                 path_config_file_cam2=self._config["path_config_file_2"],
                 path_data_to_analyze=self._trials_path,
                 iteration=iteration,
-                nnetworks=2
+                nnetworks=2,
             )
 
         else:
@@ -326,9 +325,8 @@ class Analyzer:
             ret, frame = video.read()
             if not ret:
                 # Should this throw an error?
-                print("Error reading video frame")
                 cv2.destroyAllWindows()
-                break
+                raise IOError("Error reading video frame")
             hashes.append(imagehash.phash(Image.fromarray(frame)))
 
         return hashes

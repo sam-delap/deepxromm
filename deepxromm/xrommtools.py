@@ -19,6 +19,7 @@ import random
 from deeplabcut.pose_estimation_tensorflow.predict_videos import analyze_videos
 
 
+# TODO: Un-nest all of J.D.'s code
 def xma_to_dlc(
     path_config_file,
     data_path,
