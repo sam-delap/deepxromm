@@ -22,7 +22,6 @@ logging.basicConfig(
     level=os.environ.get("DEEPXROMM_LOG_LEVEL", "INFO").upper(),
 )
 
-
 class Analyzer:
     """Analyzes XROMM videos using trained network."""
 
@@ -46,22 +45,24 @@ class Analyzer:
         if mode == "2D":
             analyze_xromm_videos(self._dlc_config, self._trials_path, iteration)
         elif mode == "per_cam":
-            try:
-                analyze_xromm_videos(
-                    path_config_file=self._dlc_config,
-                    path_config_file_cam2=self._config["path_config_file_2"],
-                    path_data_to_analyze=self._trials_path,
-                    iteration=iteration,
-                    nnetworks=2,
-                )
-            except KeyError as e:
+            if "path_config_file_2" not in self._config:
                 print(
-                    "Path to second DLC config not found. Did you create the project as a per-cam project?"
+                    "Path to second DLC config not found."
                 )
+                print("Did you create the project as a per-cam project?")
                 print("If not, re-run 'create_new_project' using mode='per_cam'")
-                raise e
+                raise KeyError("path_config_file_2")
+            analyze_xromm_videos(
+                path_config_file=self._dlc_config,
+                path_config_file_cam2=self._config["path_config_file_2"],
+                path_data_to_analyze=self._trials_path,
+                iteration=iteration,
+                nnetworks=2
+            )
 
         else:
+            # TODO - create driver functions for bulk analysis of RGB things
+            # TODO - standardize function names
             for trial in trials:
                 trial_path = os.path.join(self._trials_path, trial)
                 current_files = os.listdir(trial_path)
@@ -83,8 +84,8 @@ class Analyzer:
         or don't match!"""
         similarity_score = {}
         yaml = YAML()
-        trial_perms = combinations(self._data_processor.list_trials(), 2)
-        for trial1, trial2 in trial_perms:
+        trial_combos = combinations(self._data_processor.list_trials(), 2)
+        for trial1, trial2 in trial_combos:
             self._config["trial_1_name"] = trial1
             self._config["trial_2_name"] = trial2
             with open(
@@ -300,6 +301,7 @@ class Analyzer:
 
         video1_frames = len(hashes1)
         video2_frames = len(hashes2)
+        # Thought: maybe this should be computed alongside the for loop?
         noc = math.perm(
             video1_frames + video2_frames, 2
         )  # Might need revision based on actual comparison logic
@@ -323,6 +325,7 @@ class Analyzer:
             print(f"Current frame: {i}")
             ret, frame = video.read()
             if not ret:
+                # Should this throw an error?
                 print("Error reading video frame")
                 cv2.destroyAllWindows()
                 break
