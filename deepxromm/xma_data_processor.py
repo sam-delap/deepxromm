@@ -245,6 +245,7 @@ class XMADataProcessor:
 
         i = 1
         while rgb_video.isOpened():
+            # TODO: Error check
             ret, frame = rgb_video.read()
             print(f"Current Frame: {i}")
             i = i + 1
@@ -254,6 +255,7 @@ class XMADataProcessor:
                     im_r = Image.fromarray(R)
                     im_g = Image.fromarray(G)
                     im_b = Image.fromarray(B)
+                    # TODO - add error handling/assertions
                     im_r.save(cam1_split_ffmpeg.stdin, "PNG")
                     im_g.save(cam2_split_ffmpeg.stdin, "PNG")
                     im_b.save(blue_split_ffmpeg.stdin, "PNG")
@@ -549,6 +551,7 @@ class XMADataProcessor:
         print("===== end this")
         while cap.isOpened():
             ret, frame = cap.read()
+            # TODO - add descriptive print statements
             if ret is False:
                 break
             if frame_index > last_frame_to_analyze:

@@ -111,6 +111,7 @@ class Project:
 
         # Navigate to the training data directory
         training_data_path = working_dir / "trainingdata"
+        # TODO: Make this a core util
         trials = [
             folder
             for folder in training_data_path.iterdir()
@@ -124,8 +125,9 @@ class Project:
         trial_path = training_data_path / trial.name
 
         # Load trial CSV
+        # TODO: Find trial CSV using function
+        trial_csv_path = trial_path / f"{trial.name}.csv"
         try:
-            trial_csv_path = trial_path / f"{trial.name}.csv"
             trial_csv = pd.read_csv(trial_csv_path)
         except FileNotFoundError as e:
             print(
@@ -180,6 +182,7 @@ class Project:
             trial_csv_path, mode=project["tracking_mode"]
         )
 
+        # TODO: use DLC's config loader functions to handle this
         dlc_config_loader = YAML()
         dlc_config_path = Path(project["path_config_file"])
         with dlc_config_path.open("r") as dlc_config:
