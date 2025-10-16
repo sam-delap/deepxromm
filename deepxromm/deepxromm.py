@@ -46,8 +46,16 @@ class DeepXROMM:
         deepxromm._data_processor = XMADataProcessor(deepxromm.config)
         return deepxromm
 
+    def xma_to_dlc(self):
+        """Converts XMAlab-compatible data to DLC format"""
+        self._network.xma_to_dlc()
+
+    def create_training_dataset(self):
+        """Creates a training dataset based on current project data"""
+        self._network.create_training_dataset()
+
     def train_network(self):
-        """Starts training the network using xrommtools-compatible data in the working directory."""
+        """Starts training the network using data in the working directory."""
         self._network.train()
 
     def analyze_videos(self):
