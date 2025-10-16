@@ -16,9 +16,8 @@ class Network:
         self._data_processor = XMADataProcessor(config)
         self._config = config
 
-    def train(self):
-        """Starts training xrommtools-compatible data"""
-
+    def xma_to_dlc(self):
+        """Convert XMAlab data to DLC format"""
         mode = self._config["tracking_mode"]
         if mode == "2D":
             try:
@@ -47,15 +46,19 @@ class Network:
         else:
             raise AttributeError(f"Unsupportede mode: {mode}")
 
-        # TODO: instead of having just 1 train function, have separate functions
-        # to create training dataset, train model, and evaluate the model.
+    def create_training_dataset(self):
+        """Create training dataset for data"""
         deeplabcut.create_training_dataset(self._config["path_config_file"])
+        if self._config["tracking_mode"] == "per_cam":
+            deeplabcut.create_training_dataset(self._config["path_config_file_2"])
+
+    def train(self):
+        """Starts training a network"""
         deeplabcut.train_network(
             self._config["path_config_file"], maxiters=self._config["maxiters"]
         )
 
         if self._config["tracking_mode"] == "per_cam":
-            deeplabcut.create_training_dataset(self._config["path_config_file_2"])
             deeplabcut.train_network(
                 self._config["path_config_file_2"], maxiters=self._config["maxiters"]
             )
