@@ -50,6 +50,25 @@ There are two ways to use this package. You can either:
     deepxromm = DeepXROMM.load_project(working_dir)
     ```
 
+## Converting XMAlab data to DeepLabCut format
+
+XMAlab and DeepLabCut both use CSV files (or a more data-rich format called HDF) as their primary means of storing tracking data.
+In order to train a network for XMAlab trials, we need to convert the XMAlab-formatted data exported in the previous step
+to a format that DeepLabCut can use. To do this, you can run:
+
+```python
+deepxromm.xma_to_dlc()
+```
+
+## Creating a training dataset
+
+Next, we'll use the DLC formatted data we just extracted and codify it as our training
+data for this run of our model. To do this, you can run:
+
+```python
+deepxromm.create_training_dataset()
+```
+
 ## Training the project
 1. To start training your network, run the following in your Python terminal
     ```python
