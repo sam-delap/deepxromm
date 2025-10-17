@@ -162,7 +162,7 @@ class Project:
 
         data_processor = XMADataProcessor(config=project)
         # Check the current nframes against the threshold value * the number of frames in the cam1 video
-        cam1_video_path = data_processor.find_cam_file(str(trial_path), "cam1")
+        cam1_video_path = data_processor.find_cam_file(trial_path, "cam1")
         video = cv2.VideoCapture(cam1_video_path)
 
         if (
@@ -177,7 +177,7 @@ class Project:
         # Check DLC bodyparts (marker names)
         default_bodyparts = ["bodypart1", "bodypart2", "bodypart3", "objectA"]
         path_to_trial = working_dir / "trainingdata" / trial
-        trial_csv_path = data_processor.find_trial_csv(str(path_to_trial))
+        trial_csv_path = data_processor.find_trial_csv(path_to_trial)
         bodyparts = data_processor.get_bodyparts_from_xma(
             trial_csv_path, mode=project["tracking_mode"]
         )

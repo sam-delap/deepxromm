@@ -11,7 +11,7 @@ add_frames: Add new frames corrected/tracked in XMALab to an existing training d
 
 """
 
-import os
+from pathlib import Path
 import pandas as pd
 import numpy as np
 import cv2
@@ -22,7 +22,7 @@ from deeplabcut.pose_estimation_tensorflow.predict_videos import analyze_videos
 # TODO: Un-nest all of J.D.'s code
 def xma_to_dlc(
     path_config_file,
-    data_path,
+    data_path: Path,
     dataset_name,
     scorer,
     nframes,
@@ -63,20 +63,19 @@ def xma_to_dlc(
     ]
     trialnames = [
         folder
-        for folder in os.listdir(data_path)
-        if os.path.isdir(os.path.join(data_path, folder)) and not folder.startswith(".")
+        for folder in data_path.glob("*")
+        if (data_path / folder).is_dir() and not folder.name.startswith(".")
     ]
 
     ### PART 1: Pick frames for dataset
 
     for trial in trialnames:
-
         # Read 2D points file
-        contents = os.listdir(data_path + "/" + trial)
-        filename = [x for x in contents if ".csv" in x]  # csv filename
-        df1 = pd.read_csv(
-            data_path + "/" + trial + "/" + filename[0], sep=",", header=None
-        )
+        contents = list(trial.glob("*.csv"))
+        if len(contents) != 1:
+            raise ValueError("Found more CSVs than expected")
+        filename = contents[0]
+        df1 = pd.read_csv(trial / filename, sep=",", header=None)
 
         # read pointnames from header row
         pointnames = df1.loc[0, ::4].astype(str).str[:-7].tolist()
@@ -126,89 +125,70 @@ def xma_to_dlc(
             relnames = []
             data = pd.DataFrame()
             # new training dataset folder
-            newpath = (
+            newpath = Path(
                 configs[camera - 1]
-                + "/labeled-data/"
-                + dataset_name
-                + "_cam"
-                + str(camera)
+                / "labeled-data"
+                / dataset_name
+                / "_cam"
+                / str(camera)
             )
-            h5_save_path = newpath + "/CollectedData_" + scorer + ".h5"
-            csv_save_path = newpath + "/CollectedData_" + scorer + ".csv"
+            h5_save_path = newpath / f"CollectedData_{scorer}.h5"
+            csv_save_path = newpath / f"CollectedData_{scorer}.csv"
 
-            if os.path.exists(newpath):
-                contents = os.listdir(newpath)
-                if contents:
+            if newpath.exists():
+                contents = list(newpath.glob("*"))
+                if len(contents) > 0:
                     raise ValueError(
-                        "There are already data in the camera %d training dataset folder"
-                        % camera
+                        f"There are already data in the camera {camera} training dataset folder"
                     )
             else:
-                os.makedirs(newpath)  # make new folder
+                newpath.mkdir(parents=True, exist_ok=True)  # make new folder
 
             for trialnum, trial in enumerate(trialnames):
 
                 # get video file
-                file = []
-                contents = os.listdir(data_path + "/" + trial)
+                file = None
+                trial_path = data_path / trial
+                contents = trial_path.glob("*")
                 for name in contents:
-                    if any(x in name for x in subs[camera - 1]):
+                    if any(x in name.name for x in subs[camera - 1]):
                         file = name
-                if not file:
+                if file is None:
                     raise ValueError(
                         "Cannot locate %s video file or image folder" % trial
                     )
 
                 # if video file is actually folder of frames
-                if os.path.isdir(data_path + "/" + trial + "/" + file):
-                    imgpath = data_path + "/" + trial + "/" + file
-                    imgs = os.listdir(imgpath)
-                    relpath = (
-                        "labeled-data/" + dataset_name + "_cam" + str(camera) + "/"
-                    )
+                video_path = data_path / trial / file
+                if video_path.is_dir():
+                    imgpath = video_path
+                    imgs = imgpath.glob("*")
+                    relpath = Path(f"labeled-data/{dataset_name}_cam{camera}")
                     frames = picked_frames[trialnum]
                     frames.sort()
 
                     for count, img in enumerate(imgs):
                         if count in frames:
-                            image = cv2.imread(imgpath + "/" + img)
-                            relname = (
-                                relpath + trial + "_%s.png" % str(count + 1).zfill(4)
-                            )
+                            image = cv2.imread(imgpath / img)
+                            current_img = str(count + 1).zfill(4)
+                            relname = relpath / f"{trial}_{current_img}.png"
                             relnames = relnames + [relname]
-                            cv2.imwrite(
-                                newpath
-                                + "/"
-                                + trial
-                                + "_%s.png" % str(count + 1).zfill(4),
-                                image,
-                            )  # save frame
-
+                            cv2.imwrite(newpath / f"{trial}_{current_img}.png", image)
                 else:
                     # file is actually a file
                     # extract frames from video and convert to png
-                    video = data_path + "/" + trial + "/" + file
-                    relpath = (
-                        "labeled-data/" + dataset_name + "_cam" + str(camera) + "/"
-                    )
+                    relpath = Path(f"labeled-data/{dataset_name}_cam{camera}")
                     frames = picked_frames[trialnum]
                     frames.sort()
-                    cap = cv2.VideoCapture(video)
+                    cap = cv2.VideoCapture(video_path)
                     success, image = cap.read()
                     count = 0
                     while success:
                         if count in frames:
-                            relname = (
-                                relpath + trial + "_%s.png" % str(count + 1).zfill(4)
-                            )
+                            current_img = str(count + 1).zfill(4)
+                            relname = relpath / f"{trial}_{current_img}.png"
                             relnames = relnames + [relname]
-                            cv2.imwrite(
-                                newpath
-                                + "/"
-                                + trial
-                                + "_%s.png" % str(count + 1).zfill(4),
-                                image,
-                            )  # save frame
+                            cv2.imwrite(newpath / f"{trial}_{current_img}.png", image)
                         success, image = cap.read()
                         count += 1
                     cap.release()
@@ -253,94 +233,68 @@ def xma_to_dlc(
         relnames = []
         data = pd.DataFrame()
         # new training dataset folder
-        newpath = config + "/labeled-data/" + dataset_name
-        h5_save_path = newpath + "/CollectedData_" + scorer + ".h5"
-        csv_save_path = newpath + "/CollectedData_" + scorer + ".csv"
+        newpath = Path(config / "labeled-data" / dataset_name)
+        h5_save_path = newpath / f"CollectedData_{scorer}.h5"
+        csv_save_path = newpath / f"CollectedData_{scorer}.csv"
 
-        if os.path.exists(newpath):
-            contents = os.listdir(newpath)
-            if contents:
+        if newpath.exists():
+            contents = list(newpath.glob("*"))
+            if len(contents) > 0:
                 raise ValueError(
-                    "There are already data in the camera %d training dataset folder"
-                    % camera
+                    f"There are already data in the camera {camera} training dataset folder"
                 )
         else:
-            os.makedirs(newpath)  # make new folder
+            newpath.mkdir(parents=True, exist_ok=True)
 
         for camera in cameras:
-            print("Extracting camera %d trial images and 2D points..." % camera)
+            print(f"Extracting camera {camera} trial images and 2D points...")
 
             for trialnum, trial in enumerate(trialnames):
 
                 # get video file
-                file = []
-                contents = os.listdir(data_path + "/" + trial)
+                file = None
+                trial_path = data_path / trial
+                contents = trial_path.glob("*")
                 for name in contents:
-                    if any(x in name for x in subs[camera - 1]):
+                    if any(x in name.name for x in subs[camera - 1]):
                         file = name
-                if not file:
+                if file is None:
                     raise ValueError(
-                        "Cannot locate %s video file or image folder" % trial
+                        f"Cannot locate {trial} video file or image folder"
                     )
 
                 # if video file is actually folder of frames
-                if os.path.isdir(data_path + "/" + trial + "/" + file):
-                    imgpath = data_path + "/" + trial + "/" + file
-                    imgs = os.listdir(imgpath)
-                    relpath = "labeled-data/" + dataset_name + "/"
+                video_path = trial_path / file
+                if video_path.is_dir():
+                    imgpath = video_path
+                    imgs = imgpath.glob("*")
+                    relpath = Path("labeled-data" / dataset_name)
                     frames = picked_frames[trialnum]
                     frames.sort()
 
                     for count, img in enumerate(imgs):
                         if count in frames:
-                            image = cv2.imread(imgpath + "/" + img)
-                            relname = (
-                                relpath
-                                + trial
-                                + "_cam"
-                                + str(camera)
-                                + "_%s.png" % str(count + 1).zfill(4)
-                            )
+                            current_img = str(count + 1).zfill(4)
+                            image = cv2.imread(imgpath / img)
+                            relname = relpath / f"{trial}_{current_img}.png"
                             relnames = relnames + [relname]
-                            cv2.imwrite(
-                                newpath
-                                + "/"
-                                + trial
-                                + "_cam"
-                                + str(camera)
-                                + "_%s.png" % str(count + 1).zfill(4),
-                                image,
-                            )  # save frame
+                            cv2.imwrite(newpath / f"{trial}_{current_img}.png", image)
 
                 else:
                     # file is actually a file
                     # extract frames from video and convert to png
-                    video = data_path + "/" + trial + "/" + file
-                    relpath = "labeled-data/" + dataset_name + "/"
+                    relpath = Path("labeled-data" / dataset_name)
                     frames = picked_frames[trialnum]
                     frames.sort()
-                    cap = cv2.VideoCapture(video)
+                    cap = cv2.VideoCapture(video_path)
                     success, image = cap.read()
                     count = 0
                     while success:
                         if count in frames:
-                            relname = (
-                                relpath
-                                + trial
-                                + "_cam"
-                                + str(camera)
-                                + "_%s.png" % str(count + 1).zfill(4)
-                            )
+                            current_img = str(count + 1).zfill(4)
+                            relname = relpath / f"{trial}_{current_img}.png"
                             relnames = relnames + [relname]
-                            cv2.imwrite(
-                                newpath
-                                + "/"
-                                + trial
-                                + "_cam"
-                                + str(camera)
-                                + "_%s.png" % str(count + 1).zfill(4),
-                                image,
-                            )  # save frame
+                            cv2.imwrite(newpath / f"{trial}_{current_img}.png", image)
                         success, image = cap.read()
                         count += 1
                     cap.release()
@@ -445,7 +399,7 @@ def dlc_to_xma(cam1data, cam2data, trialname, savepath):
 
 def analyze_xromm_videos(
     path_config_file,
-    path_data_to_analyze,
+    path_data_to_analyze: str,
     iteration,
     nnetworks=1,
     path_config_file_cam2=[],
@@ -484,35 +438,35 @@ def analyze_xromm_videos(
             "camera2",
         ],
     ]
+    data_analysis_path = Path(path_data_to_analyze)
     trialnames = [
         folder
-        for folder in os.listdir(path_data_to_analyze)
-        if os.path.isdir(os.path.join(path_data_to_analyze, folder))
-        and not folder.startswith(".")
+        for folder in data_analysis_path.glob("*")
+        if (data_analysis_path / folder).is_dir() and not folder.name.startswith(".")
     ]
 
     for trialnum, trial in enumerate(trialnames):
-        trialpath = os.path.join(path_data_to_analyze, trial)
-        contents = os.listdir(trialpath)
-        savepath = os.path.join(trialpath, f"it{iteration}")
-        if os.path.exists(savepath):
-            temp = os.listdir(savepath)
+        trialpath = data_analysis_path / trial
+        contents = trialpath.glob("*")
+        savepath = trialpath / f"it{iteration}"
+        if savepath.exists():
+            temp = savepath.glob("*")
             if temp:
                 raise ValueError(
-                    "There are already predicted points in iteration %d subfolders"
-                    % iteration
+                    f"There are already predicted points in iteration {iteration} subfolders"
                 )
         else:
-            os.makedirs(savepath)  # make new folder
+            savepath.mkdir(parents=True, exist_ok=True)  # make new folder
         # get video file
+        filename = None
         for camera in cameras:
             for name in contents:
-                if any(x in name for x in subs[camera - 1]):
-                    filename = name
-            if not filename:
+                if any(x in name.name for x in subs[camera - 1]):
+                    filename = name.name
+            if filename is None:
                 raise ValueError("Cannot locate %s video file or image folder" % trial)
 
-            video = os.path.join(trialpath, filename)
+            video = trialpath / filename
             print(video)
             # analyze video
             if nnetworks == 1:
@@ -523,14 +477,13 @@ def analyze_xromm_videos(
                 )
 
         # get filenames and read analyzed data
-        contents = os.listdir(savepath)
-        datafiles = [s for s in contents if ".h5" in s]
+        datafiles = list(savepath.glob("*.h5"))
         if not datafiles:
             raise ValueError(
                 "Cannot find predicted points. Some wrong with DeepLabCut?"
             )
-        cam1data = pd.read_hdf(savepath + "/" + datafiles[0])
-        cam2data = pd.read_hdf(savepath + "/" + datafiles[1])
+        cam1data = pd.read_hdf(savepath / datafiles[0])
+        cam2data = pd.read_hdf(savepath / datafiles[1])
         dlc_to_xma(cam1data, cam2data, trial, savepath)
 
 
@@ -608,23 +561,19 @@ def add_frames(
     if nnetworks == 2:
 
         for camera in cameras:
-            contents = os.listdir(configs[camera - 1] + "/" + "labeled-data")
+            dlc_dataset_path = Path(configs[camera - 1] / "labeled-data")
+            contents = list(dlc_dataset_path.glob("*"))
             if len(contents) == 1:
                 dataset_name = contents[0]
-                labeleddata_path = (
-                    configs[camera - 1] + "/" + "labeled-data/" + dataset_name
-                )
+                labeleddata_path = dlc_dataset_path / dataset_name
             else:
                 raise ValueError(
                     "There must be only one data set in the labeled-data folder"
                 )
 
-            contents = os.listdir(labeleddata_path)
-            h5file = [x for x in contents if ".h5" in x]
-            csvfile = [x for x in contents if ".csv" in x]
-            data = pd.read_hdf(
-                labeleddata_path + "/" + h5file[0]
-            )  # read old point labels
+            h5file = list(labeleddata_path.glob("*.h5"))
+            csvfile = list(labeleddata_path.glob("*.csv"))
+            data = pd.read_hdf(labeleddata_path / h5file[0])
 
             ## Extract selected frames from videos
 
@@ -632,7 +581,7 @@ def add_frames(
                 # get video file
                 file = []
                 relnames = []
-                contents = os.listdir(data_path + "/" + trial)
+                contents = data_path / trial
                 for name in contents:
                     if any(x in name for x in subs[camera - 1]):
                         file = name
@@ -642,63 +591,51 @@ def add_frames(
                     )
 
                 # if video file is actually folder of frames
-                if os.path.isdir(data_path + "/" + trial + "/" + file):
-                    imgpath = data_path + "/" + trial + "/" + file
-                    imgs = os.listdir(imgpath)
-                    relpath = "labeled-data/" + dataset_name + "/"
+                video_path = data_path / trial / file
+                if video_path.is_dir():
+                    imgpath = video_path
+                    imgs = imgpath.glob("*")
+                    relpath = Path("labeled-data" / dataset_name)
                     frames = picked_frames[trialnum]
                     frames.sort()
 
                     for count, img in enumerate(imgs):
                         if count + 1 in frames:  # ASSUMES FRAMES PROVIDED ARE 1 index
-                            image = cv2.imread(imgpath + "/" + img)
-                            relname = (
-                                relpath + trial + "_%s.png" % str(count + 1).zfill(4)
-                            )
+                            image = cv2.imread(imgpath / img)
+                            current_img = str(count + 1).zfill(4)
+                            relname = relpath / f"{trial}_{current_img}.png"
                             relnames = relnames + [relname]
                             cv2.imwrite(
-                                labeleddata_path
-                                + "/"
-                                + trial
-                                + "_%s.png" % str(count + 1).zfill(4),
+                                labeleddata_path / trial / f"{trial}_{current_img}.png",
                                 image,
-                            )  # save frame
+                            )
                 else:
-                    # file is actually a file
-                    # extract frames from video and convert to png
-                    video = data_path + "/" + trial + "/" + file
-                    relpath = "labeled-data/" + dataset_name + "/"
+                    relpath = Path("labeled-data" / dataset_name)
                     frames = picked_frames[trialnum]
                     frames.sort()
-                    cap = cv2.VideoCapture(video)
+                    cap = cv2.VideoCapture(video_path)
                     success, image = cap.read()
                     count = 0
                     while success:
                         if count + 1 in frames:
-                            relname = (
-                                relpath + trial + "_%s.png" % str(count + 1).zfill(4)
-                            )
+                            current_img = str(count + 1).zfill(4)
+                            relname = relpath / f"{trial}_{current_img}.png"
                             relnames = relnames + [relname]
                             cv2.imwrite(
-                                labeleddata_path
-                                + "/"
-                                + trial
-                                + "_%s.png" % str(count + 1).zfill(4),
+                                labeleddata_path / trial / f"{trial}_{current_img}.png",
                                 image,
-                            )  # save frame
+                            )
                         success, image = cap.read()
                         count += 1
                     cap.release()
 
                 # get 2D points file / data
                 # extract 2D points data
-                contents = os.listdir(
-                    data_path + "/" + trial + "/" + "it" + str(iteration)
-                )
-                pointsfile = [x for x in contents if ".csv" in x]
+                iteration_dir = data_path / trial / f"it{iteration}"
+                pointsfile = list(iteration_dir.glob("*.csv"))
 
                 if not pointsfile:
-                    raise ValueError("Cannot locate %s 2D points file" % trial)
+                    raise ValueError(f"Cannot locate {trial} 2D points file")
 
                 # if multiple csv files, look for "2Dpoints" in the name
                 if len(pointsfile) > 1:
@@ -716,21 +653,9 @@ def add_frames(
                 else:
                     file = pointsfile[0]
                 print(
-                    "Reading and adding the following frames from "
-                    + data_path
-                    + "/"
-                    + trial
-                    + "/"
-                    + "it"
-                    + str(iteration)
-                    + "/"
-                    + file
+                    f"Reading and adding the following frames from {iteration_dir}/{file}"
                 )
-                df = pd.read_csv(
-                    data_path + "/" + trial + "/" + "it" + str(iteration) + "/" + file,
-                    sep=",",
-                    header=None,
-                )
+                df = pd.read_csv(iteration_dir / file, sep=",", header=None)
                 df = df.loc[1:,].reset_index(drop=True)
                 print(frames)
                 frames = [x - 1 for x in frames]  # account for zero index in python
@@ -763,30 +688,29 @@ def add_frames(
 
     else:  # default, one network for both videos
         config = path_config_file[:-12]
-        contents = os.listdir(config + "/" + "labeled-data")
+        labeled_data_dir = Path(config / "labeled-data")
+        contents = list(labeled_data_dir.glob("*"))
         if len(contents) == 1:
             dataset_name = contents[0]
-            labeleddata_path = config + "/" + "labeled-data/" + dataset_name
+            labeleddata_path = labeled_data_dir / dataset_name
         else:
             raise ValueError(
                 "There must be only one data set in the labeled-data folder"
             )
 
-        contents = os.listdir(labeleddata_path)
-        h5file = [x for x in contents if ".h5" in x]
-        csvfile = [x for x in contents if ".csv" in x]
-        data = pd.read_hdf(labeleddata_path + "/" + h5file[0])  # read old point labels
+        h5file = list(labeleddata_path.glob("*.h5"))
+        csvfile = list(labeleddata_path.glob("*.csv"))
+        data = pd.read_hdf(labeleddata_path / h5file[0])  # read old point labels
 
         for camera in cameras:
-
             ## Extract selected frames from videos
-
             for trialnum, trial in enumerate(trialnames):
                 # get video file
                 relnames = []
                 file = []
 
-                contents = os.listdir(data_path + "/" + trial)
+                trial_path = data_path / trial
+                contents = trial_path.glob("*")
                 for name in contents:
                     if any(x in name for x in subs[camera - 1]):
                         file = name
@@ -796,75 +720,53 @@ def add_frames(
                     )
 
                 # if video file is actually folder of frames
-                if os.path.isdir(data_path + "/" + trial + "/" + file):
-                    imgpath = data_path + "/" + trial + "/" + file
-                    imgs = os.listdir(imgpath)
-                    relpath = "labeled-data/" + dataset_name + "/"
+                video_path = data_path / trial / file
+                if video_path.is_dir():
+                    imgpath = video_path
+                    imgs = imgpath.glob("*")
+                    relpath = Path("labeled-data" / dataset_name)
                     frames = picked_frames[trialnum]
                     frames.sort()
 
                     for count, img in enumerate(imgs):
                         if count + 1 in frames:  # ASSUMES FRAMES PROVIDED ARE 1 index
-                            image = cv2.imread(imgpath + "/" + img)
-                            relname = (
-                                relpath
-                                + trial
-                                + "_cam"
-                                + str(camera)
-                                + "_%s.png" % str(count + 1).zfill(4)
-                            )
+                            image = cv2.imread(imgpath / img)
+                            current_img = str(count + 1).zfill(4)
+                            relname = relpath / f"{trial}_cam{camera}_{current_img}.png"
                             relnames = relnames + [relname]
                             cv2.imwrite(
                                 labeleddata_path
-                                + "/"
-                                + trial
-                                + "_cam"
-                                + str(camera)
-                                + "_%s.png" % str(count + 1).zfill(4),
-                                image,
-                            )  # save frame
+                                / f"{trial}_cam{camera}_{current_img}.png"
+                            )
                 else:
                     # file is actually a file
                     # extract frames from video and convert to png
-                    video = data_path + "/" + trial + "/" + file
-                    relpath = "labeled-data/" + dataset_name + "/"
+                    relpath = Path("labeled-data" / dataset_name)
                     frames = picked_frames[trialnum]
                     frames.sort()
-                    cap = cv2.VideoCapture(video)
+                    cap = cv2.VideoCapture(video_path)
                     success, image = cap.read()
                     count = 0
                     while success:
                         if count + 1 in frames:
-                            relname = (
-                                relpath
-                                + trial
-                                + "_cam"
-                                + str(camera)
-                                + "_%s.png" % str(count + 1).zfill(4)
-                            )
+                            current_img = str(count + 1).zfill(4)
+                            relname = relpath / f"{trial}_cam{camera}_{current_img}.png"
                             relnames = relnames + [relname]
                             cv2.imwrite(
                                 labeleddata_path
-                                + "/"
-                                + trial
-                                + "_cam"
-                                + str(camera)
-                                + "_%s.png" % str(count + 1).zfill(4),
-                                image,
-                            )  # save frame
+                                / f"{trial}_cam{camera}_{current_img}.png"
+                            )
                         success, image = cap.read()
                         count += 1
                     cap.release()
 
                 # get 2D points file / data
                 # extract 2D points data
-                contents = os.listdir(
-                    data_path + "/" + trial + "/" + "it" + str(iteration)
-                )
-                pointsfile = [x for x in contents if ".csv" in x]
+                contents = data_path / trial / f"it{iteration}"
+                pointsfile = list(contents.glob("*.csv"))
 
                 if not pointsfile:
-                    raise ValueError("Cannot locate %s 2D points file" % trial)
+                    raise ValueError(f"Cannot locate {trial} 2D points file")
 
                 # if multiple csv files, look for "2Dpoints" in the name
                 if len(pointsfile) > 1:
@@ -881,21 +783,10 @@ def add_frames(
                     pointsfile = pointsfile[0]
                 if isinstance(pointsfile, str) != True:
                     raise ValueError(
-                        "Please check the points files in trial "
-                        + trial
-                        + " iteration "
-                        + str(iteration)
-                        + " folder"
+                        f"Please check the points files in trial {trial} iteration {iteration} folder"
                     )
                 df = pd.read_csv(
-                    data_path
-                    + "/"
-                    + trial
-                    + "/"
-                    + "it"
-                    + str(iteration)
-                    + "/"
-                    + pointsfile,
+                    data_path / trial / f"it{iteration}" / pointsfile,
                     sep=",",
                     header=None,
                 )
@@ -922,9 +813,9 @@ def add_frames(
         data = data.astype("float")
         data = data.round(2)
         data = data.apply(pd.to_numeric)
-        data.to_hdf(labeleddata_path + "/" + h5file[0], key="df_with_missing", mode="w")
-        data.to_csv(labeleddata_path + "/" + csvfile[0], na_rep="NaN")
+        data.to_hdf(labeleddata_path / h5file[0], key="df_with_missing", mode="w")
+        data.to_csv(labeleddata_path / csvfile[0], na_rep="NaN")
 
     print(
-        "Frames from %d trials successfully added to training dataset" % len(trialnames)
+        f"Frames from {len(trialnames)} trials successfully added to training dataset"
     )

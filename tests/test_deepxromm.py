@@ -448,6 +448,11 @@ class TestSampleTrial(unittest.TestCase):
         training_data_csv = Path(self.working_dir / "trainingdata/test/test.csv")
         training_data_csv.unlink()
 
+        trials_folder = Path(self.working_dir / "trials" / "test")
+        print("Files in trials folder autocorrect")
+
+        print(list(trials_folder.glob("*")))
+
         # Run autocorrect
         self.deepxromm.autocorrect_trials()
 
