@@ -1,7 +1,7 @@
 """Converts data from XMALab into the format useful for DLC training."""
 
-import glob
-import os
+import logging
+from pathlib import Path
 
 from subprocess import Popen
 
@@ -12,6 +12,9 @@ import numpy as np
 import pandas as pd
 from ruamel.yaml import YAML
 
+logger = logging.getLogger()
+logger.setLevel(logging.DEBUG)
+
 
 class XMADataProcessor:
     """Converts data from XMALab into the format useful for DLC training."""
@@ -21,20 +24,20 @@ class XMADataProcessor:
         self._swap_markers = config["swapped_markers"]
         self._cross_markers = config["crossed_markers"]
 
-    def find_trial_csv(self, trial_path: str) -> str:
+    def find_trial_csv(self, trial_path: Path) -> Path:
         """
         Takes the path to a trial and returns the path to a trial CSV.
         Errors if there is not exactly 1 trial CSV in a trial folder.
         """
-        csv_path = [file for file in os.listdir(trial_path) if file[-4:] == ".csv"]
+        csv_path = list(trial_path.glob("*.csv"))
         if len(csv_path) > 1:
-            raise FileExistsError("Found more than 1 CSV file for trial: " + trial_path)
+            raise FileExistsError(f"Found more than 1 CSV file for trial: {trial_path}")
         if len(csv_path) <= 0:
-            raise FileNotFoundError("Couldn't find a CSV file for trial: " + trial_path)
+            raise FileNotFoundError(f"Couldn't find a CSV file for trial: {trial_path}")
 
-        return os.path.join(trial_path, csv_path[0])
+        return trial_path / csv_path[0]
 
-    def get_bodyparts_from_xma(self, csv_path: str, mode: str):
+    def get_bodyparts_from_xma(self, csv_path: Path, mode: str):
         """Takes the filepath of an XMAlab CSV file and returns marker names"""
 
         trial_csv = pd.read_csv(
@@ -67,28 +70,26 @@ class XMADataProcessor:
                 parts_unique.append(part)
         return parts_unique
 
-    def make_rgb_videos(self, data_path):
+    def make_rgb_videos(self, data_path: Path):
         """For all trials in given data path merges 2 videos into single RBG video."""
         trials = [
             folder
-            for folder in os.listdir(data_path)
-            if os.path.isdir(os.path.join(data_path, folder))
-            and not folder.startswith(".")
+            for folder in data_path.glob("*")
+            if (data_path / folder).is_dir() and not folder.name.startswith(".")
         ]
         for trial in trials:
-            path_to_trial = f"{data_path}/{trial}"
+            path_to_trial = data_path / trial
             self._merge_rgb(path_to_trial)
 
-    def xma_to_dlc_rgb(self, data_path: str):
+    def xma_to_dlc_rgb(self, data_path: Path):
         """Convert XMAlab input into RGB-ready DLC input"""
         trials = [
             folder
-            for folder in os.listdir(data_path)
-            if os.path.isdir(os.path.join(data_path, folder))
-            and not folder.startswith(".")
+            for folder in data_path.glob("*")
+            if (data_path / folder).is_dir() and not folder.name.startswith(".")
         ]
         for trial_name in trials:
-            trial_path = os.path.join(data_path, trial_name)
+            trial_path = data_path / trial_name
             try:
                 df = pd.read_csv(self.find_trial_csv(trial_path))
             except FileNotFoundError as e:
@@ -96,11 +97,9 @@ class XMADataProcessor:
                     f"Please make sure that your trainingdata 2DPoints csv file is named {trial_name}.csv"
                 )
                 raise e
-            substitute_data_relpath = "labeled-data/" + self._config["dataset_name"]
-            substitute_data_abspath = os.path.join(
-                os.path.split(self._config["path_config_file"])[0],
-                substitute_data_relpath,
-            )
+            substitute_data_relpath = "labeled-data" / self._config["dataset_name"]
+            dlc_config_path = Path(self._config["path_config_file"])
+            substitute_data_abspath = dlc_config_path / substitute_data_relpath
             df = df.dropna(how="all")
             list_of_frames = df.index + 1
             self._extract_matched_frames_rgb(
@@ -110,9 +109,10 @@ class XMADataProcessor:
             )
             self._splice_xma_to_dlc(trial_path)
 
-    def find_cam_file(self, path, identifier):
+    def find_cam_file(self, path: Path, identifier: str):
         """Searches a file for a given cam video in the trail folder."""
-        files = glob.glob(os.path.join(path, f"*{identifier}*.avi"))
+        files = list(path.glob(f"*{identifier}*.avi"))
+        logger.debug(files)
         if files:
             result = files[0]
             print(f"Found file {result} for {identifier}")
@@ -122,31 +122,32 @@ class XMADataProcessor:
                 f"No video file found containing '{identifier}' in {path}"
             )
 
-    def list_trials(self):
-        path = os.path.join(self._config["working_dir"], "trials")
+    def list_trials(self, suffix: str = "trials"):
         """Returns a list of trials or throws an exception if folder is empty"""
+        working_dir = Path(self._config["working_dir"])
+        trial_path = working_dir / suffix
         trials = [
             folder
-            for folder in os.listdir(path)
-            if os.path.isdir(os.path.join(path, folder)) and not folder.startswith(".")
+            for folder in trial_path.glob("*")
+            if (trial_path / folder).is_dir() and not folder.name.startswith(".")
         ]
 
         if len(trials) <= 0:
             raise FileNotFoundError(
-                f"Empty trials directory found. Please put trials to be "
-                "analyzed after training into the {path} folder"
+                f"Empty trials directory found. Please put trials to be analyzed after training into the {trial_path} folder"
             )
         return trials
 
-    def split_rgb(self, trial_path, codec="avc1"):
+    def split_rgb(self, trial_path: Path, codec="avc1"):
         """Takes a RGB video with different grayscale data written to the R, G, and B channels and splits it back into its component source videos."""
-        trial_name = os.path.basename(os.path.normpath(trial_path))
+        trial_name = trial_path.name
         out_name = trial_name + "_split_"
 
+        rgb_video_path = trial_path / f"{trial_name}_rgb.avi"
         try:
-            rgb_video = cv2.VideoCapture(f"{trial_path}/{trial_name}_rgb.avi")
+            rgb_video = cv2.VideoCapture(rgb_video_path)
         except FileNotFoundError as e:
-            print(f"Couldn't find video at {trial_path}/{trial_name}_rgb.avi")
+            print(f"Couldn't find video at {rgb_video_path}")
             raise e
         frame_width = int(rgb_video.get(3))
         frame_height = int(rgb_video.get(4))
@@ -288,7 +289,7 @@ class XMADataProcessor:
             f"Blue channel grayscale video created at {trial_path}/{out_name}blue.avi!"
         )
 
-    def _merge_rgb(self, trial_path, codec="avc1", mode="difference"):
+    def _merge_rgb(self, trial_path: Path, codec="avc1", mode="difference"):
         """
         Takes the path to a trial subfolder and exports a single new video with
         cam1 video written to the red channel and cam2 video written to the
@@ -296,8 +297,9 @@ class XMADataProcessor:
         "mode", either the difference blend between A and B, the multiply
         blend, or just a black frame.
         """
-        trial_name = os.path.basename(os.path.normpath(trial_path))
-        if os.path.exists(f"{trial_path}/{trial_name}_rgb.avi"):
+        trial_name = trial_path.name
+        rgb_video_path = trial_path / f"{trial_name}_rgb.avi"
+        if rgb_video_path.exists():
             print("RGB video already created. Skipping.")
             return
         cam1_video_path = self.find_cam_file(trial_path, "cam1")
@@ -371,11 +373,9 @@ class XMADataProcessor:
 
     def _splice_xma_to_dlc(self, trial_path, outlier_mode=False):
         """Takes csv of XMALab 2D XY coordinates from 2 cameras, outputs spliced hdf+csv data for DeepLabCut"""
-        substitute_data_relpath = "labeled-data/" + self._config["dataset_name"]
-        substitute_data_abspath = os.path.join(
-            os.path.sep.join(self._config["path_config_file"].split("\\")[:-1]),
-            substitute_data_relpath,
-        )
+        dlc_path = self._config["project_config_file"].parent
+        substitute_data_relpath = Path("labeled-data" / self._config["dataset_name"])
+        substitute_data_abspath = dlc_path / substitute_data_relpath
         trial_csv_path = self.find_trial_csv(trial_path)
         markers = self.get_bodyparts_from_xma(trial_csv_path, mode="2D")
 
@@ -383,11 +383,10 @@ class XMADataProcessor:
         # get_bodyparts_from_xma and some dataFrame manipulation to be
         # significantly shorter (and potentially faster?)
         try:
-            trial_name = os.path.basename(os.path.normpath(trial_path))
-            df = pd.read_csv(f"{trial_path}/{trial_name}.csv")
+            df = pd.read_csv(trial_csv_path)
         except FileNotFoundError as e:
             raise FileNotFoundError(
-                f"Please make sure that your trainingdata 2DPoints csv file is named {trial_name}.csv"
+                f"Cannot find your trainingdata 2DPoints csv file is named .csv"
             ) from e
         if self._swap_markers:
             print("Creating cam1Y-cam2Y-swapped synthetic markers")
@@ -473,25 +472,18 @@ class XMADataProcessor:
             dropna=False,
         )
         newdf.index.name = None
-        if not os.path.exists(substitute_data_abspath):
-            os.makedirs(substitute_data_abspath)
+        if not substitute_data_abspath.exists():
+            substitute_data_abspath.mkdir(parents=True, exist_ok=True)
         if outlier_mode:
-            data_name = os.path.join(substitute_data_abspath, "MachineLabelsRefine.h5")
-            tracked_hdf = os.path.join(
-                substitute_data_abspath, ("MachineLabelsRefine_" + ".h5")
-            )
+            data_name = substitute_data_abspath / "MachineLabelsRefine.h5"
+            tracked_hdf = substitute_data_abspath / ("MachineLabelsRefine_" + ".h5")
         else:
-            data_name = os.path.join(
-                substitute_data_abspath,
-                ("CollectedData_" + self._config["experimenter"] + ".h5"),
-            )
-            tracked_hdf = os.path.join(
-                substitute_data_abspath,
-                ("CollectedData_" + self._config["experimenter"] + ".h5"),
-            )
+            data_name = "CollectedData_" + self._config["experimenter"] + ".h5"
+            data_name = substitute_data_abspath / data_name
+            tracked_hdf = substitute_data_abspath / data_name
         newdf.to_hdf(data_name, "df_with_missing", format="table", mode="w")
         newdf.to_hdf(tracked_hdf, "df_with_missing", format="table", mode="w")
-        tracked_csv = data_name.split(".h5")[0] + ".csv"
+        tracked_csv = data_name.with_suffix(".csv")
         newdf.to_csv(tracked_csv, na_rep="NaN")
         print(
             "Successfully spliced XMALab 2D points to DLC format",
@@ -508,14 +500,11 @@ class XMADataProcessor:
         Optionally, compress the output PNGs. Factor ranges from 0 (no compression) to 9 (most compression)
         """
         extracted_frames = []
-        trainingdata_path = self._config["working_dir"] + "/trainingdata"
-        trial_name = os.path.basename(os.path.normpath(trial_path))
-        video_path = f"{trainingdata_path}/{trial_name}/{trial_name}_rgb.avi"
-        labeled_data_path = (
-            os.path.split(self._config["path_config_file"])[0]
-            + "/labeled-data/"
-            + self._config["dataset_name"]
-        )
+        trainingdata_path = Path(self._config["working_dir"] / "trainingdata")
+        trial_name = trial_path.name
+        video_path = trainingdata_path / trial_name / f"{trial_name}_rgb.avi"
+        dlc_path = Path(self._config["path_config_file"]).parent
+        labeled_data_path = dlc_path / "labeled-data" + self._config["dataset_name"]
         frames_from_vid = self._vid_to_pngs(
             video_path,
             indices,
@@ -530,7 +519,7 @@ class XMADataProcessor:
         self,
         video_path,
         indices_to_match,
-        output_dir=None,
+        output_dir: Path,
         name_from_folder=True,
         compression=0,
     ):
@@ -541,11 +530,11 @@ class XMADataProcessor:
         last_frame_to_analyze = max(indices_to_match)
         png_list = []
         if name_from_folder:
-            out_name = os.path.splitext(os.path.basename(video_path))[0]
+            out_name = video_path.name
         else:
             out_name = "img"
-        if not os.path.exists(output_dir):
-            os.makedirs(output_dir)
+        if output_dir is None or not output_dir.exists():
+            output_dir.mkdir(parents=True, exist_ok=True)
         print("===== try this")
         cap = cv2.VideoCapture(video_path)
         print("===== end this")
@@ -562,7 +551,7 @@ class XMADataProcessor:
 
             print(f"Extracting frame {frame_index}")
             png_name = out_name + "_" + str(frame_index).zfill(4) + ".png"
-            png_path = os.path.join(output_dir, png_name)
+            png_path = output_dir / png_name
             png_list.append(png_path)
             cv2.imwrite(png_path, frame, [cv2.IMWRITE_PNG_COMPRESSION, compression])
             if cv2.waitKey(1) & 0xFF == ord("q"):

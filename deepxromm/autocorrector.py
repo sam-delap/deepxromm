@@ -1,6 +1,8 @@
 """Performs XMAlab-style autocorrection on the trials and videos"""
 
+import logging
 import math
+from pathlib import Path
 import os
 
 import cv2
@@ -11,15 +13,23 @@ from ruamel.yaml import YAML
 
 from .xma_data_processor import XMADataProcessor
 
+logger = logging.getLogger(__name__)
+logging.basicConfig(
+    filename="autocorrecter.log",
+    encoding="utf-8",
+    level=os.environ.get("DEEPXROMM_LOG_LEVEL", "INFO").upper(),
+)
+
 
 class Autocorrector:
     """Performs XMAlab-style autocorrection on the trials and videos"""
 
     def __init__(self, config):
-        self._trials_path = os.path.join(config["working_dir"], "trials")
+        self.working_dir = Path(config["working_dir"])
+        self._trials_path = self.working_dir / "trials"
         self._data_processor = XMADataProcessor(config)
         self._config = config
-        self._dlc_config_path = config["path_config_file"]
+        self._dlc_config_path = Path(config["path_config_file"])
 
     def autocorrect_trials(self):
         """Do XMAlab-style autocorrect on the tracked beads for all trials"""
@@ -27,27 +37,33 @@ class Autocorrector:
 
         # Establish project vars
         yaml = YAML()
-        with open(self._dlc_config_path) as dlc_config:
+        with self._dlc_config_path.open("r") as dlc_config:
             dlc = yaml.load(dlc_config)
 
         iteration = dlc["iteration"]
 
         for trial in trials:
             # Find the appropriate pointsfile
-            trial_path = os.path.join(self._trials_path, trial)
-            iteration_path = os.path.join(trial_path, f"it{iteration}")
+            trial_name = trial.name
+            iteration_folder = self._trials_path / trial_name / f"it{iteration}"
+            trial_csv_location = (
+                iteration_folder / f"{trial_name}-Predicted2DPoints.csv"
+            )
+
+            print(f"Trial CSV: {trial_csv_location}")
 
             try:
-                csv = pd.read_csv(
-                    os.path.join(iteration_path, f"{trial}-Predicted2DPoints.csv")
-                )
+                csv = pd.read_csv(trial_csv_location)
             except FileNotFoundError as e:
                 print(
                     f"Could not find predicted 2D points file. Please check the it{iteration} folder for trial {trial}"
                 )
                 raise e
-            out_name = os.path.join(
-                iteration_path, f"{trial}-AutoCorrected2DPoints.csv"
+            out_name = (
+                self._trials_path
+                / trial_name
+                / f"it{iteration}"
+                / f"{trial_name}-AutoCorrected2DPoints.csv"
             )
 
             if self._config["test_autocorrect"]:
@@ -57,7 +73,7 @@ class Autocorrector:
 
             # For each camera
             for cam in cams:
-                csv = self._autocorrect_video(cam, trial_path, csv)
+                csv = self._autocorrect_video(cam, self._trials_path / trial_name, csv)
 
             # Print when autocorrect finishes
             if not self._config["test_autocorrect"]:
@@ -104,7 +120,7 @@ class Autocorrector:
             with open(self._dlc_config_path) as dlc_config:
                 dlc = yaml.load(dlc_config)
             iteration = dlc["iteration"]
-            iteration_path = os.path.join(trial_path, f"it{iteration}")
+            iteration_path = trial_path / f"it{iteration}"
             trial_csv_path = self._data_processor.find_trial_csv(iteration_path)
             parts_unique = self._data_processor.get_bodyparts_from_xma(
                 trial_csv_path, mode="2D"

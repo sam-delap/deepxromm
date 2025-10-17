@@ -1,6 +1,6 @@
 """Primary interface for training the XROMM network using DLC"""
 
-import os
+from pathlib import Path
 
 import deeplabcut
 
@@ -12,7 +12,8 @@ class Network:
     """Trains an XROMM labeling network using DLC."""
 
     def __init__(self, config):
-        self._data_path = os.path.join(config["working_dir"], "trainingdata")
+        self.working_dir = Path(config["working_dir"])
+        self._data_path = self.working_dir / "trainingdata"
         self._data_processor = XMADataProcessor(config)
         self._config = config
 

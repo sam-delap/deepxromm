@@ -3,6 +3,7 @@
 import os
 import math
 import logging
+from pathlib import Path
 
 from itertools import combinations
 import cv2
@@ -27,7 +28,9 @@ class Analyzer:
     """Analyzes XROMM videos using trained network."""
 
     def __init__(self, config):
-        self._trials_path = os.path.join(config["working_dir"], "trials")
+        self.working_dir = Path(config["working_dir"])
+        self.project_config = self.working_dir / "project_config.yaml"
+        self._trials_path = self.working_dir / "trials"
         self._data_processor = XMADataProcessor(config)
         self._config = config
         self._dlc_config = config["path_config_file"]
@@ -63,13 +66,13 @@ class Analyzer:
             # TODO - create driver functions for bulk analysis of RGB things
             # TODO - standardize function names
             for trial in trials:
-                trial_path = os.path.join(self._trials_path, trial)
-                current_files = os.listdir(trial_path)
+                trial_path = self._trials_path / trial
+                current_files = trial_path.glob("*")
                 logger.debug(f"Current files in directory {current_files}")
-                video_path = f"{trial_path}/{trial}_rgb.avi"
-                if not os.path.exists(video_path):
+                video_path = trial_path / f"{trial}_rgb.avi"
+                if not video_path.exists():
                     self._data_processor.make_rgb_videos(trial_path)
-                destfolder = f"{trial_path}/it{iteration}/"
+                destfolder = trial_path / f"it{iteration}"
                 deeplabcut.analyze_videos(
                     self._dlc_config,
                     video_path,
@@ -85,11 +88,9 @@ class Analyzer:
         yaml = YAML()
         trial_combos = combinations(self._data_processor.list_trials(), 2)
         for trial1, trial2 in trial_combos:
-            self._config["trial_1_name"] = trial1
-            self._config["trial_2_name"] = trial2
-            with open(
-                os.path.join(self._config["working_dir"], "project_config.yaml"), "w"
-            ) as file:
+            self._config["trial_1_name"] = trial1.stem
+            self._config["trial_2_name"] = trial2.stem
+            with self.project_config.open("w") as file:
                 yaml.dump(self._config, file)
             # TODO: pass the trial names directly instead of writing into config
             similarity_score[(trial1, trial2)] = self.analyze_video_similarity_trial()
@@ -101,9 +102,7 @@ class Analyzer:
         cameras = ["cam1", "cam2"]
         videos = {
             (trial, cam): cv2.VideoCapture(
-                self._data_processor.find_cam_file(
-                    os.path.join(self._trials_path, trial), cam
-                )
+                self._data_processor.find_cam_file(self._trials_path / trial, cam)
             )
             for trial in trials
             for cam in cameras
@@ -144,11 +143,9 @@ class Analyzer:
         trial_perms = combinations(self._data_processor.list_trials(), 2)
         logger.debug(f"Trial permutations for project: {trial_perms}")
         for trial1, trial2 in trial_perms:
-            self._config["trial_1_name"] = trial1
-            self._config["trial_2_name"] = trial2
-            with open(
-                os.path.join(self._config["working_dir"], "project_config.yaml"), "w"
-            ) as file:
+            self._config["trial_1_name"] = trial1.stem
+            self._config["trial_2_name"] = trial2.stem
+            with self.project_config.open("w") as file:
                 yaml.dump(self._config, file)
             # TODO: pass the trial names directly instead of writing into config
             marker_similarity[(trial1, trial2)] = abs(
@@ -161,11 +158,11 @@ class Analyzer:
         # Find CSVs for each trial
         trial1 = self._config["trial_1_name"]
         trial2 = self._config["trial_2_name"]
-        trial1_path = os.path.join(self._trials_path, trial1)
-        current_files = os.listdir(trial1_path)
+        trial1_path = self._trials_path / trial1
+        current_files = trial1_path.glob("*")
         logger.debug(f"Current files in directory {trial1_path}: {current_files}")
-        trial2_path = os.path.join(self._trials_path, trial2)
-        current_files = os.listdir(trial2_path)
+        trial2_path = self._trials_path / trial2
+        current_files = trial2_path.glob("*")
         logger.debug(f"Current files in directory {trial2_path}: {current_files}")
 
         # Get a list of markers that each trial have in common
@@ -240,8 +237,8 @@ class Analyzer:
         with open(self._dlc_config) as dlc_config:
             dlc = yaml.load(dlc_config)
         iteration = dlc["iteration"]
-        trial_path = os.path.join(self._trials_path, trial)
-        current_files = os.listdir(trial_path)
+        trial_path = self._trials_path / trial
+        current_files = trial_path.glob("*")
         logger.debug(f"Current files in directory {current_files}")
         trial_csv_path = self._data_processor.find_trial_csv(trial_path)
         rgb_parts = self._data_processor.get_bodyparts_from_xma(
@@ -252,10 +249,9 @@ class Analyzer:
             bodyparts_xy.append(part + "_Y")
 
         # REFACTOR: This should be added as a feature of find_trial_csv
+        iteration_folder = trial_path / f"it{iteration}"
         csv_path = [
-            file
-            for file in os.listdir(f"{trial_path}/it{iteration}")
-            if ".csv" in file and "-2DPoints" not in file
+            file for file in iteration_folder.glob("*.csv") if "-2DPoints" not in file
         ]
         if len(csv_path) > 1:
             raise FileExistsError(
@@ -267,7 +263,8 @@ class Analyzer:
             )
 
         csv_path = csv_path[0]
-        xma_csv_path = f"{trial_path}/it{iteration}/{trial}-Predicted2DPoints.csv"
+        logger.debug(f"Found CSV path: {csv_path} for trial {trial}")
+        xma_csv_path = iteration_folder / f"{trial}-Predicted2DPoints.csv"
 
         df = pd.read_csv(f"{trial_path}/it{iteration}/{csv_path}", skiprows=1)
         df.index = df["bodyparts"]
@@ -288,7 +285,8 @@ class Analyzer:
             + str(xma_csv_path)
         )
         if save_hdf:
-            tracked_hdf = os.path.splitext(csv_path)[0] + ".h5"
+            tracked_hdf = csv_path.with_suffix("hdf")
+            logger.debug(f"Tracked hdf stored at {str(tracked_hdf)}")
             df.to_hdf(
                 tracked_hdf, "df_with_missing", format="table", mode="w", nan_rep="NaN"
             )
