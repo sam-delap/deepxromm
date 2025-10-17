@@ -17,3 +17,6 @@
 # Source Dists
 dist/*
 deepxromm.egg-info/*
+
+# Codecov
+.coverage
