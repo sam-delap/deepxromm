@@ -162,18 +162,20 @@ class Autocorrector:
             subimage_median = cv2.medianBlur(subimage_diff, 3)
 
             # LUT
-            subimage_median = self._filter_image(subimage_median, krad=3)
+            subimage_median_filtered = self._filter_image(subimage_median, krad=3)
 
             # Thresholding
-            subimage_median = cv2.cvtColor(subimage_median, cv2.COLOR_BGR2GRAY)
-            min_val, _, _, _ = cv2.minMaxLoc(subimage_median)
+            subimage_median_threshold = cv2.cvtColor(
+                subimage_median_filtered, cv2.COLOR_BGR2GRAY
+            )
+            min_val, _, _, _ = cv2.minMaxLoc(subimage_median_threshold)
             thres = (
                 0.5 * min_val
-                + 0.5 * np.mean(subimage_median)
+                + 0.5 * np.mean(subimage_median_threshold)
                 + self._config["threshold"] * 0.01 * 255
             )
             _, subimage_threshold = cv2.threshold(
-                subimage_median, thres, 255, cv2.THRESH_BINARY_INV
+                subimage_median_threshold, thres, 255, cv2.THRESH_BINARY_INV
             )
 
             # Gaussian blur
@@ -221,13 +223,13 @@ class Autocorrector:
                 self._show_crop(subimage_median, 15)
 
                 print("Median filtered")
-                self._show_crop(subimage_median, 15)
+                self._show_crop(subimage_median_filtered, 15)
 
                 print("Threshold")
                 self._show_crop(subimage_threshold, 15)
 
                 print("Gaussian")
-                self._show_crop(subimage_threshold, 15)
+                self._show_crop(subimage_gaussthresh, 15)
 
                 print("Best Contour")
                 detected_center_im, _ = cv2.minEnclosingCircle(contours_im[best_index])
