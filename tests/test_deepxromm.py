@@ -390,7 +390,7 @@ class TestDefaultsPerformance(unittest.TestCase):
         shutil.rmtree(self.working_dir)
 
 
-class TestSampleTrial(unittest.TestCase):
+class TestSampleFrame(unittest.TestCase):
     """Test function behaviors using a frame from an actual trial"""
 
     def setUp(self):
@@ -568,6 +568,48 @@ class TestSampleTrial(unittest.TestCase):
         # Do cross-correlation
         marker_similarity = self.deepxromm.analyze_marker_similarity_project()
         self.assertNotEqual(sum(marker_similarity.values()), 0)
+
+    def tearDown(self):
+        """Remove the created temp project"""
+        project_path = Path.cwd() / "tmp"
+        shutil.rmtree(project_path)
+
+
+class TestWithTrial(unittest.TestCase):
+    """Test function performance on an actual trial"""
+
+    def setUp(self):
+        """Create trial"""
+        self.working_dir = Path.cwd() / "tmp"
+        self.deepxromm = DeepXROMM.create_new_project(self.working_dir)
+
+        # Make a trial directory
+        trial_dir = self.working_dir / "trainingdata/test"
+        trial_dir.mkdir(parents=True, exist_ok=True)
+
+        # Move sample frame input to trainingdata
+        shutil.copy(str(SAMPLE_FRAME_INPUT), str(trial_dir / "test.csv"))
+
+        # Move sample frame input to trials (it0 and trials)
+        trials_dir = self.working_dir / "trials/test/it0"
+        trials_dir.mkdir(parents=True, exist_ok=True)
+        shutil.copy(
+            str(SAMPLE_FRAME_INPUT), str(self.working_dir / "trials/test/test.csv")
+        )
+        shutil.copy(
+            str(SAMPLE_FRAME_INPUT), str(trials_dir / "test-Predicted2DPoints.csv")
+        )
+
+        # Cam 1 and Cam 2 trials setup
+        for cam in ["cam1", "cam2"]:
+            video_path = self.working_dir / f"trials/test/test_{cam}.avi"
+            out = cv2.VideoWriter(
+                str(video_path), cv2.VideoWriter_fourcc(*"DIVX"), 30, (1024, 512)
+            )
+            out.write(frame)
+            out.release()
+
+        cv2.destroyAllWindows()
 
     def tearDown(self):
         """Remove the created temp project"""
