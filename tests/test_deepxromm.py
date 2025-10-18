@@ -606,7 +606,9 @@ class Test2DTrialProcess(unittest.TestCase):
         print(xmalab_data.head(5))
 
         dlc_config = Path(deepxromm.config["path_config_file"])
-        dlc_data = pd.read_hdf(dlc_config / "labeled-data/test" / "CollectedData_NA.h5")
+        dlc_data = pd.read_hdf(
+            dlc_config.parent / "labeled-data/MyData" / "CollectedData_NA.h5"
+        )
         print(dlc_data.index)
         print(dlc_data.head(5))
 
