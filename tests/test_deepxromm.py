@@ -390,7 +390,7 @@ class TestDefaultsPerformance(unittest.TestCase):
         shutil.rmtree(self.working_dir)
 
 
-class TestSampleTrial(unittest.TestCase):
+class TestSampleFrame(unittest.TestCase):
     """Test function behaviors using a frame from an actual trial"""
 
     def setUp(self):
@@ -568,6 +568,49 @@ class TestSampleTrial(unittest.TestCase):
         # Do cross-correlation
         marker_similarity = self.deepxromm.analyze_marker_similarity_project()
         self.assertNotEqual(sum(marker_similarity.values()), 0)
+
+    def tearDown(self):
+        """Remove the created temp project"""
+        project_path = Path.cwd() / "tmp"
+        shutil.rmtree(project_path)
+
+
+class Test2DTrialProcess(unittest.TestCase):
+    """Test function performance on an actual trial - 2D, combined trial workflow"""
+
+    def setUp(self):
+        """Create trial. Assumes test cam and CSV files are in the same folder"""
+        self.working_dir = Path.cwd() / "tmp"
+        self.deepxromm = DeepXROMM.create_new_project(self.working_dir)
+
+        # Make a trial directory
+        trial_dir = self.working_dir / "trainingdata/test"
+        trial_dir.mkdir(parents=True, exist_ok=True)
+
+        # Make vars for pathing to find files easily
+        self.trial_csv = trial_dir / "test.csv"
+        self.cam1_path = trial_dir / "test_cam1.avi"
+        self.cam2_path = trial_dir / "test_cam2.avi"
+
+        # Move sample frame input to trainingdata
+        shutil.copy("trial.csv", str(self.trial_csv))
+        shutil.copy("trial_cam1.avi", str(self.cam1_path))
+        shutil.copy("trial_cam2.avi", str(self.cam2_path))
+
+    def test_first_frame_matches_in_dlc_csv(self):
+        """When I run xma_to_dlc, does the DLC CSV have the same data as my original file?"""
+        deepxromm = DeepXROMM.load_project(self.working_dir)
+        deepxromm.xma_to_dlc()
+
+        xmalab_data = pd.read_csv(self.trial_csv)
+        print(xmalab_data.head(5))
+
+        dlc_config = Path(deepxromm.config["path_config_file"])
+        dlc_data = pd.read_hdf(
+            dlc_config.parent / "labeled-data/MyData" / "CollectedData_NA.h5"
+        )
+        print(dlc_data.index)
+        print(dlc_data.head(5))
 
     def tearDown(self):
         """Remove the created temp project"""

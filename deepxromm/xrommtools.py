@@ -233,7 +233,8 @@ def xma_to_dlc(
         relnames = []
         data = pd.DataFrame()
         # new training dataset folder
-        newpath = Path(config / "labeled-data" / dataset_name)
+        config_path = Path(config)
+        newpath = config_path / "labeled-data" / dataset_name
         h5_save_path = newpath / f"CollectedData_{scorer}.h5"
         csv_save_path = newpath / f"CollectedData_{scorer}.csv"
 
@@ -283,7 +284,8 @@ def xma_to_dlc(
                 else:
                     # file is actually a file
                     # extract frames from video and convert to png
-                    relpath = Path("labeled-data" / dataset_name)
+                    relative_path_stub = Path("labeled-data")
+                    relpath = relative_path_stub / dataset_name
                     frames = picked_frames[trialnum]
                     frames.sort()
                     cap = cv2.VideoCapture(video_path)
