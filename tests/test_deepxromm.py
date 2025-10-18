@@ -575,11 +575,11 @@ class TestSampleFrame(unittest.TestCase):
         shutil.rmtree(project_path)
 
 
-class TestWithTrial(unittest.TestCase):
-    """Test function performance on an actual trial"""
+class Test2DTrialProcess(unittest.TestCase):
+    """Test function performance on an actual trial - 2D, combined trial workflow"""
 
     def setUp(self):
-        """Create trial"""
+        """Create trial. Assumes test cam and CSV files are in the same folder"""
         self.working_dir = Path.cwd() / "tmp"
         self.deepxromm = DeepXROMM.create_new_project(self.working_dir)
 
@@ -587,29 +587,28 @@ class TestWithTrial(unittest.TestCase):
         trial_dir = self.working_dir / "trainingdata/test"
         trial_dir.mkdir(parents=True, exist_ok=True)
 
+        # Make vars for pathing to find files easily
+        self.trial_csv = trial_dir / "test.csv"
+        self.cam1_path = trial_dir / "test_cam1.avi"
+        self.cam2_path = trial_dir / "test_cam2.avi"
+
         # Move sample frame input to trainingdata
-        shutil.copy(str(SAMPLE_FRAME_INPUT), str(trial_dir / "test.csv"))
+        shutil.copy("trial.csv", str(self.trial_csv))
+        shutil.copy("trial_cam1.avi", str(self.cam1_path))
+        shutil.copy("trial_cam2.avi", str(self.cam2_path))
 
-        # Move sample frame input to trials (it0 and trials)
-        trials_dir = self.working_dir / "trials/test/it0"
-        trials_dir.mkdir(parents=True, exist_ok=True)
-        shutil.copy(
-            str(SAMPLE_FRAME_INPUT), str(self.working_dir / "trials/test/test.csv")
-        )
-        shutil.copy(
-            str(SAMPLE_FRAME_INPUT), str(trials_dir / "test-Predicted2DPoints.csv")
-        )
+    def test_first_frame_matches_in_dlc_csv(self):
+        """When I run xma_to_dlc, does the DLC CSV have the same data as my original file?"""
+        deepxromm = DeepXROMM.load_project(self.working_dir)
+        deepxromm.xma_to_dlc()
 
-        # Cam 1 and Cam 2 trials setup
-        for cam in ["cam1", "cam2"]:
-            video_path = self.working_dir / f"trials/test/test_{cam}.avi"
-            out = cv2.VideoWriter(
-                str(video_path), cv2.VideoWriter_fourcc(*"DIVX"), 30, (1024, 512)
-            )
-            out.write(frame)
-            out.release()
+        xmalab_data = pd.read_csv(self.trial_csv)
+        print(xmalab_data.head(5))
 
-        cv2.destroyAllWindows()
+        dlc_config = Path(deepxromm.config["path_config_file"])
+        dlc_data = pd.read_hdf(dlc_config / "labeled-data/test" / "CollectedData_NA.h5")
+        print(dlc_data.index)
+        print(dlc_data.head(5))
 
     def tearDown(self):
         """Remove the created temp project"""
