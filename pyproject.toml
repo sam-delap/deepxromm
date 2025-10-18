@@ -39,6 +39,7 @@ packages = ["deepxromm"]
 
 [dependency-groups]
 dev = [
+    "coverage>=7.10.7",
     "pre-commit>=4.3.0",
 ]
 
