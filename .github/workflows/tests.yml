@@ -26,10 +26,10 @@ jobs:
         run: uv run pre-commit run -a
 
       - name: Download source trial
-        run: curl https://github.com/sam-delap/deepxromm/releases/download/test-video-files/xma_dlc_care_package.zip -o /tmp/xma_dlc_care_package.zip
+        run: curl -L https://github.com/sam-delap/deepxromm/releases/download/test-video-files/xma_dlc_care_package.zip -o tests/xma_dlc_care_package.zip
 
       - name: Unpack source trial
-        run: unzip /tmp/xma_dlc_care_package.zip
+        run: unzip tests/xma_dlc_care_package.zip
 
       - name: Run unit tests in the environment
         run: uv run tests/test_deepxromm.py
