@@ -97,7 +97,9 @@ class XMADataProcessor:
                     f"Please make sure that your trainingdata 2DPoints csv file is named {trial_name}.csv"
                 )
                 raise e
-            substitute_data_relpath = "labeled-data" / self._config["dataset_name"]
+            substitute_data_relpath = (
+                Path("labeled-data") / self._config["dataset_name"]
+            )
             dlc_config_path = Path(self._config["path_config_file"])
             substitute_data_abspath = dlc_config_path / substitute_data_relpath
             df = df.dropna(how="all")
@@ -297,6 +299,7 @@ class XMADataProcessor:
         "mode", either the difference blend between A and B, the multiply
         blend, or just a black frame.
         """
+        print("Merging RGBs")
         trial_name = trial_path.name
         rgb_video_path = trial_path / f"{trial_name}_rgb.avi"
         if rgb_video_path.exists():
@@ -371,10 +374,11 @@ class XMADataProcessor:
         cv2.destroyAllWindows()
         print(f"Merged RGB video created at {trial_path}/{trial_name}_rgb.avi!")
 
-    def _splice_xma_to_dlc(self, trial_path, outlier_mode=False):
+    def _splice_xma_to_dlc(self, trial_path: Path, outlier_mode=False):
         """Takes csv of XMALab 2D XY coordinates from 2 cameras, outputs spliced hdf+csv data for DeepLabCut"""
-        dlc_path = self._config["project_config_file"].parent
-        substitute_data_relpath = Path("labeled-data" / self._config["dataset_name"])
+        dlc_path = Path(self._config["path_config_file"]).parent
+        trial_name = trial_path.name
+        substitute_data_relpath = Path("labeled-data") / self._config["dataset_name"]
         substitute_data_abspath = dlc_path / substitute_data_relpath
         trial_csv_path = self.find_trial_csv(trial_path)
         markers = self.get_bodyparts_from_xma(trial_csv_path, mode="2D")
@@ -444,14 +448,15 @@ class XMADataProcessor:
         df = df.dropna(how="all")
         list_of_frames = df.index + 1
         unique_frames_set = set(list_of_frames)
+
+        # Ensure that all frames were unique originally
+        assert len(list_of_frames) == len(unique_frames_set)
+
         unique_frames = sorted(unique_frames_set)
         print("Importing frames: ")
         print(unique_frames)
         df["frame_index"] = [
-            substitute_data_relpath
-            + f"/{trial_name}_rgb_"
-            + str(index).zfill(4)
-            + ".png"
+            str(substitute_data_abspath / f"{trial_name}_rgb_{str(index).zfill(4)}.png")
             for index in unique_frames
         ]
         df["scorer"] = self._config["experimenter"]
@@ -475,21 +480,19 @@ class XMADataProcessor:
         if not substitute_data_abspath.exists():
             substitute_data_abspath.mkdir(parents=True, exist_ok=True)
         if outlier_mode:
-            data_name = substitute_data_abspath / "MachineLabelsRefine.h5"
-            tracked_hdf = substitute_data_abspath / ("MachineLabelsRefine_" + ".h5")
+            tracked_hdf = substitute_data_abspath / "MachineLabelsRefine.h5"
         else:
             data_name = "CollectedData_" + self._config["experimenter"] + ".h5"
-            data_name = substitute_data_abspath / data_name
             tracked_hdf = substitute_data_abspath / data_name
-        newdf.to_hdf(data_name, "df_with_missing", format="table", mode="w")
+
+        print(tracked_hdf)
         newdf.to_hdf(tracked_hdf, "df_with_missing", format="table", mode="w")
-        tracked_csv = data_name.with_suffix(".csv")
+        tracked_csv = tracked_hdf.with_suffix(".csv")
         newdf.to_csv(tracked_csv, na_rep="NaN")
         print(
             "Successfully spliced XMALab 2D points to DLC format",
-            "saved " + str(data_name),
-            "saved " + str(tracked_hdf),
-            "saved " + str(tracked_csv),
+            f"saved {tracked_hdf}",
+            f"saved {tracked_csv}",
             sep="\n",
         )
 
@@ -500,11 +503,11 @@ class XMADataProcessor:
         Optionally, compress the output PNGs. Factor ranges from 0 (no compression) to 9 (most compression)
         """
         extracted_frames = []
-        trainingdata_path = Path(self._config["working_dir"] / "trainingdata")
+        trainingdata_path = Path(self._config["working_dir"]) / "trainingdata"
         trial_name = trial_path.name
         video_path = trainingdata_path / trial_name / f"{trial_name}_rgb.avi"
         dlc_path = Path(self._config["path_config_file"]).parent
-        labeled_data_path = dlc_path / "labeled-data" + self._config["dataset_name"]
+        labeled_data_path = dlc_path / "labeled-data" / self._config["dataset_name"]
         frames_from_vid = self._vid_to_pngs(
             video_path,
             indices,

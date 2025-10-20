@@ -1,9 +1,11 @@
 # Video
 *.avi
 *.mp4
+*.zip
 
 # Pointsfiles
 *.h5
+*.csv
 *.mat
 *.pickle
 
