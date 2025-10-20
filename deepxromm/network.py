@@ -23,7 +23,7 @@ class Network:
         if mode == "2D":
             try:
                 xma_to_dlc(
-                    self._config["path_config_file"],
+                    Path(self._config["path_config_file"]),
                     self._data_path,
                     self._config["dataset_name"],
                     self._config["experimenter"],
@@ -33,8 +33,8 @@ class Network:
                 pass
         elif mode == "per_cam":
             xma_to_dlc(
-                path_config_file=self._config["path_config_file"],
-                path_config_file_cam2=self._config["path_config_file_2"],
+                path_config_file=Path(self._config["path_config_file"]),
+                path_config_file_cam2=Path(self._config["path_config_file_2"]),
                 data_path=self._data_path,
                 dataset_name=self._config["dataset_name"],
                 scorer=self._config["experimenter"],
@@ -42,6 +42,7 @@ class Network:
                 nnetworks=2,
             )
         elif mode == "rgb":
+            print("We've selected an RGB video")
             self._data_processor.make_rgb_videos(self._data_path)
             self._data_processor.xma_to_dlc_rgb(self._data_path)
         else:

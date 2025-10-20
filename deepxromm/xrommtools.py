@@ -21,15 +21,15 @@ from deeplabcut.pose_estimation_tensorflow.predict_videos import analyze_videos
 
 # TODO: Un-nest all of J.D.'s code
 def xma_to_dlc(
-    path_config_file,
+    path_config_file: Path,
     data_path: Path,
     dataset_name,
     scorer,
     nframes,
+    path_config_file_cam2: Path | None = None,
     nnetworks=1,
-    path_config_file_cam2=[],
 ):
-    config = path_config_file[:-12]
+    config = path_config_file.parent
     cameras = [1, 2]
     picked_frames = []
     dfs = []
@@ -75,7 +75,7 @@ def xma_to_dlc(
         if len(contents) != 1:
             raise ValueError("Found more CSVs than expected")
         filename = contents[0]
-        df1 = pd.read_csv(trial / filename, sep=",", header=None)
+        df1 = pd.read_csv(filename, sep=",", header=None)
 
         # read pointnames from header row
         pointnames = df1.loc[0, ::4].astype(str).str[:-7].tolist()
@@ -117,20 +117,16 @@ def xma_to_dlc(
 
     ### Part 2: Extract images and 2D point data
 
-    if nnetworks == 2:
-        configs = [path_config_file[:-12], path_config_file_cam2[:-12]]
+    if nnetworks == 2 and path_config_file_cam2 is not None:
+        configs = [path_config_file.parent, path_config_file_cam2.parent]
 
         for camera in cameras:
-            print("Extracting camera %d trial images and 2D points..." % camera)
+            print(f"Extracting camera {camera} trial images and 2D points...")
             relnames = []
             data = pd.DataFrame()
             # new training dataset folder
-            newpath = Path(
-                configs[camera - 1]
-                / "labeled-data"
-                / dataset_name
-                / "_cam"
-                / str(camera)
+            newpath = (
+                configs[camera - 1] / "labeled-data" / f"{dataset_name}_cam{camera}"
             )
             h5_save_path = newpath / f"CollectedData_{scorer}.h5"
             csv_save_path = newpath / f"CollectedData_{scorer}.csv"
@@ -144,40 +140,38 @@ def xma_to_dlc(
             else:
                 newpath.mkdir(parents=True, exist_ok=True)  # make new folder
 
-            for trialnum, trial in enumerate(trialnames):
+            for trialnum, trial_path in enumerate(trialnames):
 
                 # get video file
+                trial_name = trial_path.name
                 file = None
-                trial_path = data_path / trial
                 contents = trial_path.glob("*")
                 for name in contents:
                     if any(x in name.name for x in subs[camera - 1]):
                         file = name
                 if file is None:
                     raise ValueError(
-                        "Cannot locate %s video file or image folder" % trial
+                        f"Cannot locate {trial_name} video file or image folder"
                     )
 
                 # if video file is actually folder of frames
-                video_path = data_path / trial / file
+                video_path = trial_path / file
                 if video_path.is_dir():
                     imgpath = video_path
                     imgs = imgpath.glob("*")
-                    relpath = Path(f"labeled-data/{dataset_name}_cam{camera}")
                     frames = picked_frames[trialnum]
                     frames.sort()
-
                     for count, img in enumerate(imgs):
-                        if count in frames:
-                            image = cv2.imread(imgpath / img)
-                            current_img = str(count + 1).zfill(4)
-                            relname = relpath / f"{trial}_{current_img}.png"
-                            relnames = relnames + [relname]
-                            cv2.imwrite(newpath / f"{trial}_{current_img}.png", image)
+                        if count not in frames:
+                            continue
+                        image = cv2.imread(imgpath / img)
+                        current_img = str(count + 1).zfill(4)
+                        relname = str(newpath / f"{trial_name}_{current_img}.png")
+                        relnames.append(relname)
+                        cv2.imwrite(relname, image)
                 else:
                     # file is actually a file
                     # extract frames from video and convert to png
-                    relpath = Path(f"labeled-data/{dataset_name}_cam{camera}")
                     frames = picked_frames[trialnum]
                     frames.sort()
                     cap = cv2.VideoCapture(video_path)
@@ -186,9 +180,9 @@ def xma_to_dlc(
                     while success:
                         if count in frames:
                             current_img = str(count + 1).zfill(4)
-                            relname = relpath / f"{trial}_{current_img}.png"
-                            relnames = relnames + [relname]
-                            cv2.imwrite(newpath / f"{trial}_{current_img}.png", image)
+                            relname = str(newpath / f"{trial_name}_{current_img}.png")
+                            relnames.append(relname)
+                            cv2.imwrite(relname, image)
                         success, image = cap.read()
                         count += 1
                     cap.release()
@@ -233,8 +227,7 @@ def xma_to_dlc(
         relnames = []
         data = pd.DataFrame()
         # new training dataset folder
-        config_path = Path(config)
-        newpath = config_path / "labeled-data" / dataset_name
+        newpath = config / "labeled-data" / dataset_name
         h5_save_path = newpath / f"CollectedData_{scorer}.h5"
         csv_save_path = newpath / f"CollectedData_{scorer}.csv"
 
@@ -242,7 +235,7 @@ def xma_to_dlc(
             contents = list(newpath.glob("*"))
             if len(contents) > 0:
                 raise ValueError(
-                    f"There are already data in the camera {camera} training dataset folder"
+                    f"There are already data in the training dataset folder"
                 )
         else:
             newpath.mkdir(parents=True, exist_ok=True)
@@ -269,17 +262,18 @@ def xma_to_dlc(
                 if video_path.is_dir():
                     imgpath = video_path
                     imgs = imgpath.glob("*")
-                    relpath = Path("labeled-data" / dataset_name)
+                    relpath = Path(f"labeled-data/{dataset_name}")
                     frames = picked_frames[trialnum]
                     frames.sort()
 
                     for count, img in enumerate(imgs):
-                        if count in frames:
-                            current_img = str(count + 1).zfill(4)
-                            image = cv2.imread(imgpath / img)
-                            relname = relpath / f"{trial}_{current_img}.png"
-                            relnames = relnames + [relname]
-                            cv2.imwrite(newpath / f"{trial}_{current_img}.png", image)
+                        if count not in frames:
+                            continue
+                        current_img = str(count + 1).zfill(4)
+                        image = cv2.imread(imgpath / img)
+                        relname = relpath / f"{trial}_{current_img}.png"
+                        relnames = relnames + [relname]
+                        cv2.imwrite(newpath / f"{trial}_{current_img}.png", image)
 
                 else:
                     # file is actually a file
@@ -294,9 +288,11 @@ def xma_to_dlc(
                     while success:
                         if count in frames:
                             current_img = str(count + 1).zfill(4)
-                            relname = relpath / f"{trial}_{current_img}.png"
-                            relnames = relnames + [relname]
-                            cv2.imwrite(newpath / f"{trial}_{current_img}.png", image)
+                            relname = str(
+                                newpath / f"{trial.name}_cam{camera}_{current_img}.png"
+                            )
+                            relnames.append(relname)
+                            cv2.imwrite(relname, image)
                         success, image = cap.read()
                         count += 1
                     cap.release()
@@ -563,7 +559,7 @@ def add_frames(
     if nnetworks == 2:
 
         for camera in cameras:
-            dlc_dataset_path = Path(configs[camera - 1] / "labeled-data")
+            dlc_dataset_path = configs[camera - 1] / "labeled-data"
             contents = list(dlc_dataset_path.glob("*"))
             if len(contents) == 1:
                 dataset_name = contents[0]
@@ -689,8 +685,8 @@ def add_frames(
             data.to_csv(labeleddata_path + "/" + csvfile[0], na_rep="NaN")
 
     else:  # default, one network for both videos
-        config = path_config_file[:-12]
-        labeled_data_dir = Path(config / "labeled-data")
+        labeled_data_dir = config / "labeled-data"
+        print(str(labeled_data_dir))
         contents = list(labeled_data_dir.glob("*"))
         if len(contents) == 1:
             dataset_name = contents[0]
