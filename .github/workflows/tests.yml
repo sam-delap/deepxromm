@@ -8,9 +8,6 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
-      - name: Check default working directory
-        run: pwd
-
       - name: Install uv
         uses: astral-sh/setup-uv@v7
         with:
@@ -30,6 +27,12 @@ jobs:
 
       - name: Unpack source trial
         run: unzip tests/xma_dlc_care_package.zip
+
+      - name: Rename files
+        run: |
+          mv tests/30DEC2021_LF04_t01_c.csv tests/trial.csv
+          mv tests/30DEC2021_LF04_t01_c_cam1.avi tests/trial_cam1.avi 
+          mv tests/30DEC2021_LF04_t01_c_cam2.avi tests/trial_cam2.avi 
 
       - name: Run unit tests in the environment
         run: uv run tests/test_deepxromm.py
