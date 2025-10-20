@@ -28,11 +28,14 @@ jobs:
       - name: Unpack source trial
         run: unzip tests/xma_dlc_care_package.zip -d tests/
 
-      - name: Rename files
-        run: |
-          mv tests/30DEC2021_LF04_t01_c.csv tests/trial.csv
-          mv tests/30DEC2021_LF04_t01_c_cam1.avi tests/trial_cam1.avi 
-          mv tests/30DEC2021_LF04_t01_c_cam2.avi tests/trial_cam2.avi 
+      - name: Rename trial CSV
+        run: mv tests/30DEC2021_LF04_t01_c.csv tests/trial.csv
+
+      - name: Rename cam1
+        run: mv tests/30DEC2021_LF04_t01_c_cam1.avi tests/trial_cam1.avi 
+      
+      - name: Rename cam2
+        run: mv tests/30DEC2021_LF04_t01_c_cam2.avi tests/trial_cam2.avi 
 
       - name: Run unit tests in the environment
         run: uv run tests/test_deepxromm.py
