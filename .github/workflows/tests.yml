@@ -26,16 +26,16 @@ jobs:
         run: curl -L https://github.com/sam-delap/deepxromm/releases/download/test-video-files/xma_dlc_care_package.zip -o tests/xma_dlc_care_package.zip
 
       - name: Unpack source trial
-        run: unzip tests/xma_dlc_care_package.zip -d tests/
+        run: unzip tests/xma_dlc_care_package.zip 
 
       - name: Rename trial CSV
-        run: mv tests/30DEC2021_LF04_t01_c.csv tests/trial.csv
+        run: mv 30DEC2021_LF04_t01_c.csv trial.csv
 
       - name: Rename cam1
-        run: mv tests/30DEC2021_LF04_t01_c_cam1.avi tests/trial_cam1.avi 
+        run: mv 30DEC2021_LF04_t01_c_cam1.avi trial_cam1.avi 
       
       - name: Rename cam2
-        run: mv tests/30DEC2021_LF04_t01_c_cam2.avi tests/trial_cam2.avi 
+        run: mv 30DEC2021_LF04_t01_c_cam2.avi trial_cam2.avi 
 
       - name: Run unit tests in the environment
         run: uv run tests/test_deepxromm.py
