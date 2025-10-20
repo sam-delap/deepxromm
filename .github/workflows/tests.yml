@@ -26,7 +26,7 @@ jobs:
         run: curl -L https://github.com/sam-delap/deepxromm/releases/download/test-video-files/xma_dlc_care_package.zip -o tests/xma_dlc_care_package.zip
 
       - name: Unpack source trial
-        run: unzip tests/xma_dlc_care_package.zip
+        run: unzip tests/xma_dlc_care_package.zip -d tests/
 
       - name: Rename files
         run: |
