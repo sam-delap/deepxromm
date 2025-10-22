@@ -39,8 +39,9 @@ packages = ["deepxromm"]
 
 [dependency-groups]
 dev = [
-    "coverage>=7.10.7",
     "pre-commit>=4.3.0",
+    "pytest>=8.4.2",
+    "pytest-cov>=7.0.0",
 ]
 
 [tool.setuptools.package-data]
