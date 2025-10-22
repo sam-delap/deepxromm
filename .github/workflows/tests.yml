@@ -11,7 +11,7 @@ jobs:
       - name: Install uv
         uses: astral-sh/setup-uv@v7
         with:
-          version: 0.8.22
+          version: 0.9.5
 
       - name: Set up python
         run: uv python install
@@ -38,7 +38,12 @@ jobs:
         run: mv 30DEC2021_LF04_t01_c_cam2.avi trial_cam2.avi 
 
       - name: Run unit tests in the environment
-        run: uv run tests/test_deepxromm.py
+        run: uv run pytest --cov --cov-branch --cov-report=xml
+
+      - name: Upload coverage reports to Codecov
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
 
   build:
     name: Build package distribution
