@@ -17,64 +17,59 @@ import numpy as np
 import cv2
 import random
 from deeplabcut.pose_estimation_tensorflow.predict_videos import analyze_videos
+from .xma_data_processor import XMADataProcessor
+
+CAMERA_SUBSTRINGS = [
+    [
+        "c01",
+        "c1",
+        "C01",
+        "C1",
+        "Cam1",
+        "cam1",
+        "Cam01",
+        "cam01",
+        "Camera1",
+        "camera1",
+    ],
+    [
+        "c02",
+        "c2",
+        "C02",
+        "C2",
+        "Cam2",
+        "cam2",
+        "Cam02",
+        "cam02",
+        "Camera2",
+        "camera2",
+    ],
+]
+
+CAMERAS = [1, 2]
 
 
 # TODO: Un-nest all of J.D.'s code
 def xma_to_dlc(
     path_config_file: Path,
     data_path: Path,
-    dataset_name,
-    scorer,
-    nframes,
+    dataset_name: str,
+    scorer: str,
+    nframes: int,
+    data_processor: XMADataProcessor,
     path_config_file_cam2: Path | None = None,
     nnetworks=1,
 ):
     config = path_config_file.parent
-    cameras = [1, 2]
-    picked_frames = []
-    dfs = []
-    idx = []
     pnames = []
-    subs = [
-        [
-            "c01",
-            "c1",
-            "C01",
-            "C1",
-            "Cam1",
-            "cam1",
-            "Cam01",
-            "cam01",
-            "Camera1",
-            "camera1",
-        ],
-        [
-            "c02",
-            "c2",
-            "C02",
-            "C2",
-            "Cam2",
-            "cam2",
-            "Cam02",
-            "cam02",
-            "Camera2",
-            "camera2",
-        ],
-    ]
-    trialnames = [
-        folder
-        for folder in data_path.glob("*")
-        if (data_path / folder).is_dir() and not folder.name.startswith(".")
-    ]
-
+    trialnames = data_processor.list_trials(suffix="trainingdata")
     ### PART 1: Pick frames for dataset
 
+    index_list = []
+    dfs = []
     for trial in trialnames:
         # Read 2D points file
-        contents = list(trial.glob("*.csv"))
-        if len(contents) != 1:
-            raise ValueError("Found more CSVs than expected")
-        filename = contents[0]
+        filename = data_processor.find_trial_csv(trial)
         df1 = pd.read_csv(filename, sep=",", header=None)
 
         # read pointnames from header row
@@ -89,138 +84,54 @@ def xma_to_dlc(
 
         # randomize frames w/i each trial and append to index list
         random.shuffle(temp_idx)
-        idx.append(temp_idx)
+        index_list.append(temp_idx)
         dfs.append(df1)
 
     # a couple errors
-    if sum(len(x) for x in idx) < nframes:
-        raise ValueError("nframes is bigger than number of detected frames")
+    total_frames = sum(len(x) for x in index_list)
+    if total_frames < nframes:
+        raise ValueError(
+            f"User requested {nframes} frames of training data. Only found {total_frames}."
+        )
 
     # if pointnames aren't the same across trials
     if any(pnames[0] != x for x in pnames):
         raise ValueError("Make sure point names are consistent across trials")
 
+    # Assume pointnames are the same across all trials, so you can ignore the pnames list going forward
+    pointnames = pnames[0]
+
     # pick frames to extract (NOTE this is random currently)
     # current code iteratively picks one frame at a time from each shuffled trial until # of picked_frames hits nframes
     # There is a much neater way to do this
     count = 0
+    picked_frames = []
     while sum(len(x) for x in picked_frames) < nframes:
-        for trialnum in range(len(idx)):
+        for trialnum, _ in enumerate(index_list):
             if sum(len(x) for x in picked_frames) < nframes:
                 if count == 0:
-                    picked_frames.insert(trialnum, [idx[trialnum][count]])
-                elif count < len(idx[trialnum]):
+                    picked_frames.insert(trialnum, [index_list[trialnum][count]])
+                elif count < len(index_list[trialnum]):
                     picked_frames[trialnum] = picked_frames[trialnum] + [
-                        idx[trialnum][count]
+                        index_list[trialnum][count]
                     ]
         count += 1
 
     ### Part 2: Extract images and 2D point data
 
     if nnetworks == 2 and path_config_file_cam2 is not None:
-        configs = [path_config_file.parent, path_config_file_cam2.parent]
-
-        for camera in cameras:
-            print(f"Extracting camera {camera} trial images and 2D points...")
-            relnames = []
-            data = pd.DataFrame()
-            # new training dataset folder
-            newpath = (
-                configs[camera - 1] / "labeled-data" / f"{dataset_name}_cam{camera}"
-            )
-            h5_save_path = newpath / f"CollectedData_{scorer}.h5"
-            csv_save_path = newpath / f"CollectedData_{scorer}.csv"
-
-            if newpath.exists():
-                contents = list(newpath.glob("*"))
-                if len(contents) > 0:
-                    raise ValueError(
-                        f"There are already data in the camera {camera} training dataset folder"
-                    )
-            else:
-                newpath.mkdir(parents=True, exist_ok=True)  # make new folder
-
-            for trialnum, trial_path in enumerate(trialnames):
-
-                # get video file
-                trial_name = trial_path.name
-                file = None
-                contents = trial_path.glob("*")
-                for name in contents:
-                    if any(x in name.name for x in subs[camera - 1]):
-                        file = name
-                if file is None:
-                    raise ValueError(
-                        f"Cannot locate {trial_name} video file or image folder"
-                    )
-
-                # if video file is actually folder of frames
-                video_path = trial_path / file
-                if video_path.is_dir():
-                    imgpath = video_path
-                    imgs = imgpath.glob("*")
-                    frames = picked_frames[trialnum]
-                    frames.sort()
-                    for count, img in enumerate(imgs):
-                        if count not in frames:
-                            continue
-                        image = cv2.imread(imgpath / img)
-                        current_img = str(count + 1).zfill(4)
-                        relname = str(newpath / f"{trial_name}_{current_img}.png")
-                        relnames.append(relname)
-                        cv2.imwrite(relname, image)
-                else:
-                    # file is actually a file
-                    # extract frames from video and convert to png
-                    frames = picked_frames[trialnum]
-                    frames.sort()
-                    cap = cv2.VideoCapture(video_path)
-                    success, image = cap.read()
-                    count = 0
-                    while success:
-                        if count in frames:
-                            current_img = str(count + 1).zfill(4)
-                            relname = str(newpath / f"{trial_name}_{current_img}.png")
-                            relnames.append(relname)
-                            cv2.imwrite(relname, image)
-                        success, image = cap.read()
-                        count += 1
-                    cap.release()
-
-                # extract 2D points data
-                df1 = dfs[trialnum]
-                xpos = df1.iloc[frames, 0 + (camera - 1) * 2 :: 4]
-                ypos = df1.iloc[frames, 1 + (camera - 1) * 2 :: 4]
-                temp_data = pd.concat([xpos, ypos], axis=1).sort_index(axis=1)
-                data = pd.concat([data, temp_data])
-
-            ### Part 3: Complete final structure of datafiles
-            dataFrame = pd.DataFrame()
-            temp = np.empty(
-                (
-                    data.shape[0],
-                    2,
-                )
-            )
-            temp[:] = np.nan
-            for i, bodypart in enumerate(pointnames):
-                index = pd.MultiIndex.from_product(
-                    [[scorer], [bodypart], ["x", "y"]],
-                    names=["scorer", "bodyparts", "coords"],
-                )
-                frame = pd.DataFrame(temp, columns=index, index=relnames)
-                frame.iloc[:, 0:2] = data.iloc[:, 2 * i : 2 * i + 2].values.astype(
-                    float
-                )
-                dataFrame = pd.concat([dataFrame, frame], axis=1)
-            dataFrame.replace("", np.nan, inplace=True)
-            dataFrame.replace(" NaN", np.nan, inplace=True)
-            dataFrame.replace(" NaN ", np.nan, inplace=True)
-            dataFrame.replace("NaN ", np.nan, inplace=True)
-            dataFrame.apply(pd.to_numeric)
-            dataFrame.to_hdf(h5_save_path, key="df_with_missing", mode="w")
-            dataFrame.to_csv(csv_save_path, na_rep="NaN")
-            print("...done.")
+        split_xma_to_dlc_per_cam(
+            path_config_file,
+            path_config_file_cam2,
+            dataset_name,
+            scorer,
+            trialnames,
+            data_processor,
+            picked_frames,
+            dfs,
+            pointnames,
+        )
+        print("...done.")
 
     else:
 
@@ -240,7 +151,7 @@ def xma_to_dlc(
         else:
             newpath.mkdir(parents=True, exist_ok=True)
 
-        for camera in cameras:
+        for camera in CAMERAS:
             print(f"Extracting camera {camera} trial images and 2D points...")
 
             for trialnum, trial in enumerate(trialnames):
@@ -250,7 +161,7 @@ def xma_to_dlc(
                 trial_path = data_path / trial
                 contents = trial_path.glob("*")
                 for name in contents:
-                    if any(x in name.name for x in subs[camera - 1]):
+                    if any(x in name.name for x in CAMERA_SUBSTRINGS[camera - 1]):
                         file = name
                 if file is None:
                     raise ValueError(
@@ -817,3 +728,126 @@ def add_frames(
     print(
         f"Frames from {len(trialnames)} trials successfully added to training dataset"
     )
+
+
+def split_xma_to_dlc_per_cam(
+    path_config_file: Path,
+    path_config_file_2: Path,
+    dataset_name: str,
+    scorer: str,
+    trialnames: list[Path],
+    data_processor: XMADataProcessor,
+    picked_frames: list,
+    dfs: list[pd.DataFrame],
+    pointnames: list[str],
+):
+    """Split XMAlab data into DLC data for per-cam projects"""
+    configs = [path_config_file.parent, path_config_file_2.parent]
+    for camera in CAMERAS:
+        config = configs[camera - 1]
+        newpath = config / "labeled-data" / f"{dataset_name}_cam{camera}"
+        h5_save_path = newpath / f"CollectedData_{scorer}.h5"
+        csv_save_path = newpath / f"CollectedData_{scorer}.csv"
+        relnames = extract_matched_frames_per_cam(
+            config, camera, dataset_name, trialnames, data_processor, picked_frames, dfs
+        )
+
+        ### Part 3: Complete final structure of datafiles
+        data = pd.DataFrame()
+        temp = np.empty(
+            (
+                data.shape[0],
+                2,
+            )
+        )
+        temp[:] = np.nan
+        dataFrame = pd.DataFrame()
+        for i, bodypart in enumerate(pointnames):
+            index = pd.MultiIndex.from_product(
+                [[scorer], [bodypart], ["x", "y"]],
+                names=["scorer", "bodyparts", "coords"],
+            )
+            frame = pd.DataFrame(temp, columns=index, index=relnames)
+            frame.iloc[:, 0:2] = data.iloc[:, 2 * i : 2 * i + 2].values.astype(float)
+            dataFrame = pd.concat([dataFrame, frame], axis=1)
+        dataFrame.replace("", np.nan, inplace=True)
+        dataFrame.replace(" NaN", np.nan, inplace=True)
+        dataFrame.replace(" NaN ", np.nan, inplace=True)
+        dataFrame.replace("NaN ", np.nan, inplace=True)
+        dataFrame.apply(pd.to_numeric)
+        dataFrame.to_hdf(h5_save_path, key="df_with_missing", mode="w")
+        dataFrame.to_csv(csv_save_path, na_rep="NaN")
+
+
+def extract_matched_frames_per_cam(
+    config: Path,
+    camera: int,
+    dataset_name: str,
+    trialnames: list[Path],
+    data_processor: XMADataProcessor,
+    picked_frames: list,
+    dfs: list[pd.DataFrame],
+) -> list[str]:
+    """Extract training data frames for per-cam projects"""
+    print(f"Extracting camera {camera} trial images and 2D points...")
+    relnames = []
+    data = pd.DataFrame()
+    # new training dataset folder
+    newpath = config / "labeled-data" / f"{dataset_name}_cam{camera}"
+
+    if newpath.exists():
+        contents = list(newpath.glob("*"))
+        if len(contents) > 0:
+            raise ValueError(
+                f"There are already data in the camera {camera} training dataset folder"
+            )
+    else:
+        newpath.mkdir(parents=True, exist_ok=True)  # make new folder
+
+    for trialnum, trial_path in enumerate(trialnames):
+
+        # get video file
+        trial_name = trial_path.name
+        contents = trial_path.glob("*")
+
+        video_path = data_processor.find_cam_file(trial_path, f"cam{camera}")
+
+        if video_path.is_dir():
+            imgpath = video_path
+            imgs = imgpath.glob("*")
+            frames = picked_frames[trialnum]
+            frames.sort()
+            for count, img in enumerate(imgs):
+                if count not in frames:
+                    continue
+                image = cv2.imread(imgpath / img)
+                current_img = str(count + 1).zfill(4)
+                relname = str(newpath / f"{trial_name}_{current_img}.png")
+                relnames.append(relname)
+                cv2.imwrite(relname, image)
+        else:
+            # file is actually a file
+            # extract frames from video and convert to png
+            frames = picked_frames[trialnum]
+            frames.sort()
+            cap = cv2.VideoCapture(video_path)
+            success, image = cap.read()
+            count = 0
+            while success:
+                if count in frames:
+                    current_img = str(count + 1).zfill(4)
+                    relname = str(newpath / f"{trial_name}_{current_img}.png")
+                    relnames.append(relname)
+                    cv2.imwrite(relname, image)
+                success, image = cap.read()
+                count += 1
+            cap.release()
+
+        # extract 2D points data
+        df1 = dfs[trialnum]
+        xpos = df1.iloc[frames, 0 + (camera - 1) * 2 :: 4]
+        ypos = df1.iloc[frames, 1 + (camera - 1) * 2 :: 4]
+        temp_data = pd.concat([xpos, ypos], axis=1).sort_index(axis=1)
+        data = pd.concat([data, temp_data])
+
+    return relnames

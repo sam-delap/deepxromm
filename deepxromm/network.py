@@ -28,6 +28,7 @@ class Network:
                     self._config["dataset_name"],
                     self._config["experimenter"],
                     self._config["nframes"],
+                    data_processor=self._data_processor,
                 )
             except UnboundLocalError:
                 pass
@@ -39,6 +40,7 @@ class Network:
                 dataset_name=self._config["dataset_name"],
                 scorer=self._config["experimenter"],
                 nframes=self._config["nframes"],
+                data_processor=self._data_processor,
                 nnetworks=2,
             )
         elif mode == "rgb":
