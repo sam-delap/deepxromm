@@ -118,7 +118,6 @@ def xma_to_dlc(
         count += 1
 
     ### Part 2: Extract images and 2D point data
-
     if nnetworks == 2 and path_config_file_cam2 is not None:
         split_xma_to_dlc_per_cam(
             path_config_file,
@@ -217,7 +216,7 @@ def xma_to_dlc(
                 data = pd.concat([data, temp_data])
 
         ### Part 3: Complete final structure of datafiles
-        dataFrame = pd.DataFrame()
+        dlc_data = pd.DataFrame()
         temp = np.empty(
             (
                 data.shape[0],
@@ -232,14 +231,14 @@ def xma_to_dlc(
             )
             frame = pd.DataFrame(temp, columns=index, index=relnames)
             frame.iloc[:, 0:2] = data.iloc[:, 2 * i : 2 * i + 2].values.astype(float)
-            dataFrame = pd.concat([dataFrame, frame], axis=1)
-        dataFrame.replace("", np.nan, inplace=True)
-        dataFrame.replace(" NaN", np.nan, inplace=True)
-        dataFrame.replace(" NaN ", np.nan, inplace=True)
-        dataFrame.replace("NaN ", np.nan, inplace=True)
-        dataFrame.apply(pd.to_numeric)
-        dataFrame.to_hdf(h5_save_path, key="df_with_missing", mode="w")
-        dataFrame.to_csv(csv_save_path, na_rep="NaN")
+            dlc_data = pd.concat([dlc_data, frame], axis=1)
+        dlc_data.replace("", np.nan, inplace=True)
+        dlc_data.replace(" NaN", np.nan, inplace=True)
+        dlc_data.replace(" NaN ", np.nan, inplace=True)
+        dlc_data.replace("NaN ", np.nan, inplace=True)
+        dlc_data.apply(pd.to_numeric)
+        dlc_data.to_hdf(h5_save_path, key="df_with_missing", mode="w")
+        dlc_data.to_csv(csv_save_path, na_rep="NaN")
         print("...done.")
 
     print(
@@ -748,35 +747,31 @@ def split_xma_to_dlc_per_cam(
         newpath = config / "labeled-data" / f"{dataset_name}_cam{camera}"
         h5_save_path = newpath / f"CollectedData_{scorer}.h5"
         csv_save_path = newpath / f"CollectedData_{scorer}.csv"
-        relnames = extract_matched_frames_per_cam(
+        relnames, data = extract_matched_frames_per_cam(
             config, camera, dataset_name, trialnames, data_processor, picked_frames, dfs
         )
 
         ### Part 3: Complete final structure of datafiles
-        data = pd.DataFrame()
-        temp = np.empty(
-            (
-                data.shape[0],
-                2,
-            )
-        )
-        temp[:] = np.nan
-        dataFrame = pd.DataFrame()
+        empty_shaped_df = np.empty((data.shape[0], 2))
+        empty_shaped_df[:] = np.nan
+        dlc_data = pd.DataFrame()
         for i, bodypart in enumerate(pointnames):
             index = pd.MultiIndex.from_product(
                 [[scorer], [bodypart], ["x", "y"]],
                 names=["scorer", "bodyparts", "coords"],
             )
-            frame = pd.DataFrame(temp, columns=index, index=relnames)
-            frame.iloc[:, 0:2] = data.iloc[:, 2 * i : 2 * i + 2].values.astype(float)
-            dataFrame = pd.concat([dataFrame, frame], axis=1)
-        dataFrame.replace("", np.nan, inplace=True)
-        dataFrame.replace(" NaN", np.nan, inplace=True)
-        dataFrame.replace(" NaN ", np.nan, inplace=True)
-        dataFrame.replace("NaN ", np.nan, inplace=True)
-        dataFrame.apply(pd.to_numeric)
-        dataFrame.to_hdf(h5_save_path, key="df_with_missing", mode="w")
-        dataFrame.to_csv(csv_save_path, na_rep="NaN")
+            bodypart_df = pd.DataFrame(empty_shaped_df, columns=index, index=relnames)
+            bodypart_df.iloc[:, 0:2] = data.iloc[:, 2 * i : 2 * i + 2].values.astype(
+                float
+            )
+            dlc_data = pd.concat([dlc_data, bodypart_df], axis=1)
+        dlc_data.replace("", np.nan, inplace=True)
+        dlc_data.replace(" NaN", np.nan, inplace=True)
+        dlc_data.replace(" NaN ", np.nan, inplace=True)
+        dlc_data.replace("NaN ", np.nan, inplace=True)
+        dlc_data.apply(pd.to_numeric)
+        dlc_data.to_hdf(h5_save_path, key="df_with_missing", mode="w")
+        dlc_data.to_csv(csv_save_path, na_rep="NaN")
 
 
 def extract_matched_frames_per_cam(
@@ -787,7 +782,7 @@ def extract_matched_frames_per_cam(
     data_processor: XMADataProcessor,
     picked_frames: list,
     dfs: list[pd.DataFrame],
-) -> list[str]:
+) -> tuple[list[str], pd.DataFrame]:
     """Extract training data frames for per-cam projects"""
     print(f"Extracting camera {camera} trial images and 2D points...")
     relnames = []
@@ -850,4 +845,4 @@ def extract_matched_frames_per_cam(
         temp_data = pd.concat([xpos, ypos], axis=1).sort_index(axis=1)
         data = pd.concat([data, temp_data])
 
-    return relnames
+    return relnames, data
