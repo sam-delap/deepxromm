@@ -87,3 +87,56 @@
   - Keep tests independent and idempotent
   - Use appropriate fixtures for test setup
   - Mock external dependencies when necessary
+
+## Roles and Responsibilities
+
+- **Repository Maintainers**:
+  - Create and manage branches in the repository
+  - Review and approve pull requests
+  - Establish project roadmap and priorities
+  - Ensure overall code quality and architecture
+
+- **Build Agents and Contributors**:
+  - Implement requested features and fixes
+  - Run tests and quality checks before committing
+  - Add and commit changes with appropriate messages
+  - Do not push changes directly or create branches without approval
+  - Document changes thoroughly in commit messages
+
+## Pre-Commit Verification
+
+Before committing any changes to the repository, build agents and contributors must:
+
+1. **Test Suite Execution**:
+   - Run and report the results of the full test suite
+   - Provide a summary of test coverage metrics
+   - Ensure all tests pass with no regressions
+
+2. **Quality Check Execution**:
+   - Run linting and formatting checks
+   - Fix any style issues before committing
+   - Report the results of quality checks
+
+3. **Change Summary**:
+   - Provide a concise summary of all changes made
+   - Explain the purpose and impact of each change
+   - List any new files created or existing files modified
+
+4. **Commit Process**:
+   - Only after verification steps 1-3 pass, proceed with:
+     - Add the changed files using `git add`
+     - Commit with descriptive message following the project format
+     - DO NOT push changes (maintainers will handle this)
+
+Example verification output:
+```
+Test Suite: PASSED (142 tests, 0 failures)
+Coverage: 93% (increased by 2%)
+Quality Checks: PASSED
+Changes:
+- Refactored xma_to_dlc() to reduce nesting
+- Extracted 5 helper functions for better readability
+- Added type hints to all public functions
+Files modified:
+- deepxromm/xrommtools.py
+```
