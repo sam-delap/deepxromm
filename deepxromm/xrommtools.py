@@ -94,12 +94,14 @@ def xma_to_dlc(
             f"User requested {nframes} frames of training data. Only found {total_frames}."
         )
 
+    # Pointnames should be the same across all trials, so once you condense the pointnames
+    # list you only need the first element
+    pointnames = pnames[0]
+
     # if pointnames aren't the same across trials
-    if any(pnames[0] != x for x in pnames):
+    if any(pointnames != x for x in pnames):
         raise ValueError("Make sure point names are consistent across trials")
 
-    # Assume pointnames are the same across all trials, so you can ignore the pnames list going forward
-    pointnames = pnames[0]
 
     # pick frames to extract (NOTE this is random currently)
     # current code iteratively picks one frame at a time from each shuffled trial until # of picked_frames hits nframes
