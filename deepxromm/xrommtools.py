@@ -17,6 +17,7 @@ import numpy as np
 import cv2
 import random
 from deeplabcut.pose_estimation_tensorflow.predict_videos import analyze_videos
+from deepxromm.xma_data_processor import XMADataProcessor
 
 
 # TODO: Un-nest all of J.D.'s code
@@ -28,6 +29,7 @@ def xma_to_dlc(
     nframes,
     path_config_file_cam2: Path | None = None,
     nnetworks=1,
+    data_processor: XMADataProcessor
 ):
     config = path_config_file.parent
     cameras = [1, 2]
@@ -61,16 +63,6 @@ def xma_to_dlc(
             "camera2",
         ],
     ]
-
-    # Create data processor instance for frame selection
-    from .xma_data_processor import XMADataProcessor
-
-    temp_config = {
-        "working_dir": str(data_path),
-        "swapped_markers": False,
-        "crossed_markers": False,
-    }
-    data_processor = XMADataProcessor(temp_config)
 
     trialnames = [
         folder
