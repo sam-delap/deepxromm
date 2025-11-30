@@ -563,6 +563,7 @@ class XMADataProcessor:
 
         cap.release()
         cv2.destroyAllWindows()
+        return png_list
 
     def _extract_frame_selection_loop(self, idx: list, nframes: int):
         """Extract the existing frame selection algorithm (preserve existing algorithm)
@@ -595,4 +596,3 @@ class XMADataProcessor:
                 count += 1
 
         return picked_frames
-        return png_list
