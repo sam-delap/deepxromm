@@ -27,9 +27,9 @@ def xma_to_dlc(
     dataset_name,
     scorer,
     nframes,
-    path_config_file_cam2: Path | None = None,
-    nnetworks=1,
     data_processor: XMADataProcessor
+    nnetworks=1,
+    path_config_file_cam2: Path | None = None,
 ):
     config = path_config_file.parent
     cameras = [1, 2]
