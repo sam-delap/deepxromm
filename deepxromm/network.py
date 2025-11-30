@@ -28,18 +28,20 @@ class Network:
                     self._config["dataset_name"],
                     self._config["experimenter"],
                     self._config["nframes"],
+                    data_processor=self._data_processor,
                 )
             except UnboundLocalError:
                 pass
         elif mode == "per_cam":
             xma_to_dlc(
                 path_config_file=Path(self._config["path_config_file"]),
-                path_config_file_cam2=Path(self._config["path_config_file_2"]),
                 data_path=self._data_path,
                 dataset_name=self._config["dataset_name"],
                 scorer=self._config["experimenter"],
                 nframes=self._config["nframes"],
+                data_processor=self._data_processor,
                 nnetworks=2,
+                path_config_file_cam2=Path(self._config["path_config_file_2"]),
             )
         elif mode == "rgb":
             print("We've selected an RGB video")
