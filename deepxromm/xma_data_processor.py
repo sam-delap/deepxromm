@@ -563,4 +563,36 @@ class XMADataProcessor:
 
         cap.release()
         cv2.destroyAllWindows()
+
+    def _extract_frame_selection_loop(self, idx: list, nframes: int):
+        """Extract the existing frame selection algorithm (preserve existing algorithm)
+
+        Args:
+            idx: List of frame indices for each trial
+            nframes: Number of frames to select
+
+        Returns:
+            List of selected frame indices for each trial
+        """
+        picked_frames = []
+
+        # Check if we have enough frames
+        if sum(len(x) for x in idx) < nframes:
+            raise ValueError("nframes is bigger than number of detected frames")
+
+        # Pick frames to extract (NOTE this is random currently)
+        # current code iteratively picks one frame at a time from each shuffled trial until # of picked_frames hits nframes
+        count = 0
+        while sum(len(x) for x in picked_frames) < nframes:
+            for trialnum in range(len(idx)):
+                if sum(len(x) for x in picked_frames) < nframes:
+                    if count == 0:
+                        picked_frames.insert(trialnum, [idx[trialnum][count]])
+                    elif count < len(idx[trialnum]):
+                        picked_frames[trialnum] = picked_frames[trialnum] + [
+                            idx[trialnum][count]
+                        ]
+                count += 1
+
+        return picked_frames
         return png_list

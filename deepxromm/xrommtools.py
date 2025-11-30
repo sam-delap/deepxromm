@@ -61,6 +61,17 @@ def xma_to_dlc(
             "camera2",
         ],
     ]
+
+    # Create data processor instance for frame selection
+    from .xma_data_processor import XMADataProcessor
+
+    temp_config = {
+        "working_dir": str(data_path),
+        "swapped_markers": False,
+        "crossed_markers": False,
+    }
+    data_processor = XMADataProcessor(temp_config)
+
     trialnames = [
         folder
         for folder in data_path.glob("*")
@@ -100,35 +111,8 @@ def xma_to_dlc(
     if any(pnames[0] != x for x in pnames):
         raise ValueError("Make sure point names are consistent across trials")
 
-        # Helper function for frame selection algorithm
-
-    def _extract_frame_selection_loop(idx: list, nframes: int):
-        """Extract the existing frame selection loop logic"""
-        picked_frames = []
-        count = 0
-        while sum(len(x) for x in picked_frames) < nframes:
-            for trialnum in range(len(idx)):
-                if sum(len(x) for x in picked_frames) < nframes:
-                    if count == 0:
-                        picked_frames.insert(trialnum, [idx[trialnum][count]])
-                    elif count < len(idx[trialnum]):
-                        picked_frames[trialnum] = picked_frames[trialnum] + [
-                            idx[trialnum][count]
-                        ]
-                count += 1
-        return picked_frames
-
-    count = 0
-    while sum(len(x) for x in picked_frames) < nframes:
-        for trialnum in range(len(idx)):
-            if sum(len(x) for x in picked_frames) < nframes:
-                if count == 0:
-                    picked_frames.insert(trialnum, [idx[trialnum][count]])
-                elif count < len(idx[trialnum]):
-                    picked_frames[trialnum] = picked_frames[trialnum] + [
-                        idx[trialnum][count]
-                    ]
-        count += 1
+    # pick frames to extract using XMADataProcessor method
+    picked_frames = data_processor._extract_frame_selection_loop(idx, nframes)
 
     ### Part 2: Extract images and 2D point data
 
