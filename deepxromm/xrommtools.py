@@ -100,9 +100,24 @@ def xma_to_dlc(
     if any(pnames[0] != x for x in pnames):
         raise ValueError("Make sure point names are consistent across trials")
 
-    # pick frames to extract (NOTE this is random currently)
-    # current code iteratively picks one frame at a time from each shuffled trial until # of picked_frames hits nframes
-    # There is a much neater way to do this
+        # Helper function for frame selection algorithm
+
+    def _extract_frame_selection_loop(idx: list, nframes: int):
+        """Extract the existing frame selection loop logic"""
+        picked_frames = []
+        count = 0
+        while sum(len(x) for x in picked_frames) < nframes:
+            for trialnum in range(len(idx)):
+                if sum(len(x) for x in picked_frames) < nframes:
+                    if count == 0:
+                        picked_frames.insert(trialnum, [idx[trialnum][count]])
+                    elif count < len(idx[trialnum]):
+                        picked_frames[trialnum] = picked_frames[trialnum] + [
+                            idx[trialnum][count]
+                        ]
+                count += 1
+        return picked_frames
+
     count = 0
     while sum(len(x) for x in picked_frames) < nframes:
         for trialnum in range(len(idx)):
@@ -141,7 +156,6 @@ def xma_to_dlc(
                 newpath.mkdir(parents=True, exist_ok=True)  # make new folder
 
             for trialnum, trial_path in enumerate(trialnames):
-
                 # get video file
                 trial_name = trial_path.name
                 file = None
@@ -223,7 +237,6 @@ def xma_to_dlc(
             print("...done.")
 
     else:
-
         relnames = []
         data = pd.DataFrame()
         # new training dataset folder
@@ -244,7 +257,6 @@ def xma_to_dlc(
             print(f"Extracting camera {camera} trial images and 2D points...")
 
             for trialnum, trial in enumerate(trialnames):
-
                 # get video file
                 file = None
                 trial_path = data_path / trial
@@ -337,13 +349,11 @@ def xma_to_dlc(
 
 
 def dlc_to_xma(cam1data, cam2data, trialname, savepath):
-
     h5_save_path = savepath + "/" + trialname + "-Predicted2DPoints.h5"
     csv_save_path = savepath + "/" + trialname + "-Predicted2DPoints.csv"
 
     if isinstance(cam1data, str):  # is string
         if ".csv" in cam1data:
-
             cam1data = pd.read_csv(cam1data, sep=",", header=None)
             cam2data = pd.read_csv(cam2data, sep=",", header=None)
             pointnames = list(cam1data.loc[1, 1:].unique())
@@ -364,7 +374,6 @@ def dlc_to_xma(cam1data, cam2data, trialname, savepath):
         else:
             raise ValueError("2D point input is not in correct format")
     else:
-
         pointnames = list(cam1data.columns.get_level_values("bodyparts").unique())
 
     # make new column names
@@ -493,7 +502,6 @@ def add_frames(
     nnetworks=1,
     path_config_file_cam2="enterpathofcam2config",
 ):
-
     # input: config file paths, path of data to add to trainingdataset, frames-csv file where first col is trialnames and following cols are frame numbers
     # will look for 2D points file based on name (if there are multiple csv files)
 
@@ -557,7 +565,6 @@ def add_frames(
         raise ValueError("frames must be a .csv file with trialnames and frame numbers")
 
     if nnetworks == 2:
-
         for camera in cameras:
             dlc_dataset_path = configs[camera - 1] / "labeled-data"
             contents = list(dlc_dataset_path.glob("*"))
