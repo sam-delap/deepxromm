@@ -9,6 +9,7 @@ import random
 import cv2
 import numpy as np
 import pandas as pd
+import pytest
 from pandas.testing import assert_frame_equal
 from ruamel.yaml import YAML
 
@@ -984,6 +985,192 @@ class TestRGBTrialProcess(unittest.TestCase):
         """Remove the created temp project"""
         project_path = Path.cwd() / "tmp"
         shutil.rmtree(project_path)
+
+
+class TestXMADataProcessorHelpers:
+    """Test helper methods in XMADataProcessor using pytest"""
+
+    @pytest.fixture(autouse=True)
+    def setup_and_teardown(self, tmp_path):
+        """Setup test environment and cleanup after"""
+        self.working_dir = tmp_path
+        self.config = {
+            "working_dir": str(self.working_dir),
+            "swapped_markers": False,
+            "crossed_markers": False,
+        }
+        from deepxromm.xma_data_processor import XMADataProcessor
+
+        self.processor = XMADataProcessor(self.config)
+
+        # Create test trial structure
+        trial_dir = self.working_dir / "trainingdata" / "trial1"
+        trial_dir.mkdir(parents=True, exist_ok=True)
+
+        # Create sample CSV with known data
+        df = pd.DataFrame(
+            {
+                "marker1_cam1_X": [10.5, 20.3, np.nan],
+                "marker1_cam1_Y": [15.2, 25.1, np.nan],
+                "marker1_cam2_X": [12.1, 22.4, np.nan],
+                "marker1_cam2_Y": [17.3, 27.2, np.nan],
+                "marker2_cam1_X": [30.0, np.nan, 50.0],
+                "marker2_cam1_Y": [35.0, np.nan, 55.0],
+                "marker2_cam2_X": [32.0, np.nan, 52.0],
+                "marker2_cam2_Y": [37.0, np.nan, 57.0],
+            }
+        )
+        df.to_csv(trial_dir / "trial1.csv", index=False)
+
+        yield
+
+        # Cleanup handled automatically by tmp_path fixture
+
+    def test_build_dlc_dataframe_creates_correct_structure(self):
+        """Does build_dlc_dataframe create proper MultiIndex structure?"""
+        # Arrange
+        data = pd.DataFrame({0: [10.5, 12.1], 1: [15.2, 17.3]})
+        scorer = "TestScorer"
+        relnames = ["img1.png", "img2.png"]
+        pointnames = ["marker1"]
+
+        # Act
+        result = self.processor.build_dlc_dataframe(data, scorer, relnames, pointnames)
+
+        # Assert
+        assert result.index.tolist() == relnames
+        assert isinstance(result.columns, pd.MultiIndex)
+        assert result.columns.names == ["scorer", "bodyparts", "coords"]
+        assert (scorer, "marker1", "x") in result.columns
+        assert (scorer, "marker1", "y") in result.columns
+
+    def test_build_dlc_dataframe_handles_nan_properly(self):
+        """Does build_dlc_dataframe clean NaN values correctly?"""
+        # Arrange
+        data = pd.DataFrame({0: [10.5, " NaN"], 1: [" NaN ", 17.3]})
+        scorer = "TestScorer"
+        relnames = ["img1.png", "img2.png"]
+        pointnames = ["marker1"]
+
+        # Act
+        result = self.processor.build_dlc_dataframe(data, scorer, relnames, pointnames)
+
+        # Assert
+        assert pd.isna(result.iloc[0, 1])  # First row, y coord
+        assert pd.isna(result.iloc[1, 0])  # Second row, x coord
+        assert result.iloc[0, 0] == 10.5
+        assert result.iloc[1, 1] == 17.3
+
+    def test_read_trial_csv_validates_consistent_pointnames(self):
+        """Does read_trial_csv catch inconsistent point names across trials?"""
+        # Arrange: Create second trial with different markers
+        trial2_dir = self.working_dir / "trainingdata" / "trial2"
+        trial2_dir.mkdir(parents=True, exist_ok=True)
+        df = pd.DataFrame(
+            {
+                "different_marker_cam1_X": [10.5],
+                "different_marker_cam1_Y": [15.2],
+                "different_marker_cam2_X": [12.1],
+                "different_marker_cam2_Y": [17.3],
+            }
+        )
+        df.to_csv(trial2_dir / "trial2.csv", index=False)
+
+        trials = [
+            self.working_dir / "trainingdata" / "trial1",
+            self.working_dir / "trainingdata" / "trial2",
+        ]
+
+        # Act & Assert
+        with pytest.raises(ValueError, match="(?i)point names"):
+            self.processor.read_trial_csv_with_validation(trials)
+
+    def test_read_trial_csv_filters_empty_rows(self):
+        """Does read_trial_csv properly identify rows with valid data?"""
+        # Arrange
+        trials = [self.working_dir / "trainingdata" / "trial1"]
+
+        # Act
+        dfs, idx, pointnames = self.processor.read_trial_csv_with_validation(trials)
+
+        # Assert: All 3 rows have >= 50% non-NaN values
+        # Row 0: 6 non-NaN out of 8 (75%)
+        # Row 1: 4 non-NaN out of 8 (50%)
+        # Row 2: 6 non-NaN out of 8 (75%)
+        assert len(idx[0]) == 3
+        assert 0 in idx[0]
+        assert 1 in idx[0]
+        assert 2 in idx[0]
+
+    def test_extract_2d_points_for_camera_extracts_cam1(self):
+        """Does extract_2d_points_for_camera extract correct camera 1 data?"""
+        # Arrange
+        trial_path = self.working_dir / "trainingdata" / "trial1"
+        df = pd.read_csv(trial_path / "trial1.csv", sep=",", header=None)
+        df = df.loc[1:,].reset_index(drop=True)  # Remove header row
+        picked_frames = [0, 2]
+        camera = 1
+
+        # Act
+        result = self.processor.extract_2d_points_for_camera(df, camera, picked_frames)
+
+        # Assert
+        assert result.shape[0] == 2  # 2 frames
+        assert result.shape[1] == 4  # 2 markers * 2 coords
+        assert float(result.iloc[0, 0]) == 10.5  # marker1_cam1_X
+        assert float(result.iloc[0, 1]) == 15.2  # marker1_cam1_Y
+
+    def test_extract_2d_points_for_camera_extracts_cam2(self):
+        """Does extract_2d_points_for_camera extract correct camera 2 data?"""
+        # Arrange
+        trial_path = self.working_dir / "trainingdata" / "trial1"
+        df = pd.read_csv(trial_path / "trial1.csv", sep=",", header=None)
+        df = df.loc[1:,].reset_index(drop=True)
+        picked_frames = [0, 2]
+        camera = 2
+
+        # Act
+        result = self.processor.extract_2d_points_for_camera(df, camera, picked_frames)
+
+        # Assert
+        assert result.shape[0] == 2
+        assert result.shape[1] == 4
+        assert float(result.iloc[0, 0]) == 12.1  # marker1_cam2_X
+        assert float(result.iloc[0, 1]) == 17.3  # marker1_cam2_Y
+
+    def test_get_list_of_trials_ignores_hidden_folders(self):
+        """Does get_list_of_trials skip hidden directories?"""
+        # Arrange: Create a hidden folder
+        hidden_dir = self.working_dir / "trainingdata" / ".hidden"
+        hidden_dir.mkdir(parents=True, exist_ok=True)
+
+        # Act
+        trials = self.processor.get_list_of_trials(self.working_dir / "trainingdata")
+
+        # Assert
+        assert len(trials) == 1
+        assert trials[0].name == "trial1"
+
+    def test_get_list_of_trials_raises_on_empty_directory(self):
+        """Does get_list_of_trials raise error for empty data path?"""
+        # Arrange
+        empty_dir = self.working_dir / "empty_data"
+        empty_dir.mkdir(parents=True, exist_ok=True)
+
+        # Act & Assert
+        with pytest.raises(FileNotFoundError, match="(?i)no trials found"):
+            self.processor.get_list_of_trials(empty_dir)
+
+    def test_extract_2d_points_validates_camera_number(self):
+        """Does extract_2d_points_for_camera reject invalid camera numbers?"""
+        # Arrange
+        trial_path = self.working_dir / "trainingdata" / "trial1"
+        df = pd.read_csv(trial_path / "trial1.csv", sep=",", header=None)
+        df = df.loc[1:,].reset_index(drop=True)
+
+        # Act & Assert
+        with pytest.raises(ValueError, match="(?i)camera.*must be 1 or 2"):
+            self.processor.extract_2d_points_for_camera(df, 3, [0])
 
 
 if __name__ == "__main__":
