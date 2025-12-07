@@ -590,29 +590,9 @@ class Test2DTrialProcess(unittest.TestCase):
         self.cam2_path = trial_dir / "test_cam2.avi"
 
         # Copy sample CSV data (use existing sample file)
-        shutil.copy(str(SAMPLE_FRAME_INPUT), str(self.trial_csv))
-
-        # Create test video files
-        self._create_test_video(self.cam1_path)
-        self._create_test_video(self.cam2_path)
-
-    def _create_test_video(self, video_path: Path, num_frames: int = 10):
-        """Create a test video file"""
-        frame = cv2.imread(str(SAMPLE_FRAME))
-        if frame is None:
-            # Create a simple test frame if sample frame not available
-            frame = np.zeros((480, 640, 3), dtype=np.uint8)
-            frame[:, :] = (128, 128, 128)  # Gray frame
-
-        out = cv2.VideoWriter(
-            str(video_path),
-            cv2.VideoWriter_fourcc(*"DIVX"),
-            15,
-            (frame.shape[1], frame.shape[0]),
-        )
-        for i in range(num_frames):
-            out.write(frame)
-        out.release()
+        shutil.copy("trial.csv", str(self.trial_csv))
+        shutil.copy("trial_cam1.avi", str(self.cam1_path))
+        shutil.copy("trial_cam2.avi", str(self.cam2_path))
 
     def test_first_frame_matches_in_dlc_csv(self):
         """When I run xma_to_dlc, does the DLC CSV have the same data as my original file?"""
@@ -741,7 +721,7 @@ class TestPerCamTrialProcess(unittest.TestCase):
     def setUp(self):
         """Create trial with test data"""
         self.working_dir = Path.cwd() / "tmp"
-        self.deepxromm = DeepXROMM.create_new_project(self.working_dir, mode="per_cam")
+        self.deepxromm = DeepXROMM.create_new_project(self.working_dir)
 
         # Make a trial directory
         trial_dir = self.working_dir / "trainingdata/test"
@@ -753,11 +733,9 @@ class TestPerCamTrialProcess(unittest.TestCase):
         self.cam2_path = trial_dir / "test_cam2.avi"
 
         # Copy sample CSV data (use existing sample file)
-        shutil.copy(str(SAMPLE_FRAME_INPUT), str(self.trial_csv))
-
-        # Create test video files
-        self._create_test_video(self.cam1_path)
-        self._create_test_video(self.cam2_path)
+        shutil.copy("trial.csv", str(self.trial_csv))
+        shutil.copy("trial_cam1.avi", str(self.cam1_path))
+        shutil.copy("trial_cam2.avi", str(self.cam2_path))
 
     def _create_test_video(self, video_path: Path, num_frames: int = 10):
         """Create a test video file"""
@@ -927,17 +905,11 @@ class TestRGBTrialProcess(unittest.TestCase):
         self.trial_csv = trial_dir / "test.csv"
         self.cam1_path = trial_dir / "test_cam1.avi"
         self.cam2_path = trial_dir / "test_cam2.avi"
-        self.rgb_path = trial_dir / "test_rgb.avi"
 
-        # Copy sample CSV data (use existing sample file)
-        shutil.copy(str(SAMPLE_FRAME_INPUT), str(self.trial_csv))
-
-        # Create test video files
-        self._create_test_video(self.cam1_path)
-        self._create_test_video(self.cam2_path)
-
-        # Create RGB video directly (bypasses encoder issues in make_rgb_videos)
-        self._create_test_video(self.rgb_path)
+        # Move sample frame input to trainingdata
+        shutil.copy("trial.csv", str(self.trial_csv))
+        shutil.copy("trial_cam1.avi", str(self.cam1_path))
+        shutil.copy("trial_cam2.avi", str(self.cam2_path))
 
     def _create_test_video(self, video_path: Path, num_frames: int = 10):
         """Create a test video file"""
@@ -1338,7 +1310,6 @@ class TestExtractFramesFromVideo:
             "swapped_markers": False,
             "crossed_markers": False,
         }
-        from deepxromm.xma_data_processor import XMADataProcessor
 
         self.processor = XMADataProcessor(self.config)
 
@@ -1694,8 +1665,6 @@ class TestFrameExtractionIntegration:
             "swapped_markers": False,
             "crossed_markers": False,
         }
-
-        from deepxromm.xma_data_processor import XMADataProcessor
 
         self.processor = XMADataProcessor(self.config)
 
