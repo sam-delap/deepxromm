@@ -13,7 +13,7 @@ class Network:
 
     def __init__(self, config):
         self.working_dir = Path(config["working_dir"])
-        self._data_path = self.working_dir / "trainingdata"
+        self._trainingdata_path = self.working_dir / "trainingdata"  # Keep for RGB mode
         self._data_processor = XMADataProcessor(config)
         self._config = config
 
@@ -24,7 +24,7 @@ class Network:
             try:
                 xma_to_dlc(
                     Path(self._config["path_config_file"]),
-                    self._data_path,
+                    "trainingdata",  # Use relative path from working_dir
                     self._config["dataset_name"],
                     self._config["experimenter"],
                     self._config["nframes"],
@@ -35,7 +35,7 @@ class Network:
         elif mode == "per_cam":
             xma_to_dlc(
                 path_config_file=Path(self._config["path_config_file"]),
-                data_path=self._data_path,
+                trials_suffix="trainingdata",  # Use relative path from working_dir
                 dataset_name=self._config["dataset_name"],
                 scorer=self._config["experimenter"],
                 nframes=self._config["nframes"],
@@ -45,8 +45,8 @@ class Network:
             )
         elif mode == "rgb":
             print("We've selected an RGB video")
-            self._data_processor.make_rgb_videos(self._data_path)
-            self._data_processor.xma_to_dlc_rgb(self._data_path)
+            self._data_processor.make_rgb_videos(self._trainingdata_path)
+            self._data_processor.xma_to_dlc_rgb(self._trainingdata_path)
         else:
             raise AttributeError(f"Unsupportede mode: {mode}")
 
