@@ -655,7 +655,7 @@ def _process_camera_per_cam(
         data = pd.concat([data, temp_data])
 
     # Create and save DLC dataset
-    data_processor.create_dlc_dataset(data, scorer, relnames, pointnames, newpath)
+    data_processor.save_dlc_dataset(data, scorer, relnames, pointnames, newpath)
     print("...done.")
 
 
@@ -728,5 +728,5 @@ def _process_cameras_2d(
             data = pd.concat([data, temp_data])
 
     # Create and save DLC dataset
-    data_processor.create_dlc_dataset(data, scorer, relnames, pointnames, newpath)
-    print("...done.")
+    data_processor.save_dlc_dataset(data, scorer, relnames, pointnames, newpath)
+    print("DLC dataset extracted from provided XMAlab trials")

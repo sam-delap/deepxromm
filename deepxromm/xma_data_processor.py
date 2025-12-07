@@ -800,7 +800,7 @@ class XMADataProcessor:
 
         return dataFrame
 
-    def create_dlc_dataset(
+    def save_dlc_dataset(
         self,
         data: pd.DataFrame,
         scorer: str,
