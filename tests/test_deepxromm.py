@@ -14,6 +14,7 @@ from pandas.testing import assert_frame_equal
 from ruamel.yaml import YAML
 
 from deepxromm import DeepXROMM
+from deepxromm.xma_data_processor import XMADataProcessor
 
 
 SAMPLE_FRAME = Path(__file__).parent / "sample_frame.jpg"
@@ -737,24 +738,6 @@ class TestPerCamTrialProcess(unittest.TestCase):
         shutil.copy("trial_cam1.avi", str(self.cam1_path))
         shutil.copy("trial_cam2.avi", str(self.cam2_path))
 
-    def _create_test_video(self, video_path: Path, num_frames: int = 10):
-        """Create a test video file"""
-        frame = cv2.imread(str(SAMPLE_FRAME))
-        if frame is None:
-            # Create a simple test frame if sample frame not available
-            frame = np.zeros((480, 640, 3), dtype=np.uint8)
-            frame[:, :] = (128, 128, 128)  # Gray frame
-
-        out = cv2.VideoWriter(
-            str(video_path),
-            cv2.VideoWriter_fourcc(*"DIVX"),
-            15,
-            (frame.shape[1], frame.shape[0]),
-        )
-        for i in range(num_frames):
-            out.write(frame)
-        out.release()
-
     def test_first_frame_matches_in_dlc_csv(self):
         """When I run xma_to_dlc, does the DLC CSV have the same data as my original file?"""
         deepxromm = DeepXROMM.load_project(self.working_dir)
@@ -910,24 +893,6 @@ class TestRGBTrialProcess(unittest.TestCase):
         shutil.copy("trial.csv", str(self.trial_csv))
         shutil.copy("trial_cam1.avi", str(self.cam1_path))
         shutil.copy("trial_cam2.avi", str(self.cam2_path))
-
-    def _create_test_video(self, video_path: Path, num_frames: int = 10):
-        """Create a test video file"""
-        frame = cv2.imread(str(SAMPLE_FRAME))
-        if frame is None:
-            # Create a simple test frame if sample frame not available
-            frame = np.zeros((480, 640, 3), dtype=np.uint8)
-            frame[:, :] = (128, 128, 128)  # Gray frame
-
-        out = cv2.VideoWriter(
-            str(video_path),
-            cv2.VideoWriter_fourcc(*"DIVX"),
-            15,
-            (frame.shape[1], frame.shape[0]),
-        )
-        for i in range(num_frames):
-            out.write(frame)
-        out.release()
 
     def test_first_frame_matches_in_dlc_csv(self):
         """When I run xma_to_dlc, does the DLC CSV have the same data as my original file?"""
