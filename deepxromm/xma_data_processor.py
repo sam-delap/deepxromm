@@ -596,3 +596,385 @@ class XMADataProcessor:
                 count += 1
 
         return picked_frames
+
+    def extract_frames_from_camera(
+        self,
+        trial_path: Path,
+        camera: int,
+        picked_frames: list,
+        output_dir: Path,
+        trial_name: str,
+        include_camera_in_filename: bool = True,
+    ) -> list[str]:
+        """
+        Unified frame extraction interface for both video files and image folders.
+
+        Args:
+            include_camera_in_filename: If True, includes camera identifier in filename
+                                       (e.g., test_cam1_0001.png). If False, omits it
+                                       (e.g., test_0001.png). Used in per_cam mode.
+
+        Returns:
+            List of absolute file paths as strings (for use as DataFrame index)
+        """
+        # Find camera file using existing method
+        cam_identifier = f"cam{camera}"
+        cam_file = self.find_cam_file(trial_path, cam_identifier)
+        video_path = trial_path / cam_file
+
+        if video_path.is_dir():
+            # Handle image folder
+            return self._process_image_folder(
+                video_path,
+                picked_frames,
+                output_dir,
+                trial_name,
+                include_camera_in_filename,
+            )
+        else:
+            # Handle video file
+            return self._extract_frames_from_video(
+                video_path,
+                picked_frames,
+                output_dir,
+                trial_name,
+                include_camera_in_filename,
+            )
+
+    def _process_image_folder(
+        self,
+        img_folder: Path,
+        picked_frames: list,
+        output_dir: Path,
+        trial_name: str,
+        include_camera_in_filename: bool,
+    ) -> list[str]:
+        """
+        Process image folder and extract specified frames.
+
+        Returns:
+            List of absolute file paths as strings
+        """
+        relnames = []
+        imgs = list(img_folder.glob("*"))
+        frames = sorted(picked_frames)
+
+        for count, img in enumerate(imgs):
+            if count not in frames:
+                continue
+            image = cv2.imread(str(img_folder / img))
+            current_img = str(count + 1).zfill(4)
+            # Use absolute path string for relname
+            relname = str(output_dir / f"{trial_name}_{current_img}.png")
+            relnames.append(relname)
+            cv2.imwrite(relname, image)
+
+        return relnames
+
+    def _extract_frames_from_video(
+        self,
+        video_path: Path,
+        picked_frames: list,
+        output_dir: Path,
+        trial_name: str,
+        include_camera_in_filename: bool,
+    ) -> list[str]:
+        """
+        Extract frames from video file.
+
+        Returns:
+            List of absolute file paths as strings
+        """
+        frames = sorted(picked_frames)
+        relnames = []
+
+        cap = cv2.VideoCapture(str(video_path))
+        success, image = cap.read()
+        count = 0
+
+        while success:
+            if count in frames:
+                current_img = str(count + 1).zfill(4)
+                # Build filename - include camera identifier only if requested
+                if include_camera_in_filename:
+                    # Extract camera number from video filename
+                    # Assumes filename contains "cam1" or "cam2"
+                    cam_num = 1 if "cam1" in str(video_path).lower() else 2
+                    relname = str(
+                        output_dir / f"{trial_name}_cam{cam_num}_{current_img}.png"
+                    )
+                else:
+                    relname = str(output_dir / f"{trial_name}_{current_img}.png")
+                relnames.append(relname)
+                cv2.imwrite(relname, image)
+            success, image = cap.read()
+            count += 1
+
+        cap.release()
+
+        return relnames
+
+    def process_trial_data(
+        self,
+        trial_path: Path,
+        camera: int,
+        picked_frames: list,
+        output_dir: Path,
+        trial_name: str,
+    ) -> pd.DataFrame:
+        """Process trial data and extract 2D points for specific camera"""
+        # Load trial CSV
+        csv_path = self.find_trial_csv(trial_path)
+        df = pd.read_csv(csv_path, sep=",", header=None)
+
+        # Extract point names
+        pointnames = df.loc[0, ::4].astype(str).str[:-7].tolist()
+        df = df.loc[1:,].reset_index(drop=True)
+
+        # Extract frames and sort
+        frames = sorted(picked_frames)
+
+        # Extract 2D point data
+        xpos = df.iloc[frames, 0 + (camera - 1) * 2 :: 4]
+        ypos = df.iloc[frames, 1 + (camera - 1) * 2 :: 4]
+        temp_data = pd.concat([xpos, ypos], axis=1).sort_index(axis=1)
+        temp_data.columns = range(temp_data.shape[1])
+
+        return temp_data
+
+    def build_dlc_dataframe(
+        self,
+        data: pd.DataFrame,
+        scorer: str,
+        relnames: list[str],
+        pointnames: list[str],
+    ) -> pd.DataFrame:
+        """
+        Build DeepLabCut MultiIndex DataFrame from raw coordinate data.
+
+        Args:
+            data: DataFrame with coordinates (columns are alternating x,y for each point)
+            scorer: Name of the scorer/experimenter
+            relnames: List of absolute image file paths (for index)
+            pointnames: List of body part names
+
+        Returns:
+            DataFrame with MultiIndex columns (scorer, bodyparts, coords)
+
+        Raises:
+            ValueError: If data dimensions don't match expected structure
+        """
+        # Validate inputs
+        expected_cols = len(pointnames) * 2  # x,y for each point
+        if data.shape[1] != expected_cols:
+            raise ValueError(
+                f"Data has {data.shape[1]} columns but expected {expected_cols} "
+                f"for {len(pointnames)} body parts (2 coords each)"
+            )
+
+        if data.shape[0] != len(relnames):
+            raise ValueError(
+                f"Data has {data.shape[0]} rows but {len(relnames)} image names provided"
+            )
+
+        # Build MultiIndex DataFrame
+        dataFrame = pd.DataFrame()
+        temp = np.empty((data.shape[0], 2))
+        temp[:] = np.nan
+
+        for i, bodypart in enumerate(pointnames):
+            index = pd.MultiIndex.from_product(
+                [[scorer], [bodypart], ["x", "y"]],
+                names=["scorer", "bodyparts", "coords"],
+            )
+            frame = pd.DataFrame(temp, columns=index, index=relnames)
+            frame.iloc[:, 0:2] = data.iloc[:, 2 * i : 2 * i + 2].values.astype(float)
+            dataFrame = pd.concat([dataFrame, frame], axis=1)
+
+        # Clean various NaN representations
+        dataFrame.replace("", np.nan, inplace=True)
+        dataFrame.replace(" NaN", np.nan, inplace=True)
+        dataFrame.replace(" NaN ", np.nan, inplace=True)
+        dataFrame.replace("NaN ", np.nan, inplace=True)
+        dataFrame = dataFrame.apply(pd.to_numeric, errors="coerce")
+
+        return dataFrame
+
+    def create_dlc_dataset(
+        self,
+        data: pd.DataFrame,
+        scorer: str,
+        relnames: list[str],
+        pointnames: list[str],
+        output_dir: Path,
+    ) -> None:
+        """
+        Create complete DeepLabCut dataset with DataFrame and save files.
+
+        Builds the multi-index DataFrame structure and saves to both
+        HDF5 and CSV formats expected by DeepLabCut.
+
+        Args:
+            data: DataFrame with raw coordinate data
+            scorer: Name of scorer/experimenter
+            relnames: List of absolute image file paths
+            pointnames: List of body part names
+            output_dir: Directory to save output files
+        """
+        # Build the DataFrame
+        dataFrame = self.build_dlc_dataframe(data, scorer, relnames, pointnames)
+
+        # Save files
+        h5_save_path = output_dir / f"CollectedData_{scorer}.h5"
+        csv_save_path = output_dir / f"CollectedData_{scorer}.csv"
+
+        dataFrame.to_hdf(h5_save_path, key="df_with_missing", mode="w")
+        dataFrame.to_csv(csv_save_path, na_rep="NaN")
+
+    def read_trial_csv_with_validation(
+        self,
+        trialnames: list[Path],
+    ) -> tuple[list[pd.DataFrame], list[list[int]], list[str]]:
+        """
+        Read trial CSVs and validate point name consistency.
+
+        Args:
+            trialnames: List of trial directory paths
+
+        Returns:
+            Tuple of (dataframes, valid_frame_indices, pointnames)
+            - dataframes: List of DataFrames (one per trial, header row removed)
+            - valid_frame_indices: List of lists containing valid frame indices per trial
+            - pointnames: List of point/marker names
+
+        Raises:
+            ValueError: If CSVs have inconsistent point names or structure
+            FileNotFoundError: If CSV file is missing or multiple CSVs found
+        """
+        import random
+
+        dfs = []
+        idx = []
+        pnames = []
+
+        for trial in trialnames:
+            # Find CSV file
+            contents = list(trial.glob("*.csv"))
+            if len(contents) != 1:
+                csv_list = [f.name for f in contents]
+                raise FileNotFoundError(
+                    f"Expected exactly 1 CSV file in {trial.name}, "
+                    f"but found {len(contents)}: {csv_list}"
+                )
+            filename = contents[0]
+
+            # Read CSV with header=None to match xrommtools pattern
+            df1 = pd.read_csv(filename, sep=",", header=None)
+
+            # Extract point names from header row (every 4th column, strip suffix)
+            pointnames = df1.loc[0, ::4].astype(str).str[:-7].tolist()
+            pnames.append(pointnames)
+
+            # Remove header row
+            df1 = df1.loc[1:,].reset_index(drop=True)
+
+            # Find valid frames (rows where >= 50% of columns are non-NaN)
+            ncol = df1.shape[1]
+            temp_idx = list(df1.index.values[(~pd.isnull(df1)).sum(axis=1) >= ncol / 2])
+
+            # Randomize frames within each trial
+            random.shuffle(temp_idx)
+            idx.append(temp_idx)
+            dfs.append(df1)
+
+        # Validate consistent point names across trials
+        if any(pnames[0] != x for x in pnames):
+            # Build detailed error message showing differences
+            differences = []
+            for i, pname_list in enumerate(pnames):
+                if pname_list != pnames[0]:
+                    trial_name = trialnames[i].name
+                    diff_points = set(pname_list) ^ set(pnames[0])
+                    differences.append(f"  {trial_name}: differs by {diff_points}")
+
+            error_msg = (
+                "Point names are not consistent across trials.\n"
+                f"Reference trial ({trialnames[0].name}): {pnames[0]}\n"
+                "Differences found in:\n" + "\n".join(differences)
+            )
+            raise ValueError(error_msg)
+
+        return dfs, idx, pnames[0]
+
+    def get_list_of_trials(self, data_path: Path) -> list[Path]:
+        """
+        Get list of trial directories from data path.
+
+        Args:
+            data_path: Path to directory containing trial folders
+
+        Returns:
+            List of trial directory paths (excludes hidden folders)
+
+        Raises:
+            FileNotFoundError: If no trials found in data_path
+        """
+        trialnames = [
+            folder
+            for folder in data_path.glob("*")
+            if (data_path / folder).is_dir() and not folder.name.startswith(".")
+        ]
+
+        if len(trialnames) == 0:
+            raise FileNotFoundError(
+                f"No trials found in {data_path}. "
+                "Please ensure trial directories exist and are not hidden."
+            )
+
+        return trialnames
+
+    def extract_2d_points_for_camera(
+        self,
+        trial_csv_df: pd.DataFrame,
+        camera: int,
+        picked_frames: list[int],
+    ) -> pd.DataFrame:
+        """
+        Extract 2D point data for specific camera from trial CSV.
+
+        Args:
+            trial_csv_df: DataFrame loaded from trial CSV (header row already removed)
+            camera: Camera number (1 or 2)
+            picked_frames: List of frame indices to extract
+
+        Returns:
+            DataFrame with x,y coordinates for each point, sorted by column index
+            Note: Columns are NOT renamed - caller should handle column naming
+
+        Raises:
+            ValueError: If camera number is not 1 or 2
+            IndexError: If picked_frames contains invalid indices
+        """
+        # Validate camera number
+        if camera not in [1, 2]:
+            raise ValueError(f"Camera must be 1 or 2, got {camera}")
+
+        # Validate frame indices
+        max_frame = trial_csv_df.shape[0] - 1
+        invalid_frames = [f for f in picked_frames if f > max_frame or f < 0]
+        if invalid_frames:
+            raise IndexError(
+                f"Frame indices {invalid_frames} are out of bounds. "
+                f"Valid range: 0-{max_frame}"
+            )
+
+        # Extract x and y positions for this camera
+        # Camera 1: columns 0, 1, 4, 5, 8, 9, ... (offset 0)
+        # Camera 2: columns 2, 3, 6, 7, 10, 11, ... (offset 2)
+        xpos = trial_csv_df.iloc[picked_frames, 0 + (camera - 1) * 2 :: 4]
+        ypos = trial_csv_df.iloc[picked_frames, 1 + (camera - 1) * 2 :: 4]
+
+        # Concatenate and sort by column index
+        temp_data = pd.concat([xpos, ypos], axis=1).sort_index(axis=1)
+
+        return temp_data
