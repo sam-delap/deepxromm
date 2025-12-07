@@ -10,6 +10,7 @@ import cv2
 from PIL import Image
 import numpy as np
 import pandas as pd
+import random
 from ruamel.yaml import YAML
 
 logger = logging.getLogger()
@@ -851,7 +852,6 @@ class XMADataProcessor:
             ValueError: If CSVs have inconsistent point names or structure
             FileNotFoundError: If CSV file is missing or multiple CSVs found
         """
-        import random
 
         dfs = []
         idx = []
