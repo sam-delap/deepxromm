@@ -121,5 +121,7 @@ class DeepXROMM:
                 continue
             project_path = folder
             deepxromm = DeepXROMM.load_project(str(project_path))
+            deepxromm.xma_to_dlc()
+            deepxromm.create_training_dataset()
             deepxromm.train_network()
             deepxromm.analyze_videos()
