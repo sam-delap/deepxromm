@@ -11,8 +11,6 @@ from ruamel.yaml import YAML
 
 from .xma_data_processor import XMADataProcessor
 
-SUGGESTED_CODECS = ["avc1", "DIVX", "XVID", "mp4v", "MJPG", "uncompressed"]
-
 
 class Project:
     def __init__(self):
