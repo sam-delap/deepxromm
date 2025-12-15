@@ -11,6 +11,7 @@ from ruamel.yaml import YAML
 
 from .xma_data_processor import XMADataProcessor
 
+SUGGESTED_CODECS = ["avc1" , "DIVX", "XVID", "mp4v", "MJPG", "uncompressed"]
 
 class Project:
     def __init__(self):
@@ -33,13 +34,14 @@ class Project:
         dummy_video_path = working_dir / "dummy.avi"
         frame = np.zeros((480, 480, 3), dtype=np.uint8)
         out = cv2.VideoWriter(
-            str(dummy_video_path), cv2.VideoWriter_fourcc(*"DIVX"), 15, (480, 480)
+            str(dummy_video_path), cv2.VideoWriter_fourcc(*codec), 15, (480, 480)
         )
         if not out.isOpened():
             raise RuntimeError(
-                "Failed to create dummy video with codec 'avc1'. "
+                f"Failed to create dummy video with codec '{codec}'. "
                 "Your system may not support this codec. "
-                "Please install ffmpeg or use a different OpenCV build."
+                f"Please try one of the following codecs instead {SUGGESTED_CODECS}"
+                "For advanced users, you may want to install ffmpeg, use a different OpenCV build."
             )
         out.write(frame)
         out.release()
