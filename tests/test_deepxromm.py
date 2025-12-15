@@ -722,7 +722,7 @@ class TestPerCamTrialProcess(unittest.TestCase):
     def setUp(self):
         """Create trial with test data"""
         self.working_dir = Path.cwd() / "tmp"
-        self.deepxromm = DeepXROMM.create_new_project(self.working_dir)
+        self.deepxromm = DeepXROMM.create_new_project(self.working_dir, mode="per_cam")
 
         # Make a trial directory
         trial_dir = self.working_dir / "trainingdata/test"
