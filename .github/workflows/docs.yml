@@ -22,7 +22,7 @@ jobs:
       - name: Install dependencies
         run: uv sync --locked --all-extras --dev
 
-      - uses: actions/cache@v4
+      - uses: actions/cache@v5
         with:
           key: ${{ github.ref }}
           path: .cache
