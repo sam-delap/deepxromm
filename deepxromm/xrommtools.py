@@ -15,14 +15,13 @@ from pathlib import Path
 import pandas as pd
 import numpy as np
 import cv2
-import random
 from deeplabcut.pose_estimation_tensorflow.predict_videos import analyze_videos
 from deepxromm.xma_data_processor import XMADataProcessor
 
 
 def xma_to_dlc(
     path_config_file: Path,
-    data_path: Path,
+    trials_suffix: str,
     dataset_name: str,
     scorer: str,
     nframes: int,
@@ -38,7 +37,8 @@ def xma_to_dlc(
 
     Args:
         path_config_file: Path to DLC config file (or cam1 config if nnetworks=2)
-        data_path: Path to directory containing trial folders
+        trials_suffix: Relative path from working_dir to trials folder
+                      (e.g., 'trainingdata', 'trials', 'data/experiments')
         dataset_name: Name for the dataset
         scorer: Name of scorer/experimenter
         nframes: Number of frames to extract across all trials
@@ -49,12 +49,16 @@ def xma_to_dlc(
     Raises:
         ValueError: If frame/trial validation fails or directories already contain data
         FileNotFoundError: If required files are missing
+
+    Security:
+        All file access is validated against data_processor's working_dir to prevent
+        unauthorized access outside the project directory.
     """
     # PHASE 1: Setup and frame selection
     cameras = [1, 2]
 
-    # Get list of trials
-    trialnames = data_processor.get_list_of_trials(data_path)
+    # Get list of trials (validates paths are within working_dir)
+    trialnames = data_processor.list_trials(trials_suffix)
 
     # Read and validate CSVs
     dfs, idx, pointnames = data_processor.read_trial_csv_with_validation(trialnames)
@@ -638,13 +642,19 @@ def _process_camera_per_cam(
 
         # Extract frames using unified interface
         frames = sorted(picked_frames[trialnum])
-        trial_relnames = data_processor.extract_frames_from_camera(
-            trial_path,
-            camera,
-            frames,
-            newpath,
-            trial_name,
-            include_camera_in_filename=False,
+        # Find the camera video/image source
+        cam_identifier = f"cam{camera}"
+        cam_file = data_processor.find_cam_file(trial_path, cam_identifier)
+        source_path = trial_path / cam_file
+
+        trial_relnames = data_processor.extract_frames_from_video(
+            source_path=source_path,
+            frame_indices=frames,
+            output_dir=newpath,
+            output_name_base=trial_name,
+            mode="per_cam",
+            camera=camera,
+            compression=0,
         )
         relnames.extend(trial_relnames)
 
@@ -709,13 +719,19 @@ def _process_cameras_2d(
 
             # Extract frames using unified interface
             frames = sorted(picked_frames[trialnum])
-            trial_relnames = data_processor.extract_frames_from_camera(
-                trial_path,
-                camera,
-                frames,
-                newpath,
-                trial_name,
-                include_camera_in_filename=True,
+            # Find the camera video/image source
+            cam_identifier = f"cam{camera}"
+            cam_file = data_processor.find_cam_file(trial_path, cam_identifier)
+            source_path = trial_path / cam_file
+
+            trial_relnames = data_processor.extract_frames_from_video(
+                source_path=source_path,
+                frame_indices=frames,
+                output_dir=newpath,
+                output_name_base=trial_name,
+                mode="2D",
+                camera=camera,
+                compression=0,
             )
             relnames.extend(trial_relnames)
 

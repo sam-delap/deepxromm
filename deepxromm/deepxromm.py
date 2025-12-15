@@ -25,10 +25,14 @@ class DeepXROMM:
         raise NotImplementedError("Use create_new_project or load_project instead.")
 
     @classmethod
-    def create_new_project(cls, working_dir=None, experimenter="NA", mode="2D"):
+    def create_new_project(
+        cls, working_dir=None, experimenter="NA", mode="2D", codec="avc1"
+    ):
         """Create a new xrommtools project"""
         deepxromm = DeepXROMM.__new__(DeepXROMM)
-        deepxromm.config = Project.create_new_config(working_dir, experimenter, mode)
+        deepxromm.config = Project.create_new_config(
+            working_dir, experimenter, mode, codec
+        )
         deepxromm._analyzer = Analyzer(deepxromm.config)
         deepxromm._autocorrector = Autocorrector(deepxromm.config)
         deepxromm._network = Network(deepxromm.config)
@@ -70,9 +74,18 @@ class DeepXROMM:
         """Pull the names of the XMAlab markers from the 2Dpoints file"""
         return self._data_processor.get_bodyparts_from_xma(csv_path, mode)
 
-    def split_rgb(self, trial_path, codec="avc1"):
+    def split_rgb(self, trial_path, codec=None):
         """Takes a RGB video with different grayscale data written to the R, G,
-        and B channels and splits it back into its component source videos."""
+        and B channels and splits it back into its component source videos.
+
+        Args:
+            trial_path: Path to trial directory containing RGB video
+            codec: Video codec to use. If None, uses video_codec from config.
+                   Common options: "avc1", "DIVX", "XVID", "mp4v", "MJPG", "uncompressed"
+
+        Raises:
+            RuntimeError: If the specified codec is not available on this system
+        """
         return self._data_processor.split_rgb(trial_path, codec)
 
     def analyze_video_similarity_project(self):

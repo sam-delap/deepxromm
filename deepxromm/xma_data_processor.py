@@ -1,9 +1,10 @@
 """Converts data from XMALab into the format useful for DLC training."""
 
 import logging
+import tempfile
 from pathlib import Path
 
-from subprocess import Popen
+from subprocess import Popen, PIPE
 
 import blend_modes
 import cv2
@@ -24,6 +25,86 @@ class XMADataProcessor:
         self._config = config
         self._swap_markers = config["swapped_markers"]
         self._cross_markers = config["crossed_markers"]
+
+    def validate_codec(self, codec: str, width: int = 640, height: int = 480) -> bool:
+        """
+        Validate if a video codec is available on the current system.
+
+        Args:
+            codec: FourCC codec code (e.g., "avc1", "DIVX", "XVID")
+            width: Test video width (default 640)
+            height: Test video height (default 480)
+
+        Returns:
+            True if codec is available and functional, False otherwise
+
+        Note:
+            Special cases "uncompressed" and 0 always return True as they
+            use different encoding mechanisms.
+        """
+        # Special cases that don't use cv2.VideoWriter with fourcc
+        if codec == "uncompressed" or codec == 0:
+            return True
+
+        # Test codec by creating a temporary VideoWriter
+        with tempfile.TemporaryDirectory() as tmpdir:
+            try:
+                test_path = Path(tmpdir) / "codec_test.avi"
+                fourcc = cv2.VideoWriter_fourcc(*codec)
+                writer = cv2.VideoWriter(
+                    str(test_path),
+                    fourcc,
+                    1.0,  # Low FPS for test
+                    (width, height),
+                )
+
+                # Check if writer opened successfully
+                is_valid = writer.isOpened()
+
+                # Try writing a test frame to ensure codec actually works
+                if is_valid:
+                    test_frame = np.zeros((height, width, 3), dtype=np.uint8)
+                    writer.write(test_frame)
+
+                writer.release()
+                logger.info(
+                    f"Codec validation for '{codec}': {'PASSED' if is_valid else 'FAILED'}"
+                )
+                return is_valid
+
+            except Exception as e:
+                logger.warning(
+                    f"Codec validation for '{codec}' failed with exception: {e}"
+                )
+                return False
+
+    def get_codec_error_message(self, failed_codec: str, operation: str) -> str:
+        """
+        Generate descriptive error message for codec validation failure.
+
+        Args:
+            failed_codec: The codec that failed validation
+            operation: Operation type ("split" or "merge")
+
+        Returns:
+            Formatted error message with suggestions
+        """
+        return f"""
+Video codec '{failed_codec}' is not available on this system for {operation}_rgb operation.
+
+Common alternative codecs to try:
+  - "avc1"  : H.264 codec (best quality, not always available)
+  - "DIVX"  : DivX codec (widely available)
+  - "XVID"  : Xvid codec (widely available)
+  - "mp4v"  : MPEG-4 codec (generally available)
+  - "MJPG"  : Motion JPEG (always available, larger file sizes)
+  - "uncompressed" : Raw video via ffmpeg (largest files, highest quality)
+
+To change the codec, update your project config file:
+  video_codec: "DIVX"  # Change this line to one of the alternatives above
+
+Note: Codec availability depends on your OpenCV build and system codecs.
+""".strip()
 
     def find_trial_csv(self, trial_path: Path) -> Path:
         """
@@ -71,33 +152,17 @@ class XMADataProcessor:
                 parts_unique.append(part)
         return parts_unique
 
-    def make_rgb_videos(self, data_path: Path):
+    def make_rgb_videos(self, suffix: str):
         """For all trials in given data path merges 2 videos into single RBG video."""
-        trials = [
-            folder
-            for folder in data_path.glob("*")
-            if (data_path / folder).is_dir() and not folder.name.startswith(".")
-        ]
-        for trial in trials:
-            path_to_trial = data_path / trial
+        trials = self.list_trials(suffix=suffix)
+        for path_to_trial in trials:
             self._merge_rgb(path_to_trial)
 
-    def xma_to_dlc_rgb(self, data_path: Path):
+    def xma_to_dlc_rgb(self, suffix: str):
         """Convert XMAlab input into RGB-ready DLC input"""
-        trials = [
-            folder
-            for folder in data_path.glob("*")
-            if (data_path / folder).is_dir() and not folder.name.startswith(".")
-        ]
-        for trial_name in trials:
-            trial_path = data_path / trial_name
-            try:
-                df = pd.read_csv(self.find_trial_csv(trial_path))
-            except FileNotFoundError as e:
-                print(
-                    f"Please make sure that your trainingdata 2DPoints csv file is named {trial_name}.csv"
-                )
-                raise e
+        trials = self.list_trials(suffix=suffix)
+        for trial_path in trials:
+            df = pd.read_csv(self.find_trial_csv(trial_path))
             substitute_data_relpath = (
                 Path("labeled-data") / self._config["dataset_name"]
             )
@@ -125,24 +190,77 @@ class XMADataProcessor:
                 f"No video file found containing '{identifier}' in {path}"
             )
 
-    def list_trials(self, suffix: str = "trials"):
-        """Returns a list of trials or throws an exception if folder is empty"""
+    def list_trials(self, suffix: str = "trials") -> list[Path]:
+        """
+        Get list of trial directories from project working directory.
+
+        This is the ONLY method for listing trials. All trial access is validated
+        against the project's working_dir to prevent unauthorized file access.
+
+        Args:
+            suffix: Relative path from working_dir to trials folder.
+                    Examples: "trials", "trainingdata", "data/experiments"
+                    Cannot contain '..' or start with '/' for security.
+
+        Returns:
+            List of trial directory Path objects (excludes hidden folders)
+
+        Raises:
+            FileNotFoundError: If no trials found in working_dir/suffix
+            ValueError: If suffix contains path traversal attempts or absolute paths
+
+        Security:
+            Path traversal attempts (../, absolute paths) are rejected to ensure
+            all file access remains within the project working_dir.
+        """
+        # Security validation: prevent directory traversal
+        if ".." in suffix:
+            raise ValueError(
+                f"Security error: Path traversal detected in suffix '{suffix}'. "
+                "Suffix cannot contain '..' for security reasons."
+            )
+        if suffix.startswith("/"):
+            raise ValueError(
+                f"Security error: Absolute path detected in suffix '{suffix}'. "
+                "Suffix must be a relative path within working_dir."
+            )
+
         working_dir = Path(self._config["working_dir"])
         trial_path = working_dir / suffix
-        trials = [
+
+        # Additional security check: ensure resolved path is within working_dir
+        try:
+            resolved_trial_path = trial_path.resolve()
+            resolved_working_dir = working_dir.resolve()
+            if not str(resolved_trial_path).startswith(str(resolved_working_dir)):
+                raise ValueError(
+                    f"Security error: Path traversal detected. "
+                    f"Resolved path '{resolved_trial_path}' is outside working_dir."
+                )
+        except (OSError, RuntimeError) as e:
+            raise ValueError(f"Invalid path in suffix '{suffix}': {e}")
+
+        # Get list of trial directories (excluding hidden folders)
+        trialnames = [
             folder
             for folder in trial_path.glob("*")
             if (trial_path / folder).is_dir() and not folder.name.startswith(".")
         ]
 
-        if len(trials) <= 0:
+        if len(trialnames) == 0:
             raise FileNotFoundError(
-                f"Empty trials directory found. Please put trials to be analyzed after training into the {trial_path} folder"
+                f"No trials found in {trial_path}. "
+                "Please ensure trial directories exist and are not hidden."
             )
-        return trials
 
-    def split_rgb(self, trial_path: Path, codec="avc1"):
+        return trialnames
+
+    def split_rgb(self, trial_path: Path, codec=None):
         """Takes a RGB video with different grayscale data written to the R, G, and B channels and splits it back into its component source videos."""
+        # Use provided codec, otherwise fall back to config value
+        if codec is None:
+            codec = self._config.get("video_codec", "avc1")
+
         trial_name = trial_path.name
         out_name = trial_name + "_split_"
 
@@ -155,6 +273,12 @@ class XMADataProcessor:
         frame_width = int(rgb_video.get(3))
         frame_height = int(rgb_video.get(4))
         frame_rate = round(rgb_video.get(5), 2)
+
+        # Validate codec is available on this system (unless using uncompressed)
+        if not self.validate_codec(codec, frame_width, frame_height):
+            error_msg = self.get_codec_error_message(codec, "split")
+            raise RuntimeError(error_msg)
+
         if codec == "uncompressed":
             pix_format = "gray"  ##change to 'yuv420p' for color or 'gray' for grayscale. 'pal8' doesn't play on macs
             cam1_split_ffmpeg = Popen(
@@ -247,9 +371,22 @@ class XMADataProcessor:
                 (frame_width, frame_height),
             )
 
+            # Verify VideoWriters opened successfully
+            if not cam1.isOpened():
+                raise RuntimeError(
+                    f"Failed to create cam1 video writer with codec '{codec}'"
+                )
+            if not cam2.isOpened():
+                raise RuntimeError(
+                    f"Failed to create cam2 video writer with codec '{codec}'"
+                )
+            if not blue_channel.isOpened():
+                raise RuntimeError(
+                    f"Failed to create blue channel video writer with codec '{codec}'"
+                )
+
         i = 1
         while rgb_video.isOpened():
-            # TODO: Error check
             ret, frame = rgb_video.read()
             print(f"Current Frame: {i}")
             i = i + 1
@@ -292,7 +429,7 @@ class XMADataProcessor:
             f"Blue channel grayscale video created at {trial_path}/{out_name}blue.avi!"
         )
 
-    def _merge_rgb(self, trial_path: Path, codec="avc1", mode="difference"):
+    def _merge_rgb(self, trial_path: Path, codec=None, mode="difference"):
         """
         Takes the path to a trial subfolder and exports a single new video with
         cam1 video written to the red channel and cam2 video written to the
@@ -300,6 +437,10 @@ class XMADataProcessor:
         "mode", either the difference blend between A and B, the multiply
         blend, or just a black frame.
         """
+        # Use provided codec, otherwise fall back to config value
+        if codec is None:
+            codec = self._config.get("video_codec", "avc1")
+
         print("Merging RGBs")
         trial_name = trial_path.name
         rgb_video_path = trial_path / f"{trial_name}_rgb.avi"
@@ -315,13 +456,37 @@ class XMADataProcessor:
         frame_width = int(cam1_video.get(3))
         frame_height = int(cam1_video.get(4))
         frame_rate = round(cam1_video.get(5), 2)
-        fourcc = cv2.VideoWriter_fourcc(*codec)
+
+        # Validate codec is available on this system
+        if not self.validate_codec(codec, frame_width, frame_height):
+            error_msg = self.get_codec_error_message(codec, "merge")
+            raise RuntimeError(error_msg)
+
+        # Note: "uncompressed" codec is not supported for merge_rgb
+        # If needed in the future, implement ffmpeg pipeline like in split_rgb
+        if codec == "uncompressed":
+            raise RuntimeError(
+                "The 'uncompressed' codec is not currently supported for merge_rgb operation. "
+                "Please use a compressed codec like 'avc1', 'DIVX', 'XVID', 'mp4v', or 'MJPG'."
+            )
+
+        if codec == 0:
+            fourcc = 0
+        else:
+            fourcc = cv2.VideoWriter_fourcc(*codec)
         out = cv2.VideoWriter(
             f"{trial_path}/{trial_name}_rgb.avi",
             fourcc,
             frame_rate,
             (frame_width, frame_height),
         )
+
+        # Verify VideoWriter opened successfully
+        if not out.isOpened():
+            raise RuntimeError(
+                f"Failed to create RGB video writer with codec '{codec}'"
+            )
+
         i = 1
         while cam1_video.isOpened():
             print(f"Current Frame: {i}")
@@ -509,62 +674,18 @@ class XMADataProcessor:
         video_path = trainingdata_path / trial_name / f"{trial_name}_rgb.avi"
         dlc_path = Path(self._config["path_config_file"]).parent
         labeled_data_path = dlc_path / "labeled-data" / self._config["dataset_name"]
-        frames_from_vid = self._vid_to_pngs(
-            video_path,
-            indices,
-            labeled_data_path,
-            name_from_folder=True,
+        # Convert 1-indexed frame numbers to 0-indexed for new method
+        zero_indexed_frames = [idx - 1 for idx in indices]
+        frames_from_vid = self.extract_frames_from_video(
+            source_path=video_path,
+            frame_indices=zero_indexed_frames,
+            output_dir=labeled_data_path,
+            output_name_base=video_path.stem,  # Gets trial name from filename
+            mode="rgb",
             compression=compression,
         )
         extracted_frames.append(frames_from_vid)
         print("Extracted " + str(len(indices)) + f" matching frames from {video_path}")
-
-    def _vid_to_pngs(
-        self,
-        video_path,
-        indices_to_match,
-        output_dir: Path,
-        name_from_folder=True,
-        compression=0,
-    ):
-        """Takes a list of frame numbers and exports matching frames from a video as pngs.
-        Optionally, compress the output PNGs. Factor ranges from 0 (no compression) to 9 (most compression)
-        """
-        frame_index = 1
-        last_frame_to_analyze = max(indices_to_match)
-        png_list = []
-        if name_from_folder:
-            out_name = video_path.name
-        else:
-            out_name = "img"
-        if output_dir is None or not output_dir.exists():
-            output_dir.mkdir(parents=True, exist_ok=True)
-        print("===== try this")
-        cap = cv2.VideoCapture(video_path)
-        print("===== end this")
-        while cap.isOpened():
-            ret, frame = cap.read()
-            # TODO - add descriptive print statements
-            if ret is False:
-                break
-            if frame_index > last_frame_to_analyze:
-                break
-            if frame_index not in indices_to_match:
-                frame_index += 1
-                continue
-
-            print(f"Extracting frame {frame_index}")
-            png_name = out_name + "_" + str(frame_index).zfill(4) + ".png"
-            png_path = output_dir / png_name
-            png_list.append(png_path)
-            cv2.imwrite(png_path, frame, [cv2.IMWRITE_PNG_COMPRESSION, compression])
-            if cv2.waitKey(1) & 0xFF == ord("q"):
-                break
-            frame_index += 1
-
-        cap.release()
-        cv2.destroyAllWindows()
-        return png_list
 
     def _extract_frame_selection_loop(self, idx: list, nframes: int):
         """Extract the existing frame selection algorithm (preserve existing algorithm)
@@ -598,122 +719,209 @@ class XMADataProcessor:
 
         return picked_frames
 
-    def extract_frames_from_camera(
+    def extract_frames_from_video(
         self,
-        trial_path: Path,
-        camera: int,
-        picked_frames: list,
+        source_path: Path,
+        frame_indices: list[int],
         output_dir: Path,
-        trial_name: str,
-        include_camera_in_filename: bool = True,
+        output_name_base: str,
+        mode: str = "2D",
+        camera: int | None = None,
+        compression: int = 0,
     ) -> list[str]:
         """
-        Unified frame extraction interface for both video files and image folders.
+        Extract specified frames from video or image folder.
+
+        Unified interface for all frame extraction needs across different modes.
 
         Args:
-            include_camera_in_filename: If True, includes camera identifier in filename
-                                       (e.g., test_cam1_0001.png). If False, omits it
-                                       (e.g., test_0001.png). Used in per_cam mode.
+            source_path: Path to video file or image directory
+            frame_indices: List of frame numbers to extract (0-indexed)
+            output_dir: Directory to save extracted frames
+            output_name_base: Base name for output files (e.g., trial name)
+            mode: Extraction mode - determines filename format
+                  "rgb": {output_name_base}_rgb_{frame}.png
+                  "2D": {output_name_base}_cam{camera}_{frame}.png
+                  "per_cam": {output_name_base}_{frame}.png
+            camera: Camera number (required for 2D mode)
+            compression: PNG compression level (0=none, 9=max)
 
         Returns:
-            List of absolute file paths as strings (for use as DataFrame index)
-        """
-        # Find camera file using existing method
-        cam_identifier = f"cam{camera}"
-        cam_file = self.find_cam_file(trial_path, cam_identifier)
-        video_path = trial_path / cam_file
+            List of absolute file paths to extracted frames (as strings)
 
-        if video_path.is_dir():
-            # Handle image folder
-            return self._process_image_folder(
-                video_path,
-                picked_frames,
+        Raises:
+            ValueError: If mode is invalid or required parameters are missing
+            FileNotFoundError: If source_path doesn't exist
+        """
+        # Validate mode
+        valid_modes = ["2D", "per_cam", "rgb"]
+        if mode not in valid_modes:
+            raise ValueError(f"Invalid mode '{mode}'. Must be one of: {valid_modes}")
+
+        # Validate camera parameter for 2D mode
+        if mode == "2D" and camera is None:
+            raise ValueError("Camera parameter is required for 2D mode")
+
+        # Validate compression level
+        if not (0 <= compression <= 9):
+            raise ValueError(f"Compression must be between 0 and 9, got {compression}")
+
+        # Validate source exists
+        if not source_path.exists():
+            raise FileNotFoundError(f"Source path not found: {source_path}")
+
+        # Create output directory if needed
+        output_dir.mkdir(parents=True, exist_ok=True)
+
+        # Route to appropriate handler based on source type
+        if source_path.is_dir():
+            return self._extract_from_image_folder(
+                source_path,
+                frame_indices,
                 output_dir,
-                trial_name,
-                include_camera_in_filename,
+                output_name_base,
+                mode,
+                camera,
             )
         else:
-            # Handle video file
-            return self._extract_frames_from_video(
-                video_path,
-                picked_frames,
+            return self._extract_from_video_file(
+                source_path,
+                frame_indices,
                 output_dir,
-                trial_name,
-                include_camera_in_filename,
+                output_name_base,
+                mode,
+                camera,
+                compression,
             )
 
-    def _process_image_folder(
-        self,
-        img_folder: Path,
-        picked_frames: list,
-        output_dir: Path,
-        trial_name: str,
-        include_camera_in_filename: bool,
-    ) -> list[str]:
-        """
-        Process image folder and extract specified frames.
-
-        Returns:
-            List of absolute file paths as strings
-        """
-        relnames = []
-        imgs = list(img_folder.glob("*"))
-        frames = sorted(picked_frames)
-
-        for count, img in enumerate(imgs):
-            if count not in frames:
-                continue
-            image = cv2.imread(str(img_folder / img))
-            current_img = str(count + 1).zfill(4)
-            # Use absolute path string for relname
-            relname = str(output_dir / f"{trial_name}_{current_img}.png")
-            relnames.append(relname)
-            cv2.imwrite(relname, image)
-
-        return relnames
-
-    def _extract_frames_from_video(
+    def _extract_from_video_file(
         self,
         video_path: Path,
-        picked_frames: list,
+        frame_indices: list[int],
         output_dir: Path,
-        trial_name: str,
-        include_camera_in_filename: bool,
+        output_name_base: str,
+        mode: str,
+        camera: int | None,
+        compression: int,
     ) -> list[str]:
         """
         Extract frames from video file.
 
+        Args:
+            video_path: Path to video file
+            frame_indices: List of 0-indexed frame numbers to extract
+            output_dir: Directory to save frames
+            output_name_base: Base name for output files
+            mode: Extraction mode ("2D", "per_cam", or "rgb")
+            camera: Camera number (for 2D mode)
+            compression: PNG compression level (0-9)
+
         Returns:
             List of absolute file paths as strings
         """
-        frames = sorted(picked_frames)
-        relnames = []
+        frame_indices_set = set(frame_indices)
+        last_frame_to_analyze = max(frame_indices)
+        extracted_paths = []
 
         cap = cv2.VideoCapture(str(video_path))
-        success, image = cap.read()
-        count = 0
+        if not cap.isOpened():
+            raise IOError(f"Failed to open video file: {video_path}")
 
-        while success:
-            if count in frames:
-                current_img = str(count + 1).zfill(4)
-                # Build filename - include camera identifier only if requested
-                if include_camera_in_filename:
-                    # Extract camera number from video filename
-                    # Assumes filename contains "cam1" or "cam2"
-                    cam_num = 1 if "cam1" in str(video_path).lower() else 2
-                    relname = str(
-                        output_dir / f"{trial_name}_cam{cam_num}_{current_img}.png"
-                    )
-                else:
-                    relname = str(output_dir / f"{trial_name}_{current_img}.png")
-                relnames.append(relname)
-                cv2.imwrite(relname, image)
-            success, image = cap.read()
-            count += 1
+        frame_index = 0
+        while cap.isOpened():
+            ret, frame = cap.read()
+            if not ret:
+                break
+
+            if frame_index > last_frame_to_analyze:
+                break
+
+            if frame_index in frame_indices_set:
+                # Print progress with human-readable (1-indexed) frame number
+                print(f"Extracting frame {frame_index + 1}")
+
+                # Build filename based on mode (use 1-based indexing for file names)
+                frame_str = str(frame_index + 1).zfill(4)
+                if mode == "rgb":
+                    filename = f"{output_name_base}_rgb_{frame_str}.png"
+                elif mode == "2D":
+                    filename = f"{output_name_base}_cam{camera}_{frame_str}.png"
+                else:  # per_cam
+                    filename = f"{output_name_base}_{frame_str}.png"
+
+                output_path = output_dir / filename
+                cv2.imwrite(
+                    str(output_path), frame, [cv2.IMWRITE_PNG_COMPRESSION, compression]
+                )
+                extracted_paths.append(str(output_path.absolute()))
+
+            frame_index += 1
 
         cap.release()
+        cv2.destroyAllWindows()
 
-        return relnames
+        return extracted_paths
+
+    def _extract_from_image_folder(
+        self,
+        img_folder: Path,
+        frame_indices: list[int],
+        output_dir: Path,
+        output_name_base: str,
+        mode: str,
+        camera: int | None,
+    ) -> list[str]:
+        """
+        Extract frames from image folder.
+
+        Args:
+            img_folder: Path to folder containing images
+            frame_indices: List of 0-indexed frame numbers to extract
+            output_dir: Directory to save frames
+            output_name_base: Base name for output files
+            mode: Extraction mode ("2D", "per_cam", or "rgb")
+            camera: Camera number (for 2D mode)
+
+        Returns:
+            List of absolute file paths as strings
+        """
+        extracted_paths = []
+        imgs = sorted(list(img_folder.glob("*")))
+        frame_indices_sorted = sorted(frame_indices)
+
+        for frame_idx in frame_indices_sorted:
+            if frame_idx >= len(imgs):
+                logger.warning(
+                    f"Frame index {frame_idx} out of range (folder has {len(imgs)} images)"
+                )
+                continue
+
+            # Print progress with human-readable (1-indexed) frame number
+            print(f"Extracting frame {frame_idx + 1}")
+
+            # Load image
+            img_path = imgs[frame_idx]
+            image = cv2.imread(str(img_path))
+
+            if image is None:
+                logger.warning(f"Failed to load image: {img_path}")
+                continue
+
+            # Build filename based on mode
+            # Note: For image folders, we use frame_idx + 1 for human readability
+            frame_str = str(frame_idx + 1).zfill(4)
+            if mode == "rgb":
+                filename = f"{output_name_base}_rgb_{frame_str}.png"
+            elif mode == "2D":
+                filename = f"{output_name_base}_cam{camera}_{frame_str}.png"
+            else:  # per_cam
+                filename = f"{output_name_base}_{frame_str}.png"
+
+            output_path = output_dir / filename
+            cv2.imwrite(str(output_path), image)
+            extracted_paths.append(str(output_path.absolute()))
+
+        return extracted_paths
 
     def process_trial_data(
         self,
@@ -905,33 +1113,6 @@ class XMADataProcessor:
             raise ValueError(error_msg)
 
         return dfs, idx, pnames[0]
-
-    def get_list_of_trials(self, data_path: Path) -> list[Path]:
-        """
-        Get list of trial directories from data path.
-
-        Args:
-            data_path: Path to directory containing trial folders
-
-        Returns:
-            List of trial directory paths (excludes hidden folders)
-
-        Raises:
-            FileNotFoundError: If no trials found in data_path
-        """
-        trialnames = [
-            folder
-            for folder in data_path.glob("*")
-            if (data_path / folder).is_dir() and not folder.name.startswith(".")
-        ]
-
-        if len(trialnames) == 0:
-            raise FileNotFoundError(
-                f"No trials found in {data_path}. "
-                "Please ensure trial directories exist and are not hidden."
-            )
-
-        return trialnames
 
     def extract_2d_points_for_camera(
         self,
