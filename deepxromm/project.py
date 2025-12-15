@@ -11,7 +11,8 @@ from ruamel.yaml import YAML
 
 from .xma_data_processor import XMADataProcessor
 
-SUGGESTED_CODECS = ["avc1" , "DIVX", "XVID", "mp4v", "MJPG", "uncompressed"]
+SUGGESTED_CODECS = ["avc1", "DIVX", "XVID", "mp4v", "MJPG", "uncompressed"]
+
 
 class Project:
     def __init__(self):
@@ -68,7 +69,7 @@ class Project:
                 "working_dir": str(working_dir),
                 "path_config_file": path_config_file,
                 "tracking_mode": mode,
-                "video_codec": codec
+                "video_codec": codec,
             }
         )
 
@@ -121,7 +122,7 @@ class Project:
         if project["dataset_name"] == "MyData":
             warnings.warn("Default project name in use", SyntaxWarning)
 
-        # Iniitate data processor utility
+        # Initiate data processor utility
         data_processor = XMADataProcessor(config=project)
         training_trials = data_processor.list_trials("trainingdata")
         if len(training_trials) == 0:
