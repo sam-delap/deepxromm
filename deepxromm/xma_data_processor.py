@@ -387,7 +387,6 @@ Note: Codec availability depends on your OpenCV build and system codecs.
 
         i = 1
         while rgb_video.isOpened():
-            # TODO: Error check
             ret, frame = rgb_video.read()
             print(f"Current Frame: {i}")
             i = i + 1
