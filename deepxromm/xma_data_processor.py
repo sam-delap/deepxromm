@@ -1,9 +1,10 @@
 """Converts data from XMALab into the format useful for DLC training."""
 
 import logging
+import tempfile
 from pathlib import Path
 
-from subprocess import Popen
+from subprocess import Popen, PIPE
 
 import blend_modes
 import cv2
@@ -24,6 +25,86 @@ class XMADataProcessor:
         self._config = config
         self._swap_markers = config["swapped_markers"]
         self._cross_markers = config["crossed_markers"]
+
+    def validate_codec(self, codec: str, width: int = 640, height: int = 480) -> bool:
+        """
+        Validate if a video codec is available on the current system.
+
+        Args:
+            codec: FourCC codec code (e.g., "avc1", "DIVX", "XVID")
+            width: Test video width (default 640)
+            height: Test video height (default 480)
+
+        Returns:
+            True if codec is available and functional, False otherwise
+
+        Note:
+            Special cases "uncompressed" and 0 always return True as they
+            use different encoding mechanisms.
+        """
+        # Special cases that don't use cv2.VideoWriter with fourcc
+        if codec == "uncompressed" or codec == 0:
+            return True
+
+        # Test codec by creating a temporary VideoWriter
+        with tempfile.TemporaryDirectory() as tmpdir:
+            try:
+                test_path = Path(tmpdir) / "codec_test.avi"
+                fourcc = cv2.VideoWriter_fourcc(*codec)
+                writer = cv2.VideoWriter(
+                    str(test_path),
+                    fourcc,
+                    1.0,  # Low FPS for test
+                    (width, height),
+                )
+
+                # Check if writer opened successfully
+                is_valid = writer.isOpened()
+
+                # Try writing a test frame to ensure codec actually works
+                if is_valid:
+                    test_frame = np.zeros((height, width, 3), dtype=np.uint8)
+                    writer.write(test_frame)
+
+                writer.release()
+                logger.info(
+                    f"Codec validation for '{codec}': {'PASSED' if is_valid else 'FAILED'}"
+                )
+                return is_valid
+
+            except Exception as e:
+                logger.warning(
+                    f"Codec validation for '{codec}' failed with exception: {e}"
+                )
+                return False
+
+    def get_codec_error_message(self, failed_codec: str, operation: str) -> str:
+        """
+        Generate descriptive error message for codec validation failure.
+
+        Args:
+            failed_codec: The codec that failed validation
+            operation: Operation type ("split" or "merge")
+
+        Returns:
+            Formatted error message with suggestions
+        """
+        return f"""
+Video codec '{failed_codec}' is not available on this system for {operation}_rgb operation.
+
+Common alternative codecs to try:
+  - "avc1"  : H.264 codec (best quality, not always available)
+  - "DIVX"  : DivX codec (widely available)
+  - "XVID"  : Xvid codec (widely available)
+  - "mp4v"  : MPEG-4 codec (generally available)
+  - "MJPG"  : Motion JPEG (always available, larger file sizes)
+  - "uncompressed" : Raw video via ffmpeg (largest files, highest quality)
+
+To change the codec, update your project config file:
+  video_codec: "DIVX"  # Change this line to one of the alternatives above
+
+Note: Codec availability depends on your OpenCV build and system codecs.
+""".strip()
 
     def find_trial_csv(self, trial_path: Path) -> Path:
         """
@@ -71,33 +152,17 @@ class XMADataProcessor:
                 parts_unique.append(part)
         return parts_unique
 
-    def make_rgb_videos(self, data_path: Path):
+    def make_rgb_videos(self, suffix: str):
         """For all trials in given data path merges 2 videos into single RBG video."""
-        trials = [
-            folder
-            for folder in data_path.glob("*")
-            if (data_path / folder).is_dir() and not folder.name.startswith(".")
-        ]
-        for trial in trials:
-            path_to_trial = data_path / trial
+        trials = self.list_trials(suffix=suffix)
+        for path_to_trial in trials:
             self._merge_rgb(path_to_trial)
 
-    def xma_to_dlc_rgb(self, data_path: Path):
+    def xma_to_dlc_rgb(self, suffix: str):
         """Convert XMAlab input into RGB-ready DLC input"""
-        trials = [
-            folder
-            for folder in data_path.glob("*")
-            if (data_path / folder).is_dir() and not folder.name.startswith(".")
-        ]
-        for trial_name in trials:
-            trial_path = data_path / trial_name
-            try:
-                df = pd.read_csv(self.find_trial_csv(trial_path))
-            except FileNotFoundError as e:
-                print(
-                    f"Please make sure that your trainingdata 2DPoints csv file is named {trial_name}.csv"
-                )
-                raise e
+        trials = self.list_trials(suffix=suffix)
+        for trial_path in trials:
+            df = pd.read_csv(self.find_trial_csv(trial_path))
             substitute_data_relpath = (
                 Path("labeled-data") / self._config["dataset_name"]
             )
@@ -143,13 +208,6 @@ class XMADataProcessor:
         Raises:
             FileNotFoundError: If no trials found in working_dir/suffix
             ValueError: If suffix contains path traversal attempts or absolute paths
-
-        Examples:
-            >>> processor.list_trials()
-            # Lists from working_dir/trials
-
-            >>> processor.list_trials("trainingdata")
-            # Lists from working_dir/trainingdata
 
         Security:
             Path traversal attempts (../, absolute paths) are rejected to ensure
@@ -197,8 +255,12 @@ class XMADataProcessor:
 
         return trialnames
 
-    def split_rgb(self, trial_path: Path, codec="avc1"):
+    def split_rgb(self, trial_path: Path, codec=None):
         """Takes a RGB video with different grayscale data written to the R, G, and B channels and splits it back into its component source videos."""
+        # Use provided codec, otherwise fall back to config value
+        if codec is None:
+            codec = self._config.get("video_codec", "avc1")
+
         trial_name = trial_path.name
         out_name = trial_name + "_split_"
 
@@ -211,6 +273,12 @@ class XMADataProcessor:
         frame_width = int(rgb_video.get(3))
         frame_height = int(rgb_video.get(4))
         frame_rate = round(rgb_video.get(5), 2)
+
+        # Validate codec is available on this system (unless using uncompressed)
+        if not self.validate_codec(codec, frame_width, frame_height):
+            error_msg = self.get_codec_error_message(codec, "split")
+            raise RuntimeError(error_msg)
+
         if codec == "uncompressed":
             pix_format = "gray"  ##change to 'yuv420p' for color or 'gray' for grayscale. 'pal8' doesn't play on macs
             cam1_split_ffmpeg = Popen(
@@ -303,6 +371,20 @@ class XMADataProcessor:
                 (frame_width, frame_height),
             )
 
+            # Verify VideoWriters opened successfully
+            if not cam1.isOpened():
+                raise RuntimeError(
+                    f"Failed to create cam1 video writer with codec '{codec}'"
+                )
+            if not cam2.isOpened():
+                raise RuntimeError(
+                    f"Failed to create cam2 video writer with codec '{codec}'"
+                )
+            if not blue_channel.isOpened():
+                raise RuntimeError(
+                    f"Failed to create blue channel video writer with codec '{codec}'"
+                )
+
         i = 1
         while rgb_video.isOpened():
             # TODO: Error check
@@ -348,7 +430,7 @@ class XMADataProcessor:
             f"Blue channel grayscale video created at {trial_path}/{out_name}blue.avi!"
         )
 
-    def _merge_rgb(self, trial_path: Path, codec="avc1", mode="difference"):
+    def _merge_rgb(self, trial_path: Path, codec=None, mode="difference"):
         """
         Takes the path to a trial subfolder and exports a single new video with
         cam1 video written to the red channel and cam2 video written to the
@@ -356,6 +438,10 @@ class XMADataProcessor:
         "mode", either the difference blend between A and B, the multiply
         blend, or just a black frame.
         """
+        # Use provided codec, otherwise fall back to config value
+        if codec is None:
+            codec = self._config.get("video_codec", "avc1")
+
         print("Merging RGBs")
         trial_name = trial_path.name
         rgb_video_path = trial_path / f"{trial_name}_rgb.avi"
@@ -371,13 +457,37 @@ class XMADataProcessor:
         frame_width = int(cam1_video.get(3))
         frame_height = int(cam1_video.get(4))
         frame_rate = round(cam1_video.get(5), 2)
-        fourcc = cv2.VideoWriter_fourcc(*codec)
+
+        # Validate codec is available on this system
+        if not self.validate_codec(codec, frame_width, frame_height):
+            error_msg = self.get_codec_error_message(codec, "merge")
+            raise RuntimeError(error_msg)
+
+        # Note: "uncompressed" codec is not supported for merge_rgb
+        # If needed in the future, implement ffmpeg pipeline like in split_rgb
+        if codec == "uncompressed":
+            raise RuntimeError(
+                "The 'uncompressed' codec is not currently supported for merge_rgb operation. "
+                "Please use a compressed codec like 'avc1', 'DIVX', 'XVID', 'mp4v', or 'MJPG'."
+            )
+
+        if codec == 0:
+            fourcc = 0
+        else:
+            fourcc = cv2.VideoWriter_fourcc(*codec)
         out = cv2.VideoWriter(
             f"{trial_path}/{trial_name}_rgb.avi",
             fourcc,
             frame_rate,
             (frame_width, frame_height),
         )
+
+        # Verify VideoWriter opened successfully
+        if not out.isOpened():
+            raise RuntimeError(
+                f"Failed to create RGB video writer with codec '{codec}'"
+            )
+
         i = 1
         while cam1_video.isOpened():
             print(f"Current Frame: {i}")

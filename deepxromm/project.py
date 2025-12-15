@@ -1,5 +1,6 @@
 """Utility for creating or loading project configs."""
 
+import os
 import warnings
 
 import cv2
@@ -35,6 +36,12 @@ class Project:
         out = cv2.VideoWriter(
             str(dummy_video_path), cv2.VideoWriter_fourcc(*"DIVX"), 15, (480, 480)
         )
+        if not out.isOpened():
+            raise RuntimeError(
+                "Failed to create dummy video with codec 'avc1'. "
+                "Your system may not support this codec. "
+                "Please install ffmpeg or use a different OpenCV build."
+            )
         out.write(frame)
         out.release()
 
@@ -90,7 +97,10 @@ class Project:
         except FileNotFoundError:
             pass
 
-        dummy_video_path.unlink()
+        try:
+            dummy_video_path.unlink()
+        except FileNotFoundError:
+            pass
         return config_data
 
     @staticmethod
@@ -109,31 +119,18 @@ class Project:
         if project["dataset_name"] == "MyData":
             warnings.warn("Default project name in use", SyntaxWarning)
 
-        # Navigate to the training data directory
-        training_data_path = working_dir / "trainingdata"
-        # TODO: Make this a core util
-        trials = [
-            folder
-            for folder in training_data_path.iterdir()
-            if folder.is_dir() and not folder.name.startswith(".")
-        ]
-        if len(trials) == 0:
+        # Iniitate data processor utility
+        data_processor = XMADataProcessor(config=project)
+        training_trials = data_processor.list_trials("trainingdata")
+        if len(training_trials) == 0:
             raise FileNotFoundError(
                 "Empty trials directory found. Expected trial folders within the 'trainingdata' directory"
             )
-        trial = trials[0]  # Assuming there's at least one trial directory
-        trial_path = training_data_path / trial.name
+        trial_path = training_trials[0]
 
         # Load trial CSV
-        # TODO: Find trial CSV using function
-        trial_csv_path = trial_path / f"{trial.name}.csv"
-        try:
-            trial_csv = pd.read_csv(trial_csv_path)
-        except FileNotFoundError as e:
-            print(
-                f"Please make sure that your trainingdata 2DPoints csv file is named {trial.name}.csv"
-            )
-            raise e
+        trial_csv_path = data_processor.find_trial_csv(trial_path)
+        trial_csv = pd.read_csv(trial_csv_path)
 
         # Give search_area a minimum of 10
         project["search_area"] = (
@@ -160,7 +157,6 @@ class Project:
             If this is intentional, ignore this message"
             )
 
-        data_processor = XMADataProcessor(config=project)
         # Check the current nframes against the threshold value * the number of frames in the cam1 video
         cam1_video_path = data_processor.find_cam_file(trial_path, "cam1")
         video = cv2.VideoCapture(cam1_video_path)
@@ -176,8 +172,6 @@ class Project:
 
         # Check DLC bodyparts (marker names)
         default_bodyparts = ["bodypart1", "bodypart2", "bodypart3", "objectA"]
-        path_to_trial = working_dir / "trainingdata" / trial
-        trial_csv_path = data_processor.find_trial_csv(path_to_trial)
         bodyparts = data_processor.get_bodyparts_from_xma(
             trial_csv_path, mode=project["tracking_mode"]
         )

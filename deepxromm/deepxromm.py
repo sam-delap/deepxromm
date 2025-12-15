@@ -70,9 +70,18 @@ class DeepXROMM:
         """Pull the names of the XMAlab markers from the 2Dpoints file"""
         return self._data_processor.get_bodyparts_from_xma(csv_path, mode)
 
-    def split_rgb(self, trial_path, codec="avc1"):
+    def split_rgb(self, trial_path, codec=None):
         """Takes a RGB video with different grayscale data written to the R, G,
-        and B channels and splits it back into its component source videos."""
+        and B channels and splits it back into its component source videos.
+
+        Args:
+            trial_path: Path to trial directory containing RGB video
+            codec: Video codec to use. If None, uses video_codec from config.
+                   Common options: "avc1", "DIVX", "XVID", "mp4v", "MJPG", "uncompressed"
+
+        Raises:
+            RuntimeError: If the specified codec is not available on this system
+        """
         return self._data_processor.split_rgb(trial_path, codec)
 
     def analyze_video_similarity_project(self):

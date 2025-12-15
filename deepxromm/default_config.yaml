@@ -28,3 +28,8 @@ test_autocorrect: false # Set to true if you want to see autocorrect's output in
 
 # Video Similarity Analysis Vars
 cam1s_are_the_same_view: true
+
+# Video Codec Settings
+# Codec availability depends on your OpenCV build and system
+# Common options: "avc1" (H.264), "DIVX", "XVID", "mp4v", "MJPG", "uncompressed"
+video_codec: "avc1"  # Codec for all video operations (split, merge, tests)

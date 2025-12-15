@@ -45,8 +45,8 @@ class Network:
             )
         elif mode == "rgb":
             print("We've selected an RGB video")
-            self._data_processor.make_rgb_videos(self._trainingdata_path)
-            self._data_processor.xma_to_dlc_rgb(self._trainingdata_path)
+            self._data_processor.make_rgb_videos("trainingdata")
+            self._data_processor.xma_to_dlc_rgb("trainingdata")
         else:
             raise AttributeError(f"Unsupportede mode: {mode}")
 
