@@ -1,6 +1,5 @@
 """Utility for creating or loading project configs."""
 
-import os
 import warnings
 
 import cv2
@@ -18,7 +17,7 @@ class Project:
         raise NotImplementedError("Use create_new_config or load_config instead.")
 
     @staticmethod
-    def create_new_config(working_dir=None, experimenter="NA", mode="2D"):
+    def create_new_config(working_dir=None, experimenter="NA", mode="2D", codec="avc1"):
         """Creates a new config from scratch."""
         try:
             working_dir = Path(working_dir) if working_dir is not None else Path.cwd()
@@ -67,6 +66,7 @@ class Project:
                 "working_dir": str(working_dir),
                 "path_config_file": path_config_file,
                 "tracking_mode": mode,
+                "video_codec": codec
             }
         )
 

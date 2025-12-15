@@ -15,7 +15,6 @@ from pathlib import Path
 import pandas as pd
 import numpy as np
 import cv2
-import random
 from deeplabcut.pose_estimation_tensorflow.predict_videos import analyze_videos
 from deepxromm.xma_data_processor import XMADataProcessor
 

@@ -25,10 +25,10 @@ class DeepXROMM:
         raise NotImplementedError("Use create_new_project or load_project instead.")
 
     @classmethod
-    def create_new_project(cls, working_dir=None, experimenter="NA", mode="2D"):
+    def create_new_project(cls, working_dir=None, experimenter="NA", mode="2D", codec="avc1"):
         """Create a new xrommtools project"""
         deepxromm = DeepXROMM.__new__(DeepXROMM)
-        deepxromm.config = Project.create_new_config(working_dir, experimenter, mode)
+        deepxromm.config = Project.create_new_config(working_dir, experimenter, mode, codec)
         deepxromm._analyzer = Analyzer(deepxromm.config)
         deepxromm._autocorrector = Autocorrector(deepxromm.config)
         deepxromm._network = Network(deepxromm.config)

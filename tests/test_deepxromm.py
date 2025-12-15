@@ -1,5 +1,6 @@
-"""Unit tests for XROMM-DLC"""
+"""Unit tests for deepxromm"""
 
+import os
 from pathlib import Path
 import shutil
 import unittest
@@ -21,6 +22,7 @@ SAMPLE_FRAME = Path(__file__).parent / "sample_frame.jpg"
 SAMPLE_FRAME_INPUT = Path(__file__).parent / "sample_frame_input.csv"
 SAMPLE_AUTOCORRECT_OUTPUT = Path(__file__).parent / "sample_autocorrect_output.csv"
 
+DEEPXROMM_TEST_CODEC = os.environ.get("DEEPXROMM_TEST_CODEC", "avc1")
 
 class TestProjectCreation(unittest.TestCase):
     """Tests behaviors related to XMA-DLC project creation"""
@@ -30,7 +32,7 @@ class TestProjectCreation(unittest.TestCase):
         """Create a sample project"""
         super(TestProjectCreation, cls).setUpClass()
         cls.project_dir = Path.cwd() / "tmp"
-        DeepXROMM.create_new_project(cls.project_dir)
+        DeepXROMM.create_new_project(cls.project_dir, codec=DEEPXROMM_TEST_CODEC)
 
     def test_project_creates_correct_folders(self):
         """Do we have all of the correct folders?"""
@@ -94,7 +96,7 @@ class TestDefaultsPerformance(unittest.TestCase):
         """Create a sample project where the user only inputs XMAlab data"""
         self.working_dir = Path.cwd() / "tmp"
         self.config = self.working_dir / "project_config.yaml"
-        self.deepxromm = DeepXROMM.create_new_project(self.working_dir)
+        self.deepxromm = DeepXROMM.create_new_project(self.working_dir, codec=DEEPXROMM_TEST_CODEC)
         frame = cv2.imread(str(SAMPLE_FRAME))
 
         # Make a trial directory
@@ -399,7 +401,7 @@ class TestSampleFrame(unittest.TestCase):
     def setUp(self):
         """Create trial"""
         self.working_dir = Path.cwd() / "tmp"
-        self.deepxromm = DeepXROMM.create_new_project(self.working_dir)
+        self.deepxromm = DeepXROMM.create_new_project(self.working_dir, codec=DEEPXROMM_TEST_CODEC)
         frame = cv2.imread(str(SAMPLE_FRAME))
 
         # Make a trial directory
@@ -579,7 +581,7 @@ class Test2DTrialProcess(unittest.TestCase):
     def setUp(self):
         """Create trial with test data"""
         self.working_dir = Path.cwd() / "tmp"
-        self.deepxromm = DeepXROMM.create_new_project(self.working_dir)
+        self.deepxromm = DeepXROMM.create_new_project(self.working_dir, codec=DEEPXROMM_TEST_CODEC)
 
         # Make a trial directory
         trial_dir = self.working_dir / "trainingdata/test"
@@ -722,7 +724,7 @@ class TestPerCamTrialProcess(unittest.TestCase):
     def setUp(self):
         """Create trial with test data"""
         self.working_dir = Path.cwd() / "tmp"
-        self.deepxromm = DeepXROMM.create_new_project(self.working_dir, mode="per_cam")
+        self.deepxromm = DeepXROMM.create_new_project(self.working_dir, mode="per_cam", codec=DEEPXROMM_TEST_CODEC)
 
         # Make a trial directory
         trial_dir = self.working_dir / "trainingdata/test"
@@ -878,7 +880,7 @@ class TestRGBTrialProcess(unittest.TestCase):
     def setUp(self):
         """Create trial with test data"""
         self.working_dir = Path.cwd() / "tmp"
-        self.deepxromm = DeepXROMM.create_new_project(self.working_dir, mode="rgb")
+        self.deepxromm = DeepXROMM.create_new_project(self.working_dir, mode="rgb", codec=DEEPXROMM_TEST_CODEC)
 
         # Make a trial directory
         trial_dir = self.working_dir / "trainingdata/test"
