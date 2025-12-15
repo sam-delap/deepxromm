@@ -31,19 +31,18 @@ class Project:
             )
             raise e
 
+        # Create a dummy data processor to validate user's codec input
+        _data_processor = XMADataProcessor(
+            {"swapped_markers": False, "crossed_markers": False}
+        )
+        _data_processor.validate_codec(codec)
+
         # Create a fake video to pass into the deeplabcut workflow
         dummy_video_path = working_dir / "dummy.avi"
         frame = np.zeros((480, 480, 3), dtype=np.uint8)
         out = cv2.VideoWriter(
             str(dummy_video_path), cv2.VideoWriter_fourcc(*codec), 15, (480, 480)
         )
-        if not out.isOpened():
-            raise RuntimeError(
-                f"Failed to create dummy video with codec '{codec}'. "
-                "Your system may not support this codec. "
-                f"Please try one of the following codecs instead {SUGGESTED_CODECS}"
-                "For advanced users, you may want to install ffmpeg, use a different OpenCV build."
-            )
         out.write(frame)
         out.release()
 
