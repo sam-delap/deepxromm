@@ -11,13 +11,18 @@ from ruamel.yaml import YAML
 
 from .xma_data_processor import XMADataProcessor
 
+# Sets the default codec for use in creating/loading project configs
+DEFAULT_CODEC = "avc1"
+
 
 class Project:
     def __init__(self):
         raise NotImplementedError("Use create_new_config or load_config instead.")
 
     @staticmethod
-    def create_new_config(working_dir=None, experimenter="NA", mode="2D", codec="avc1"):
+    def create_new_config(
+        working_dir=None, experimenter="NA", mode="2D", codec=DEFAULT_CODEC
+    ):
         """Creates a new config from scratch."""
         try:
             working_dir = Path(working_dir) if working_dir is not None else Path.cwd()
@@ -222,6 +227,10 @@ class Project:
                 raise SyntaxError("Please specify a trial to test autocorrect() with")
             if project["marker"] == "your_marker_here":
                 raise SyntaxError("Please specify a marker to test autocorrect() with")
+
+        # Auto-add default video_codec to config if not set
+        if "video_codec" not in project:
+            project["video_codec"] = DEFAULT_CODEC
 
         # Update changed attributes to match in the file
         with config_path.open("w") as file:
