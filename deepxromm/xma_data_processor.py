@@ -544,8 +544,9 @@ Note: Codec availability depends on your OpenCV build and system codecs.
         """Takes csv of XMALab 2D XY coordinates from 2 cameras, outputs spliced hdf+csv data for DeepLabCut"""
         dlc_path = Path(self._config["path_config_file"]).parent
         trial_name = trial_path.name
-        substitute_data_relpath = Path("labeled-data") / self._config["dataset_name"]
-        substitute_data_abspath = dlc_path / substitute_data_relpath
+        substitute_data_abspath = (
+            dlc_path / "labeled-data" / self._config["dataset_name"]
+        )
         trial_csv_path = self.find_trial_csv(trial_path)
         markers = self.get_bodyparts_from_xma(trial_csv_path, mode="2D")
 
@@ -622,7 +623,12 @@ Note: Codec availability depends on your OpenCV build and system codecs.
         print("Importing frames: ")
         print(unique_frames)
         df["frame_index"] = [
-            str(substitute_data_relpath / f"{trial_name}_rgb_{str(index).zfill(4)}.png")
+            str(
+                (
+                    substitute_data_abspath
+                    / f"{trial_name}_rgb_{str(index).zfill(4)}.png"
+                ).relative_to(dlc_path)
+            )
             for index in unique_frames
         ]
         df["scorer"] = self._config["experimenter"]
