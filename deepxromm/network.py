@@ -5,7 +5,6 @@ from pathlib import Path
 import deeplabcut
 import pandas as pd
 
-from .xrommtools import xma_to_dlc
 from .xma_data_processor import XMADataProcessor
 
 
