@@ -114,8 +114,12 @@ def xma_to_dlc(
 
 
 def dlc_to_xma(cam1data, cam2data, trialname, savepath):
-    h5_save_path = savepath + "/" + trialname + "-Predicted2DPoints.h5"
-    csv_save_path = savepath + "/" + trialname + "-Predicted2DPoints.csv"
+    # Convert savepath to Path object to handle both string and Path inputs
+    from pathlib import Path
+
+    savepath = Path(savepath)
+    h5_save_path = savepath / f"{trialname}-Predicted2DPoints.h5"
+    csv_save_path = savepath / f"{trialname}-Predicted2DPoints.csv"
 
     if isinstance(cam1data, str):  # is string
         if ".csv" in cam1data:
