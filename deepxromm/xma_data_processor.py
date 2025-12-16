@@ -622,7 +622,7 @@ Note: Codec availability depends on your OpenCV build and system codecs.
         print("Importing frames: ")
         print(unique_frames)
         df["frame_index"] = [
-            str(substitute_data_abspath / f"{trial_name}_rgb_{str(index).zfill(4)}.png")
+            str(substitute_data_relpath / f"{trial_name}_rgb_{str(index).zfill(4)}.png")
             for index in unique_frames
         ]
         df["scorer"] = self._config["experimenter"]

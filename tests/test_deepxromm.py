@@ -57,7 +57,7 @@ class TestProjectCreation(unittest.TestCase):
             "nframes",
             "maxiters",
             "tracking_threshold",
-            "tracking_mode",
+            "mode",
             "swapped_markers",
             "crossed_markers",
             "search_area",
@@ -222,7 +222,7 @@ class TestDefaultsPerformance(unittest.TestCase):
         date = dt.today().strftime("%Y-%m-%d")
         with self.config.open("r") as config:
             tmp = yaml.load(config)
-        tmp["tracking_mode"] = "rgb"
+        tmp["mode"] = "rgb"
         with self.config.open("w") as fp:
             yaml.dump(tmp, fp)
         DeepXROMM.load_project(self.working_dir)
@@ -244,7 +244,7 @@ class TestDefaultsPerformance(unittest.TestCase):
 
         with self.config.open("r") as config:
             tmp = yaml.load(config)
-        tmp["tracking_mode"] = "rgb"
+        tmp["mode"] = "rgb"
         tmp["swapped_markers"] = True
         with self.config.open("w") as fp:
             yaml.dump(tmp, fp)
@@ -280,7 +280,7 @@ class TestDefaultsPerformance(unittest.TestCase):
 
         with self.config.open("r") as config:
             tmp = yaml.load(config)
-        tmp["tracking_mode"] = "rgb"
+        tmp["mode"] = "rgb"
         tmp["crossed_markers"] = True
         with self.config.open("w") as fp:
             yaml.dump(tmp, fp)
@@ -313,7 +313,7 @@ class TestDefaultsPerformance(unittest.TestCase):
 
         with self.config.open("r") as config:
             tmp = yaml.load(config)
-        tmp["tracking_mode"] = "rgb"
+        tmp["mode"] = "rgb"
         tmp["swapped_markers"] = True
         tmp["crossed_markers"] = True
         with self.config.open("w") as fp:
@@ -392,6 +392,75 @@ class TestDefaultsPerformance(unittest.TestCase):
 
         with self.assertRaises(SyntaxError):
             DeepXROMM.load_project(self.working_dir)
+
+    def test_migration_from_tracking_mode_to_mode(self):
+        """Does loading a config with deprecated 'tracking_mode' auto-migrate to 'mode'?"""
+        yaml = YAML()
+
+        # Modify config to use deprecated key
+        with self.config.open("r") as config:
+            tmp = yaml.load(config)
+        del tmp["mode"]  # Remove new key if it exists
+        tmp["tracking_mode"] = "2D"  # Use deprecated key
+        with self.config.open("w") as fp:
+            yaml.dump(tmp, fp)
+
+        # Load project (should trigger migration)
+        with self.assertWarns(DeprecationWarning):
+            DeepXROMM.load_project(self.working_dir)
+
+        # Verify config was migrated and saved
+        with self.config.open("r") as config:
+            migrated = yaml.load(config)
+
+        self.assertIn("mode", migrated)
+        self.assertNotIn("tracking_mode", migrated)
+        self.assertEqual(migrated["mode"], "2D")
+
+    def test_conflicting_mode_values_raises_error(self):
+        """Does having both 'mode' and 'tracking_mode' with different values raise ValueError?"""
+        yaml = YAML()
+
+        # Create config with conflicting values
+        with self.config.open("r") as config:
+            tmp = yaml.load(config)
+        tmp["mode"] = "2D"
+        tmp["tracking_mode"] = "rgb"  # Different value
+        with self.config.open("w") as fp:
+            yaml.dump(tmp, fp)
+
+        # Verify error is raised
+        with self.assertRaises(ValueError) as context:
+            DeepXROMM.load_project(self.working_dir)
+
+        error_message = str(context.exception)
+        self.assertIn("Conflicting values", error_message)
+        self.assertIn("mode", error_message)
+        self.assertIn("tracking_mode", error_message)
+
+    def test_duplicate_mode_values_migrates_successfully(self):
+        """Does having both keys with same value migrate successfully?"""
+        yaml = YAML()
+
+        # Create config with duplicate but matching values
+        with self.config.open("r") as config:
+            tmp = yaml.load(config)
+        tmp["mode"] = "2D"
+        tmp["tracking_mode"] = "2D"  # Same value
+        with self.config.open("w") as fp:
+            yaml.dump(tmp, fp)
+
+        # Load project (should trigger migration with warning)
+        with self.assertWarns(DeprecationWarning):
+            DeepXROMM.load_project(self.working_dir)
+
+        # Verify only 'mode' remains
+        with self.config.open("r") as config:
+            migrated = yaml.load(config)
+
+        self.assertIn("mode", migrated)
+        self.assertNotIn("tracking_mode", migrated)
+        self.assertEqual(migrated["mode"], "2D")
 
     def tearDown(self):
         """Remove the created temp project"""

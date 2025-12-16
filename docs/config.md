@@ -10,14 +10,18 @@
 **nframes**: The number of frames of video that you tracked before giving the network to DeepLabCut. Automatically determined from CSVs if set to 0  
 **max_iters**: The maximum number of iterations to train the network for before automatically stopping training. Default is 150,000  
 **tracking_threshold**: Fraction of the total video frames to include in the training sample. Used to warn if the network detects too many/too few frames when extracting frames to be passed to the network  
-**tracking_mode**: Determines the mode that sdlc_xmalab will attempt to train your network with:  
+**mode**: Determines the mode that sdlc_xmalab will attempt to train your network with:  
 
 - **2D** - cam1 and cam2 will both be passed to the network from their respective video files  
 - **per_cam** - cam1 and cam2 have their own networks
 - **rgb** - cam1 and cam2 will be merged into an RGB video, with cam1 as the red channel, cam2 as the green channel, and a blank frame as the blue channel  
 
-**swapped_markers**: Set to ‘true’ to create artificial markers with swapped y coordinates (y coordinates of swapped-cam1 will be cam2’s y coordinates). Only valid for the rgb tracking_mode  
-**crossed_markers**: Set to ‘true’ to create artificial markers that are the result of multiplying the x/y positions of cam1 and cam2 together (cx_cam1_cam2_x = cam1_x * cam2_x). Only valid for the rgb tracking_mode.  
+> **Deprecation Notice**: The `tracking_mode` key is deprecated as of version 0.2.5 and will be removed in version 1.0. 
+> Existing configs using `tracking_mode` will be automatically migrated to `mode` when loaded. 
+> Please update your config files to use `mode` instead.
+
+**swapped_markers**: Set to ‘true’ to create artificial markers with swapped y coordinates (y coordinates of swapped-cam1 will be cam2’s y coordinates). Only valid for the rgb mode  
+**crossed_markers**: Set to ‘true’ to create artificial markers that are the result of multiplying the x/y positions of cam1 and cam2 together (cx_cam1_cam2_x = cam1_x * cam2_x). Only valid for the rgb mode.  
 
 ## Image Processing
 **search_area**: The area, in pixels, around which autocorrect() will search for a marker. The minimum is 10, the default is 15.  

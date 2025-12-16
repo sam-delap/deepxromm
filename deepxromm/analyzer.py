@@ -45,7 +45,7 @@ class Analyzer:
             dlc = yaml.load(dlc_config)
         iteration = dlc["iteration"]
 
-        mode = self._config["tracking_mode"]
+        mode = self._config["mode"]
         if mode == "2D":
             analyze_xromm_videos(self._dlc_config, self._trials_path, iteration)
         elif mode == "per_cam":

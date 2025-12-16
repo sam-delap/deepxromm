@@ -6,7 +6,7 @@ dataset_name: "MyData"
 nframes: 0
 maxiters: 150000
 tracking_threshold: 0.1 # Fraction of total frames included in training sample
-tracking_mode: "{mode}"
+mode: "{mode}"
 swapped_markers: false
 crossed_markers: false
 

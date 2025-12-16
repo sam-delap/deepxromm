@@ -15,6 +15,57 @@ from .xma_data_processor import XMADataProcessor
 DEFAULT_CODEC = "avc1"
 
 
+def _migrate_tracking_mode(config):
+    """Migrate deprecated 'tracking_mode' to 'mode' with backwards compatibility.
+
+    This function handles the transition from 'tracking_mode' to 'mode' introduced
+    in version 0.2.5. Support for 'tracking_mode' will be removed in version 1.0.
+
+    Args:
+        config: Dictionary containing project configuration
+
+    Returns:
+        Modified config dictionary with migration applied
+
+    Raises:
+        ValueError: If both keys exist with conflicting values
+
+    Note:
+        Support for 'tracking_mode' will be removed in version 1.0.
+    """
+    has_mode = "mode" in config
+    has_tracking_mode = "tracking_mode" in config
+
+    if has_mode and has_tracking_mode:
+        if config["mode"] != config["tracking_mode"]:
+            raise ValueError(
+                f"Conflicting values detected in config: 'mode' is set to "
+                f"'{config['mode']}' but 'tracking_mode' is set to "
+                f"'{config['tracking_mode']}'. Please remove the deprecated "
+                f"'tracking_mode' key from your config and use only 'mode'."
+            )
+        else:
+            warnings.warn(
+                "Config contains both 'mode' and 'tracking_mode' with the same "
+                "value. Removing deprecated 'tracking_mode'. This key will be "
+                "removed in version 1.0.",
+                DeprecationWarning,
+                stacklevel=3,
+            )
+            del config["tracking_mode"]
+    elif has_tracking_mode:
+        warnings.warn(
+            "'tracking_mode' is deprecated and will be removed in version 1.0. "
+            "Use 'mode' instead. Automatically migrating your config...",
+            DeprecationWarning,
+            stacklevel=3,
+        )
+        config["mode"] = config["tracking_mode"]
+        del config["tracking_mode"]
+
+    return config
+
+
 class Project:
     def __init__(self):
         raise NotImplementedError("Use create_new_config or load_config instead.")
@@ -70,7 +121,7 @@ class Project:
                 "experimenter": experimenter,
                 "working_dir": str(working_dir),
                 "path_config_file": path_config_file,
-                "tracking_mode": mode,
+                "mode": mode,
                 "video_codec": codec,
             }
         )
@@ -118,6 +169,9 @@ class Project:
         yaml = YAML()
         with config_path.open("r") as config_file:
             project = yaml.load(config_file)
+
+        # Migrate deprecated 'tracking_mode' to 'mode'
+        project = _migrate_tracking_mode(project)
 
         experimenter = str(project["experimenter"])
         project["experimenter"] = experimenter
@@ -178,7 +232,7 @@ class Project:
         # Check DLC bodyparts (marker names)
         default_bodyparts = ["bodypart1", "bodypart2", "bodypart3", "objectA"]
         bodyparts = data_processor.get_bodyparts_from_xma(
-            trial_csv_path, mode=project["tracking_mode"]
+            trial_csv_path, mode=project["mode"]
         )
 
         # TODO: use DLC's config loader functions to handle this
@@ -198,7 +252,7 @@ class Project:
             yaml.dump(dlc_yaml, dlc_config)
 
         # Check DLC bodyparts (marker names) for config 2 if needed
-        if project["tracking_mode"] == "per_cam":
+        if project["mode"] == "per_cam":
             dlc_config_loader = YAML()
             try:
                 dlc_config_path_2 = Path(project["path_config_file_2"])
