@@ -22,3 +22,4 @@ deepxromm.egg-info/*
 
 # Codecov
 .coverage
+coverage.*
