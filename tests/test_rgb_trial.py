@@ -4,13 +4,9 @@ import shutil
 import unittest
 import random
 
-import cv2
-import numpy as np
 import pandas as pd
-import pytest
 
 from deepxromm import DeepXROMM
-from deepxromm.xma_data_processor import XMADataProcessor
 
 SAMPLE_FRAME = Path(__file__).parent / "sample_frame.jpg"
 SAMPLE_FRAME_INPUT = Path(__file__).parent / "sample_frame_input.csv"
@@ -39,9 +35,9 @@ class TestRGBTrialProcess(unittest.TestCase):
         self.cam2_path = trial_dir / "test_cam2.avi"
 
         # Move sample frame input to trainingdata
-        shutil.copy("trial.csv", str(self.trial_csv))
-        shutil.copy("trial_cam1.avi", str(self.cam1_path))
-        shutil.copy("trial_cam2.avi", str(self.cam2_path))
+        shutil.copy("trial_slice.csv", str(self.trial_csv))
+        shutil.copy("trial_cam1_slice.avi", str(self.cam1_path))
+        shutil.copy("trial_cam2_slice.avi", str(self.cam2_path))
 
     def test_first_frame_matches_in_dlc_csv(self):
         """When I run xma_to_dlc, does the DLC CSV have the same data as my original file?"""

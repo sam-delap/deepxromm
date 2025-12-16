@@ -39,9 +39,9 @@ class TestPerCamTrialProcess(unittest.TestCase):
         self.cam2_path = trial_dir / "test_cam2.avi"
 
         # Copy sample CSV data (use existing sample file)
-        shutil.copy("trial.csv", str(self.trial_csv))
-        shutil.copy("trial_cam1.avi", str(self.cam1_path))
-        shutil.copy("trial_cam2.avi", str(self.cam2_path))
+        shutil.copy("trial_slice.csv", str(self.trial_csv))
+        shutil.copy("trial_cam1_slice.avi", str(self.cam1_path))
+        shutil.copy("trial_cam2_slice.avi", str(self.cam2_path))
 
     def test_first_frame_matches_in_dlc_csv(self):
         """When I run xma_to_dlc, does the DLC CSV have the same data as my original file?"""
