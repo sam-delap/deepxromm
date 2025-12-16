@@ -64,46 +64,6 @@ def dlc_to_xma(trial: Path, iteration: int):
     df.to_csv(csv_save_path, na_rep="NaN", index=False)
 
 
-def analyze_xromm_videos(
-    path_config_file: str,
-    iteration: int,
-    data_processor: XMADataProcessor,
-    nnetworks: int = 1,
-    path_config_file_cam2: str | None = None,
-):
-    # assumes you have cam1 and cam2 videos as .avi in their own seperate trial folders
-    # assumes all folders w/i new_data_path are trial folders
-
-    # analyze videos
-    cameras = [1, 2]
-    configs = [path_config_file, path_config_file_cam2]
-    trials = data_processor.list_trials()
-
-    for trialpath in trials:
-        savepath = trialpath / f"it{iteration}"
-        if savepath.exists():
-            temp = savepath.glob("*Predicted2DPoints.csv")
-            if temp:
-                raise ValueError(
-                    f"There are already predicted points in iteration {iteration} subfolders"
-                )
-        else:
-            savepath.mkdir(parents=True, exist_ok=True)  # make new folder
-        # get video file
-        for camera in cameras:
-            # Error handling handled by find_cam_file helper
-            video = data_processor.find_cam_file(trialpath, f"cam{camera}")
-            # analyze video
-            if nnetworks == 1:
-                analyze_videos(
-                    configs[0], [video], destfolder=savepath, save_as_csv=True
-                )
-            else:
-                analyze_videos(
-                    configs[camera - 1], [video], destfolder=savepath, save_as_csv=True
-                )
-
-
 def add_frames(
     path_config_file,
     data_path,
