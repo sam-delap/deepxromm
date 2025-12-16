@@ -166,6 +166,10 @@ class Test2DTrialProcess(unittest.TestCase):
             with self.subTest(folder=xmalab_key):
                 self.assertTrue(xmalab_data_point == dlc_data_point)
 
+    def create_training_dataset_succeeds(self):
+        """Test that this project will create a dataset correctly"""
+        self.deepxromm.create_training_dataset()
+
     def tearDown(self):
         """Remove the created temp project"""
         project_path = Path.cwd() / "tmp"
