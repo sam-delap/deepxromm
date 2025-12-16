@@ -47,7 +47,7 @@ def xma_to_dlc(
         path_config_file_cam2: Path to cam2 config file (required if nnetworks=2)
 
     Raises:
-        ValueError: If frame/trial validation fails or directories already contain data
+        ValueError: If frame/trial validation fails
         FileNotFoundError: If required files are missing
 
     Security:
@@ -626,10 +626,11 @@ def _process_camera_per_cam(
     if newpath.exists():
         contents = list(newpath.glob("*"))
         if len(contents) > 0:
-            raise ValueError(
+            print(
                 f"Directory {newpath} already contains data. "
-                "Please use a different dataset name or clear the directory."
+                "Please use a different dataset name or remove the existing dataset to update it"
             )
+            return
     else:
         newpath.mkdir(parents=True, exist_ok=True)
 
@@ -701,10 +702,11 @@ def _process_cameras_2d(
     if newpath.exists():
         contents = list(newpath.glob("*"))
         if len(contents) > 0:
-            raise ValueError(
+            print(
                 f"Directory {newpath} already contains data. "
                 "Please use a different dataset name or clear the directory."
             )
+            return
     else:
         newpath.mkdir(parents=True, exist_ok=True)
 
