@@ -14,7 +14,6 @@ from PIL import Image
 from ruamel.yaml import YAML
 
 from .xma_data_processor import XMADataProcessor
-from .xrommtools import analyze_xromm_videos
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(
@@ -46,26 +45,11 @@ class Analyzer:
         iteration = dlc["iteration"]
 
         mode = self._config["mode"]
-        if mode == "2D":
-            analyze_xromm_videos(
-                self._dlc_config, iteration, data_processor=self._data_processor
-            )
-        elif mode == "per_cam":
-            if "path_config_file_2" not in self._config:
-                print("Path to second DLC config not found.")
-                print("Did you create the project as a per-cam project?")
-                print("If not, re-run 'create_new_project' using mode='per_cam'")
-                raise KeyError("path_config_file_2")
-            analyze_xromm_videos(
-                path_config_file=self._dlc_config,
-                data_processor=self._data_processor,
-                path_config_file_cam2=self._config["path_config_file_2"],
-                iteration=iteration,
-                nnetworks=2,
-            )
+        if mode in ["2D", "per_cam"]:
+            self._analyze_xromm_videos()
 
-        else:
-            self._data_processor.make_rgb_videos(trial_path)
+        elif mode == "rgb":
+            self._data_processor.make_rgb_videos("trials")
             for trial in trials:
                 trial_path = self._trials_path / trial
                 current_files = trial_path.glob("*")
@@ -78,6 +62,53 @@ class Analyzer:
                     destfolder=destfolder,
                     save_as_csv=True,
                 )
+        else:
+            raise ValueError(f"Unsupported mode: {mode}")
+
+    def _analyze_xromm_videos(self):
+        """Analyze all novel videos in the 'trials' folder of a deepxromm project"""
+        # assumes you have cam1 and cam2 videos as .avi in their own seperate trial folders
+        # assumes all folders w/i new_data_path are trial folders
+
+        # analyze videos
+        cameras = [1, 2]
+        trials = self._data_processor.list_trials()
+        iteration = int(self._config["iteration"])
+        mode = self._config["mode"]
+
+        for trialpath in trials:
+            savepath = trialpath / f"it{iteration}"
+            if savepath.exists():
+                temp = savepath.glob("*Predicted2DPoints.csv")
+                if temp:
+                    raise ValueError(
+                        f"There are already predicted points in iteration {iteration} subfolders"
+                    )
+            else:
+                savepath.mkdir(parents=True, exist_ok=True)  # make new folder
+            # get video file
+            for camera in cameras:
+                # Error handling handled by find_cam_file helper
+                video = self._data_processor.find_cam_file(trialpath, f"cam{camera}")
+                # analyze video
+                if mode == "2D":
+                    deeplabcut.analyze_videos(
+                        self._config["path_config_file"],
+                        [video],
+                        destfolder=savepath,
+                        save_as_csv=True,
+                    )
+                else:
+                    configs = [
+                        self._config["path_config_file"],
+                        self._config["path_config_file_2"],
+                    ]
+                    deeplabcut.analyze_videos(
+                        configs[camera - 1],
+                        [video],
+                        destfolder=savepath,
+                        save_as_csv=True,
+                    )
 
     def analyze_video_similarity_project(self):
         """Analyze all videos in a project and take their average similar. This is dangerous, as it will assume that all cam1/cam2 pairs match
