@@ -615,8 +615,12 @@ class Test2DTrialProcess(unittest.TestCase):
         dlc_config = Path(deepxromm.config["path_config_file"])
         labeled_data_path = dlc_config.parent / "labeled-data/MyData"
         dlc_data = pd.read_hdf(labeled_data_path / "CollectedData_NA.h5")
-        cam1_img_path = str(labeled_data_path / "test_cam1_0001.png")
-        cam2_img_path = str(labeled_data_path / "test_cam2_0001.png")
+        cam1_img_path = str(
+            (labeled_data_path / "test_cam1_0001.png").relative_to(dlc_config.parent)
+        )
+        cam2_img_path = str(
+            (labeled_data_path / "test_cam2_0001.png").relative_to(dlc_config.parent)
+        )
         cam1_first_row = dlc_data.loc[cam1_img_path, :]
         cam2_first_row = dlc_data.loc[cam2_img_path, :]
         for val in cam1_first_row.index:
@@ -655,11 +659,19 @@ class Test2DTrialProcess(unittest.TestCase):
         xmalab_last_row = xmalab_data.loc[last_frame_int - 1]
 
         # Load DLC cam1 last row
-        cam1_img_path = str(labeled_data_path / f"test_cam1_{last_frame_number}.png")
+        cam1_img_path = str(
+            (labeled_data_path / f"test_cam1_{last_frame_number}.png").relative_to(
+                dlc_config.parent
+            )
+        )
         cam1_last_row = dlc_data.loc[cam1_img_path, :]
 
         # Load DLC cam2 last row
-        cam2_img_path = str(labeled_data_path / f"test_cam2_{last_frame_number}.png")
+        cam2_img_path = str(
+            (labeled_data_path / f"test_cam2_{last_frame_number}.png").relative_to(
+                dlc_config.parent
+            )
+        )
         cam2_last_row = dlc_data.loc[cam2_img_path, :]
 
         for val in cam1_last_row.index:
@@ -698,11 +710,19 @@ class Test2DTrialProcess(unittest.TestCase):
         xmalab_row = xmalab_data.loc[frame_int - 1]
 
         # Load DLC cam1 last row
-        cam1_img_path = str(labeled_data_path / f"test_cam1_{frame_number}.png")
+        cam1_img_path = str(
+            (labeled_data_path / f"test_cam1_{frame_number}.png").relative_to(
+                dlc_config.parent
+            )
+        )
         cam1_row = dlc_data.loc[cam1_img_path, :]
 
         # Load DLC cam2 last row
-        cam2_img_path = str(labeled_data_path / f"test_cam2_{frame_number}.png")
+        cam2_img_path = str(
+            (labeled_data_path / f"test_cam2_{frame_number}.png").relative_to(
+                dlc_config.parent
+            )
+        )
         cam2_row = dlc_data.loc[cam2_img_path, :]
 
         for val in cam1_row.index:
@@ -763,8 +783,12 @@ class TestPerCamTrialProcess(unittest.TestCase):
         cam2_labeled_data_path = cam2_dlc_proj / "labeled-data/MyData_cam2"
         cam1_dlc_data = pd.read_hdf(cam1_labeled_data_path / "CollectedData_NA.h5")
         cam2_dlc_data = pd.read_hdf(cam2_labeled_data_path / "CollectedData_NA.h5")
-        cam1_img_path = str(cam1_labeled_data_path / "test_0001.png")
-        cam2_img_path = str(cam2_labeled_data_path / "test_0001.png")
+        cam1_img_path = str(
+            (cam1_labeled_data_path / "test_0001.png").relative_to(cam1_dlc_proj)
+        )
+        cam2_img_path = str(
+            (cam2_labeled_data_path / "test_0001.png").relative_to(cam2_dlc_proj)
+        )
         cam1_first_row = cam1_dlc_data.loc[cam1_img_path, :]
         cam2_first_row = cam2_dlc_data.loc[cam2_img_path, :]
         for val in cam1_first_row.index:
@@ -808,11 +832,19 @@ class TestPerCamTrialProcess(unittest.TestCase):
         xmalab_last_row = xmalab_data.loc[last_frame_int - 1]
 
         # Load DLC cam1 last row
-        cam1_img_path = str(cam1_labeled_data_path / f"test_{last_frame_number}.png")
+        cam1_img_path = str(
+            (cam1_labeled_data_path / f"test_{last_frame_number}.png").relative_to(
+                cam1_dlc_proj
+            )
+        )
         cam1_last_row = cam1_dlc_data.loc[cam1_img_path, :]
 
         # Load DLC cam2 last row
-        cam2_img_path = str(cam2_labeled_data_path / f"test_{last_frame_number}.png")
+        cam2_img_path = str(
+            (cam2_labeled_data_path / f"test_{last_frame_number}.png").relative_to(
+                cam2_dlc_proj
+            )
+        )
         cam2_last_row = cam2_dlc_data.loc[cam2_img_path, :]
 
         for val in cam1_last_row.index:
@@ -856,11 +888,19 @@ class TestPerCamTrialProcess(unittest.TestCase):
         xmalab_row = xmalab_data.loc[frame_int - 1]
 
         # Load DLC cam1 last row
-        cam1_img_path = str(cam1_labeled_data_path / f"test_{frame_number}.png")
+        cam1_img_path = str(
+            (cam1_labeled_data_path / f"test_{frame_number}.png").relative_to(
+                cam1_dlc_proj
+            )
+        )
         cam1_row = cam1_dlc_data.loc[cam1_img_path, :]
 
         # Load DLC cam2 last row
-        cam2_img_path = str(cam2_labeled_data_path / f"test_{frame_number}.png")
+        cam2_img_path = str(
+            (cam2_labeled_data_path / f"test_{frame_number}.png").relative_to(
+                cam2_dlc_proj
+            )
+        )
         cam2_row = cam2_dlc_data.loc[cam2_img_path, :]
 
         for val in cam1_row.index:
@@ -921,7 +961,9 @@ class TestRGBTrialProcess(unittest.TestCase):
         dlc_data = pd.read_hdf(labeled_data_path / "CollectedData_NA.h5")
 
         # Load DLC first row
-        rgb_img_path = str(labeled_data_path / "test_rgb_0001.png")
+        rgb_img_path = str(
+            (labeled_data_path / "test_rgb_0001.png").relative_to(dlc_config.parent)
+        )
         rgb_first_row = dlc_data.loc[rgb_img_path, :]
 
         for val in rgb_first_row.index:
@@ -953,7 +995,11 @@ class TestRGBTrialProcess(unittest.TestCase):
         xmalab_last_row = xmalab_data.loc[last_frame_int - 1]
 
         # Load DLC rgb last row
-        rgb_img_path = str(labeled_data_path / f"test_rgb_{last_frame_number}.png")
+        rgb_img_path = str(
+            (labeled_data_path / f"test_rgb_{last_frame_number}.png").relative_to(
+                dlc_config.parent
+            )
+        )
         rgb_last_row = dlc_data.loc[rgb_img_path, :]
 
         for val in rgb_last_row.index:
@@ -985,7 +1031,11 @@ class TestRGBTrialProcess(unittest.TestCase):
         xmalab_row = xmalab_data.loc[frame_int - 1]
 
         # Load DLC cam1 last row
-        rgb_img_path = str(labeled_data_path / f"test_rgb_{frame_number}.png")
+        rgb_img_path = str(
+            (labeled_data_path / f"test_rgb_{frame_number}.png").relative_to(
+                dlc_config.parent
+            )
+        )
         rgb_row = dlc_data.loc[rgb_img_path, :]
 
         for val in rgb_row.index:
