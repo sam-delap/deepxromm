@@ -57,7 +57,7 @@ class TestProjectCreation(unittest.TestCase):
             "nframes",
             "maxiters",
             "tracking_threshold",
-            "tracking_mode",
+            "mode",
             "swapped_markers",
             "crossed_markers",
             "search_area",
@@ -222,7 +222,7 @@ class TestDefaultsPerformance(unittest.TestCase):
         date = dt.today().strftime("%Y-%m-%d")
         with self.config.open("r") as config:
             tmp = yaml.load(config)
-        tmp["tracking_mode"] = "rgb"
+        tmp["mode"] = "rgb"
         with self.config.open("w") as fp:
             yaml.dump(tmp, fp)
         DeepXROMM.load_project(self.working_dir)
@@ -244,7 +244,7 @@ class TestDefaultsPerformance(unittest.TestCase):
 
         with self.config.open("r") as config:
             tmp = yaml.load(config)
-        tmp["tracking_mode"] = "rgb"
+        tmp["mode"] = "rgb"
         tmp["swapped_markers"] = True
         with self.config.open("w") as fp:
             yaml.dump(tmp, fp)
@@ -280,7 +280,7 @@ class TestDefaultsPerformance(unittest.TestCase):
 
         with self.config.open("r") as config:
             tmp = yaml.load(config)
-        tmp["tracking_mode"] = "rgb"
+        tmp["mode"] = "rgb"
         tmp["crossed_markers"] = True
         with self.config.open("w") as fp:
             yaml.dump(tmp, fp)
@@ -313,7 +313,7 @@ class TestDefaultsPerformance(unittest.TestCase):
 
         with self.config.open("r") as config:
             tmp = yaml.load(config)
-        tmp["tracking_mode"] = "rgb"
+        tmp["mode"] = "rgb"
         tmp["swapped_markers"] = True
         tmp["crossed_markers"] = True
         with self.config.open("w") as fp:
@@ -392,6 +392,75 @@ class TestDefaultsPerformance(unittest.TestCase):
 
         with self.assertRaises(SyntaxError):
             DeepXROMM.load_project(self.working_dir)
+
+    def test_migration_from_tracking_mode_to_mode(self):
+        """Does loading a config with deprecated 'tracking_mode' auto-migrate to 'mode'?"""
+        yaml = YAML()
+
+        # Modify config to use deprecated key
+        with self.config.open("r") as config:
+            tmp = yaml.load(config)
+        del tmp["mode"]  # Remove new key if it exists
+        tmp["tracking_mode"] = "2D"  # Use deprecated key
+        with self.config.open("w") as fp:
+            yaml.dump(tmp, fp)
+
+        # Load project (should trigger migration)
+        with self.assertWarns(DeprecationWarning):
+            DeepXROMM.load_project(self.working_dir)
+
+        # Verify config was migrated and saved
+        with self.config.open("r") as config:
+            migrated = yaml.load(config)
+
+        self.assertIn("mode", migrated)
+        self.assertNotIn("tracking_mode", migrated)
+        self.assertEqual(migrated["mode"], "2D")
+
+    def test_conflicting_mode_values_raises_error(self):
+        """Does having both 'mode' and 'tracking_mode' with different values raise ValueError?"""
+        yaml = YAML()
+
+        # Create config with conflicting values
+        with self.config.open("r") as config:
+            tmp = yaml.load(config)
+        tmp["mode"] = "2D"
+        tmp["tracking_mode"] = "rgb"  # Different value
+        with self.config.open("w") as fp:
+            yaml.dump(tmp, fp)
+
+        # Verify error is raised
+        with self.assertRaises(ValueError) as context:
+            DeepXROMM.load_project(self.working_dir)
+
+        error_message = str(context.exception)
+        self.assertIn("Conflicting values", error_message)
+        self.assertIn("mode", error_message)
+        self.assertIn("tracking_mode", error_message)
+
+    def test_duplicate_mode_values_migrates_successfully(self):
+        """Does having both keys with same value migrate successfully?"""
+        yaml = YAML()
+
+        # Create config with duplicate but matching values
+        with self.config.open("r") as config:
+            tmp = yaml.load(config)
+        tmp["mode"] = "2D"
+        tmp["tracking_mode"] = "2D"  # Same value
+        with self.config.open("w") as fp:
+            yaml.dump(tmp, fp)
+
+        # Load project (should trigger migration with warning)
+        with self.assertWarns(DeprecationWarning):
+            DeepXROMM.load_project(self.working_dir)
+
+        # Verify only 'mode' remains
+        with self.config.open("r") as config:
+            migrated = yaml.load(config)
+
+        self.assertIn("mode", migrated)
+        self.assertNotIn("tracking_mode", migrated)
+        self.assertEqual(migrated["mode"], "2D")
 
     def tearDown(self):
         """Remove the created temp project"""
@@ -615,8 +684,12 @@ class Test2DTrialProcess(unittest.TestCase):
         dlc_config = Path(deepxromm.config["path_config_file"])
         labeled_data_path = dlc_config.parent / "labeled-data/MyData"
         dlc_data = pd.read_hdf(labeled_data_path / "CollectedData_NA.h5")
-        cam1_img_path = str(labeled_data_path / "test_cam1_0001.png")
-        cam2_img_path = str(labeled_data_path / "test_cam2_0001.png")
+        cam1_img_path = str(
+            (labeled_data_path / "test_cam1_0001.png").relative_to(dlc_config.parent)
+        )
+        cam2_img_path = str(
+            (labeled_data_path / "test_cam2_0001.png").relative_to(dlc_config.parent)
+        )
         cam1_first_row = dlc_data.loc[cam1_img_path, :]
         cam2_first_row = dlc_data.loc[cam2_img_path, :]
         for val in cam1_first_row.index:
@@ -655,11 +728,19 @@ class Test2DTrialProcess(unittest.TestCase):
         xmalab_last_row = xmalab_data.loc[last_frame_int - 1]
 
         # Load DLC cam1 last row
-        cam1_img_path = str(labeled_data_path / f"test_cam1_{last_frame_number}.png")
+        cam1_img_path = str(
+            (labeled_data_path / f"test_cam1_{last_frame_number}.png").relative_to(
+                dlc_config.parent
+            )
+        )
         cam1_last_row = dlc_data.loc[cam1_img_path, :]
 
         # Load DLC cam2 last row
-        cam2_img_path = str(labeled_data_path / f"test_cam2_{last_frame_number}.png")
+        cam2_img_path = str(
+            (labeled_data_path / f"test_cam2_{last_frame_number}.png").relative_to(
+                dlc_config.parent
+            )
+        )
         cam2_last_row = dlc_data.loc[cam2_img_path, :]
 
         for val in cam1_last_row.index:
@@ -698,11 +779,19 @@ class Test2DTrialProcess(unittest.TestCase):
         xmalab_row = xmalab_data.loc[frame_int - 1]
 
         # Load DLC cam1 last row
-        cam1_img_path = str(labeled_data_path / f"test_cam1_{frame_number}.png")
+        cam1_img_path = str(
+            (labeled_data_path / f"test_cam1_{frame_number}.png").relative_to(
+                dlc_config.parent
+            )
+        )
         cam1_row = dlc_data.loc[cam1_img_path, :]
 
         # Load DLC cam2 last row
-        cam2_img_path = str(labeled_data_path / f"test_cam2_{frame_number}.png")
+        cam2_img_path = str(
+            (labeled_data_path / f"test_cam2_{frame_number}.png").relative_to(
+                dlc_config.parent
+            )
+        )
         cam2_row = dlc_data.loc[cam2_img_path, :]
 
         for val in cam1_row.index:
@@ -763,8 +852,12 @@ class TestPerCamTrialProcess(unittest.TestCase):
         cam2_labeled_data_path = cam2_dlc_proj / "labeled-data/MyData_cam2"
         cam1_dlc_data = pd.read_hdf(cam1_labeled_data_path / "CollectedData_NA.h5")
         cam2_dlc_data = pd.read_hdf(cam2_labeled_data_path / "CollectedData_NA.h5")
-        cam1_img_path = str(cam1_labeled_data_path / "test_0001.png")
-        cam2_img_path = str(cam2_labeled_data_path / "test_0001.png")
+        cam1_img_path = str(
+            (cam1_labeled_data_path / "test_0001.png").relative_to(cam1_dlc_proj)
+        )
+        cam2_img_path = str(
+            (cam2_labeled_data_path / "test_0001.png").relative_to(cam2_dlc_proj)
+        )
         cam1_first_row = cam1_dlc_data.loc[cam1_img_path, :]
         cam2_first_row = cam2_dlc_data.loc[cam2_img_path, :]
         for val in cam1_first_row.index:
@@ -808,11 +901,19 @@ class TestPerCamTrialProcess(unittest.TestCase):
         xmalab_last_row = xmalab_data.loc[last_frame_int - 1]
 
         # Load DLC cam1 last row
-        cam1_img_path = str(cam1_labeled_data_path / f"test_{last_frame_number}.png")
+        cam1_img_path = str(
+            (cam1_labeled_data_path / f"test_{last_frame_number}.png").relative_to(
+                cam1_dlc_proj
+            )
+        )
         cam1_last_row = cam1_dlc_data.loc[cam1_img_path, :]
 
         # Load DLC cam2 last row
-        cam2_img_path = str(cam2_labeled_data_path / f"test_{last_frame_number}.png")
+        cam2_img_path = str(
+            (cam2_labeled_data_path / f"test_{last_frame_number}.png").relative_to(
+                cam2_dlc_proj
+            )
+        )
         cam2_last_row = cam2_dlc_data.loc[cam2_img_path, :]
 
         for val in cam1_last_row.index:
@@ -856,11 +957,19 @@ class TestPerCamTrialProcess(unittest.TestCase):
         xmalab_row = xmalab_data.loc[frame_int - 1]
 
         # Load DLC cam1 last row
-        cam1_img_path = str(cam1_labeled_data_path / f"test_{frame_number}.png")
+        cam1_img_path = str(
+            (cam1_labeled_data_path / f"test_{frame_number}.png").relative_to(
+                cam1_dlc_proj
+            )
+        )
         cam1_row = cam1_dlc_data.loc[cam1_img_path, :]
 
         # Load DLC cam2 last row
-        cam2_img_path = str(cam2_labeled_data_path / f"test_{frame_number}.png")
+        cam2_img_path = str(
+            (cam2_labeled_data_path / f"test_{frame_number}.png").relative_to(
+                cam2_dlc_proj
+            )
+        )
         cam2_row = cam2_dlc_data.loc[cam2_img_path, :]
 
         for val in cam1_row.index:
@@ -921,7 +1030,9 @@ class TestRGBTrialProcess(unittest.TestCase):
         dlc_data = pd.read_hdf(labeled_data_path / "CollectedData_NA.h5")
 
         # Load DLC first row
-        rgb_img_path = str(labeled_data_path / "test_rgb_0001.png")
+        rgb_img_path = str(
+            (labeled_data_path / "test_rgb_0001.png").relative_to(dlc_config.parent)
+        )
         rgb_first_row = dlc_data.loc[rgb_img_path, :]
 
         for val in rgb_first_row.index:
@@ -953,7 +1064,11 @@ class TestRGBTrialProcess(unittest.TestCase):
         xmalab_last_row = xmalab_data.loc[last_frame_int - 1]
 
         # Load DLC rgb last row
-        rgb_img_path = str(labeled_data_path / f"test_rgb_{last_frame_number}.png")
+        rgb_img_path = str(
+            (labeled_data_path / f"test_rgb_{last_frame_number}.png").relative_to(
+                dlc_config.parent
+            )
+        )
         rgb_last_row = dlc_data.loc[rgb_img_path, :]
 
         for val in rgb_last_row.index:
@@ -985,7 +1100,11 @@ class TestRGBTrialProcess(unittest.TestCase):
         xmalab_row = xmalab_data.loc[frame_int - 1]
 
         # Load DLC cam1 last row
-        rgb_img_path = str(labeled_data_path / f"test_rgb_{frame_number}.png")
+        rgb_img_path = str(
+            (labeled_data_path / f"test_rgb_{frame_number}.png").relative_to(
+                dlc_config.parent
+            )
+        )
         rgb_row = dlc_data.loc[rgb_img_path, :]
 
         for val in rgb_row.index:
@@ -999,281 +1118,6 @@ class TestRGBTrialProcess(unittest.TestCase):
         """Remove the created temp project"""
         project_path = Path.cwd() / "tmp"
         shutil.rmtree(project_path)
-
-
-class TestXMADataProcessorHelpers:
-    """Test helper methods in XMADataProcessor using pytest"""
-
-    @pytest.fixture(autouse=True)
-    def setup_and_teardown(self, tmp_path):
-        """Setup test environment and cleanup after"""
-        self.working_dir = tmp_path
-        self.config = {
-            "working_dir": str(self.working_dir),
-            "swapped_markers": False,
-            "crossed_markers": False,
-        }
-        from deepxromm.xma_data_processor import XMADataProcessor
-
-        self.processor = XMADataProcessor(self.config)
-
-        # Create test trial structure
-        trial_dir = self.working_dir / "trainingdata" / "trial1"
-        trial_dir.mkdir(parents=True, exist_ok=True)
-
-        # Create sample CSV with known data
-        df = pd.DataFrame(
-            {
-                "marker1_cam1_X": [10.5, 20.3, np.nan],
-                "marker1_cam1_Y": [15.2, 25.1, np.nan],
-                "marker1_cam2_X": [12.1, 22.4, np.nan],
-                "marker1_cam2_Y": [17.3, 27.2, np.nan],
-                "marker2_cam1_X": [30.0, np.nan, 50.0],
-                "marker2_cam1_Y": [35.0, np.nan, 55.0],
-                "marker2_cam2_X": [32.0, np.nan, 52.0],
-                "marker2_cam2_Y": [37.0, np.nan, 57.0],
-            }
-        )
-        df.to_csv(trial_dir / "trial1.csv", index=False)
-
-        yield
-
-        # Cleanup handled automatically by tmp_path fixture
-
-    def test_build_dlc_dataframe_creates_correct_structure(self):
-        """Does build_dlc_dataframe create proper MultiIndex structure?"""
-        # Arrange
-        data = pd.DataFrame({0: [10.5, 12.1], 1: [15.2, 17.3]})
-        scorer = "TestScorer"
-        relnames = ["img1.png", "img2.png"]
-        pointnames = ["marker1"]
-
-        # Act
-        result = self.processor.build_dlc_dataframe(data, scorer, relnames, pointnames)
-
-        # Assert
-        assert result.index.tolist() == relnames
-        assert isinstance(result.columns, pd.MultiIndex)
-        assert result.columns.names == ["scorer", "bodyparts", "coords"]
-        assert (scorer, "marker1", "x") in result.columns
-        assert (scorer, "marker1", "y") in result.columns
-
-    def test_build_dlc_dataframe_handles_nan_properly(self):
-        """Does build_dlc_dataframe clean NaN values correctly?"""
-        # Arrange
-        data = pd.DataFrame({0: [10.5, " NaN"], 1: [" NaN ", 17.3]})
-        scorer = "TestScorer"
-        relnames = ["img1.png", "img2.png"]
-        pointnames = ["marker1"]
-
-        # Act
-        result = self.processor.build_dlc_dataframe(data, scorer, relnames, pointnames)
-
-        # Assert
-        assert pd.isna(result.iloc[0, 1])  # First row, y coord
-        assert pd.isna(result.iloc[1, 0])  # Second row, x coord
-        assert result.iloc[0, 0] == 10.5
-        assert result.iloc[1, 1] == 17.3
-
-    def test_read_trial_csv_validates_consistent_pointnames(self):
-        """Does read_trial_csv catch inconsistent point names across trials?"""
-        # Arrange: Create second trial with different markers
-        trial2_dir = self.working_dir / "trainingdata" / "trial2"
-        trial2_dir.mkdir(parents=True, exist_ok=True)
-        df = pd.DataFrame(
-            {
-                "different_marker_cam1_X": [10.5],
-                "different_marker_cam1_Y": [15.2],
-                "different_marker_cam2_X": [12.1],
-                "different_marker_cam2_Y": [17.3],
-            }
-        )
-        df.to_csv(trial2_dir / "trial2.csv", index=False)
-
-        trials = [
-            self.working_dir / "trainingdata" / "trial1",
-            self.working_dir / "trainingdata" / "trial2",
-        ]
-
-        # Act & Assert
-        with pytest.raises(ValueError, match="(?i)point names"):
-            self.processor.read_trial_csv_with_validation(trials)
-
-    def test_read_trial_csv_filters_empty_rows(self):
-        """Does read_trial_csv properly identify rows with valid data?"""
-        # Arrange
-        trials = [self.working_dir / "trainingdata" / "trial1"]
-
-        # Act
-        dfs, idx, pointnames = self.processor.read_trial_csv_with_validation(trials)
-
-        # Assert: All 3 rows have >= 50% non-NaN values
-        # Row 0: 6 non-NaN out of 8 (75%)
-        # Row 1: 4 non-NaN out of 8 (50%)
-        # Row 2: 6 non-NaN out of 8 (75%)
-        assert len(idx[0]) == 3
-        assert 0 in idx[0]
-        assert 1 in idx[0]
-        assert 2 in idx[0]
-
-    def test_extract_2d_points_for_camera_extracts_cam1(self):
-        """Does extract_2d_points_for_camera extract correct camera 1 data?"""
-        # Arrange
-        trial_path = self.working_dir / "trainingdata" / "trial1"
-        df = pd.read_csv(trial_path / "trial1.csv", sep=",", header=None)
-        df = df.loc[1:,].reset_index(drop=True)  # Remove header row
-        picked_frames = [0, 2]
-        camera = 1
-
-        # Act
-        result = self.processor.extract_2d_points_for_camera(df, camera, picked_frames)
-
-        # Assert
-        assert result.shape[0] == 2  # 2 frames
-        assert result.shape[1] == 4  # 2 markers * 2 coords
-        assert float(result.iloc[0, 0]) == 10.5  # marker1_cam1_X
-        assert float(result.iloc[0, 1]) == 15.2  # marker1_cam1_Y
-
-    def test_extract_2d_points_for_camera_extracts_cam2(self):
-        """Does extract_2d_points_for_camera extract correct camera 2 data?"""
-        # Arrange
-        trial_path = self.working_dir / "trainingdata" / "trial1"
-        df = pd.read_csv(trial_path / "trial1.csv", sep=",", header=None)
-        df = df.loc[1:,].reset_index(drop=True)
-        picked_frames = [0, 2]
-        camera = 2
-
-        # Act
-        result = self.processor.extract_2d_points_for_camera(df, camera, picked_frames)
-
-        # Assert
-        assert result.shape[0] == 2
-        assert result.shape[1] == 4
-        assert float(result.iloc[0, 0]) == 12.1  # marker1_cam2_X
-        assert float(result.iloc[0, 1]) == 17.3  # marker1_cam2_Y
-
-    def test_list_trials_ignores_hidden_folders(self):
-        """Does list_trials skip hidden directories?"""
-        # Arrange: Create a hidden folder
-        hidden_dir = self.working_dir / "trainingdata" / ".hidden"
-        hidden_dir.mkdir(parents=True, exist_ok=True)
-
-        # Act
-        trials = self.processor.list_trials("trainingdata")
-
-        # Assert
-        assert len(trials) == 1
-        assert trials[0].name == "trial1"
-
-    def test_list_trials_raises_on_empty_directory(self):
-        """Does list_trials raise error for empty data path?"""
-        # Arrange
-        empty_dir = self.working_dir / "empty_data"
-        empty_dir.mkdir(parents=True, exist_ok=True)
-
-        # Act & Assert
-        with pytest.raises(FileNotFoundError, match="(?i)no trials found"):
-            self.processor.list_trials("empty_data")
-
-    def test_list_trials_with_custom_suffix(self):
-        """Does list_trials work with custom suffix like 'trainingdata'?"""
-        # Arrange: Create working_dir/trainingdata/trial1, trial2
-        trial2_dir = self.working_dir / "trainingdata" / "trial2"
-        trial2_dir.mkdir(parents=True, exist_ok=True)
-
-        # Act
-        trials = self.processor.list_trials("trainingdata")
-
-        # Assert
-        assert len(trials) == 2
-        trial_names = [t.name for t in trials]
-        assert "trial1" in trial_names
-        assert "trial2" in trial_names
-
-    def test_list_trials_only_returns_directories(self):
-        """Does list_trials ignore files in the trials directory?"""
-        # Arrange: Create working_dir/trials/trial1/ and working_dir/trials/readme.txt
-        trials_dir = self.working_dir / "trials"
-        trials_dir.mkdir(parents=True, exist_ok=True)
-        (trials_dir / "trial1").mkdir(exist_ok=True)
-        (trials_dir / "readme.txt").write_text("test file")
-
-        # Act
-        trials = self.processor.list_trials("trials")
-
-        # Assert
-        assert len(trials) == 1
-        assert trials[0].name == "trial1"
-        assert trials[0].is_dir()
-
-    def test_list_trials_uses_working_dir_from_config(self):
-        """Does list_trials correctly use config['working_dir'] as base?"""
-        # Arrange: Create specific working_dir structure
-        specific_trials = self.working_dir / "my_trials"
-        specific_trials.mkdir(parents=True, exist_ok=True)
-        (specific_trials / "test_trial").mkdir(exist_ok=True)
-
-        # Act
-        trials = self.processor.list_trials("my_trials")
-
-        # Assert
-        assert len(trials) == 1
-        assert trials[0].name == "test_trial"
-        # Verify path starts with correct working_dir
-        assert str(trials[0]).startswith(str(self.working_dir))
-
-    def test_list_trials_with_nested_suffix(self):
-        """Does list_trials handle nested paths like 'data/experiments'?"""
-        # Arrange: Create working_dir/data/experiments/trial1
-        nested_dir = self.working_dir / "data" / "experiments"
-        nested_dir.mkdir(parents=True, exist_ok=True)
-        (nested_dir / "trial1").mkdir(exist_ok=True)
-
-        # Act
-        trials = self.processor.list_trials("data/experiments")
-
-        # Assert
-        assert len(trials) == 1
-        assert trials[0].name == "trial1"
-
-    def test_list_trials_prevents_directory_traversal(self):
-        """Does list_trials reject suffix with '..' or absolute paths?"""
-        # Test 1: Relative traversal
-        with pytest.raises(ValueError, match="(?i)security.*traversal"):
-            self.processor.list_trials("../outside_project")
-
-        # Test 2: Nested traversal
-        with pytest.raises(ValueError, match="(?i)security.*traversal"):
-            self.processor.list_trials("valid/../traversal")
-
-        # Test 3: Absolute path
-        with pytest.raises(ValueError, match="(?i)security.*absolute"):
-            self.processor.list_trials("/absolute/path")
-
-        # Test 4: Hidden traversal
-        with pytest.raises(ValueError, match="(?i)security.*traversal"):
-            self.processor.list_trials("../../etc/passwd")
-
-    def test_list_trials_returns_path_objects(self):
-        """Does list_trials return Path objects (not strings)?"""
-        # Act
-        trials = self.processor.list_trials("trainingdata")
-
-        # Assert
-        assert len(trials) >= 1
-        for trial in trials:
-            assert isinstance(trial, Path)
-
-    def test_extract_2d_points_validates_camera_number(self):
-        """Does extract_2d_points_for_camera reject invalid camera numbers?"""
-        # Arrange
-        trial_path = self.working_dir / "trainingdata" / "trial1"
-        df = pd.read_csv(trial_path / "trial1.csv", sep=",", header=None)
-        df = df.loc[1:,].reset_index(drop=True)
-
-        # Act & Assert
-        with pytest.raises(ValueError, match="(?i)camera.*must be 1 or 2"):
-            self.processor.extract_2d_points_for_camera(df, 3, [0])
 
 
 class TestExtractFramesFromVideo:

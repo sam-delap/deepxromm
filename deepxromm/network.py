@@ -19,7 +19,7 @@ class Network:
 
     def xma_to_dlc(self):
         """Convert XMAlab data to DLC format"""
-        mode = self._config["tracking_mode"]
+        mode = self._config["mode"]
         if mode == "2D":
             try:
                 xma_to_dlc(
@@ -53,7 +53,7 @@ class Network:
     def create_training_dataset(self):
         """Create training dataset for data"""
         deeplabcut.create_training_dataset(self._config["path_config_file"])
-        if self._config["tracking_mode"] == "per_cam":
+        if self._config["mode"] == "per_cam":
             deeplabcut.create_training_dataset(self._config["path_config_file_2"])
 
     def train(self):
@@ -62,7 +62,7 @@ class Network:
             self._config["path_config_file"], maxiters=self._config["maxiters"]
         )
 
-        if self._config["tracking_mode"] == "per_cam":
+        if self._config["mode"] == "per_cam":
             deeplabcut.train_network(
                 self._config["path_config_file_2"], maxiters=self._config["maxiters"]
             )

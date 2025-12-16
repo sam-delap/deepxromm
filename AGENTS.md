@@ -2,15 +2,15 @@
 
 ## Build/Test Commands
 - **Install dependencies**: `uv sync --locked --all-extras --dev`
-- **Run all tests**: `uv run pytest --cov --cov-branch --cov-report=xml`
-- **Run single test**: `uv run pytest tests/test_deepxromm.py::TestClassName::test_method` (for debugging only)
+- **Run all tests**: `DEEPXROMM_TEST_CODEC="XVID" uv run pytest --cov --cov-branch --cov-report=xml`
+- **Run single test**: `DEEPXROMM_TEST_CODEC="XVID" uv run pytest tests/test_deepxromm.py::TestClassName::test_method` (for debugging only)
 - **Format/lint**: `uv run pre-commit run -a` (uses Black)
 - **Build package**: `python3 -m build`
 
 ## Code Style Guidelines
 - **Formatting**: Black with Python 3.10 language version
-- **Imports**: Standard library → third-party → local imports (each section sorted)
-- **Type hints**: Use where beneficial, especially for public APIs and complex data structures
+- **Imports**: Standard library → third-party → local imports (each section sorted in alphabetical order)
+- **Type hints**: Use wherever possible, especially for public APIs and complex data structures
 - **File paths**: Always use `pathlib.Path` instead of string paths
 - **Logging**: Module-level logger with `logging.getLogger(__name__)`
 - **Classes**: Use factory methods (`@classmethod`) for complex initialization

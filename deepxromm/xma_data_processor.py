@@ -622,7 +622,7 @@ Note: Codec availability depends on your OpenCV build and system codecs.
         print("Importing frames: ")
         print(unique_frames)
         df["frame_index"] = [
-            str(substitute_data_abspath / f"{trial_name}_rgb_{str(index).zfill(4)}.png")
+            str(substitute_data_relpath / f"{trial_name}_rgb_{str(index).zfill(4)}.png")
             for index in unique_frames
         ]
         df["scorer"] = self._config["experimenter"]
@@ -928,8 +928,6 @@ Note: Codec availability depends on your OpenCV build and system codecs.
         trial_path: Path,
         camera: int,
         picked_frames: list,
-        output_dir: Path,
-        trial_name: str,
     ) -> pd.DataFrame:
         """Process trial data and extract 2D points for specific camera"""
         # Load trial CSV
@@ -937,7 +935,6 @@ Note: Codec availability depends on your OpenCV build and system codecs.
         df = pd.read_csv(csv_path, sep=",", header=None)
 
         # Extract point names
-        pointnames = df.loc[0, ::4].astype(str).str[:-7].tolist()
         df = df.loc[1:,].reset_index(drop=True)
 
         # Extract frames and sort
@@ -990,6 +987,21 @@ Note: Codec availability depends on your OpenCV build and system codecs.
         dataFrame = pd.DataFrame()
         temp = np.empty((data.shape[0], 2))
         temp[:] = np.nan
+
+        for idx, relname in enumerate(relnames):
+            if "_cam2" in relname and self._config["mode"] == "per_cam":
+                relnames[idx] = str(
+                    Path(relname).relative_to(
+                        Path(self._config["path_config_file_2"]).parent
+                    )
+                )
+            else:
+                print(self._config)
+                relnames[idx] = str(
+                    Path(relname).relative_to(
+                        Path(self._config["path_config_file"]).parent
+                    )
+                )
 
         for i, bodypart in enumerate(pointnames):
             index = pd.MultiIndex.from_product(
