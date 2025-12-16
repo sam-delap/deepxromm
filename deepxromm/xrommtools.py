@@ -113,41 +113,27 @@ def xma_to_dlc(
     )
 
 
-def dlc_to_xma(cam1data, cam2data, trialname, savepath):
-    # Convert savepath to Path object to handle both string and Path inputs
-    from pathlib import Path
+def dlc_to_xma(trial: Path, iteration: int):
+    # get filenames and read analyzed data
+    trialname = trial.name
+    iteration_folder = trial / f"it{iteration}"
+    datafiles = list(iteration_folder.glob("*.h5"))
+    if not datafiles:
+        raise ValueError(
+            "Cannot find predicted points. Have you run deepxromm.analyze_videos() for this project?"
+        )
+    print(datafiles[0])
+    cam1data = pd.read_hdf(datafiles[0])
+    print(datafiles[1])
+    cam2data = pd.read_hdf(datafiles[1])
+    h5_save_path = iteration_folder / f"{trialname}-Predicted2DPoints.h5"
+    csv_save_path = iteration_folder / f"{trialname}-Predicted2DPoints.csv"
 
-    savepath = Path(savepath)
-    h5_save_path = savepath / f"{trialname}-Predicted2DPoints.h5"
-    csv_save_path = savepath / f"{trialname}-Predicted2DPoints.csv"
-
-    if isinstance(cam1data, str):  # is string
-        if ".csv" in cam1data:
-            cam1data = pd.read_csv(cam1data, sep=",", header=None)
-            cam2data = pd.read_csv(cam2data, sep=",", header=None)
-            pointnames = list(cam1data.loc[1, 1:].unique())
-
-            # reformat CSV / get rid of headers
-            cam1data = cam1data.loc[3:, 1:]
-            cam1data.columns = range(cam1data.shape[1])
-            cam1data.index = range(cam1data.shape[0])
-            cam2data = cam2data.loc[3:, 1:]
-            cam2data.columns = range(cam2data.shape[1])
-            cam2data.index = range(cam2data.shape[0])
-
-        elif ".h5" in cam1data:  # is .h5 file
-            cam1data = pd.read_hdf(cam1data)
-            cam2data = pd.read_hdf(cam2data)
-            pointnames = list(cam1data.columns.get_level_values("bodyparts").unique())
-
-        else:
-            raise ValueError("2D point input is not in correct format")
-    else:
-        pointnames = list(cam1data.columns.get_level_values("bodyparts").unique())
+    pointnames = list(cam1data.columns.get_level_values("bodyparts").unique())
 
     # make new column names
     nvar = len(pointnames)
-    pointnames = [item for item in pointnames for repetitions in range(4)]
+    pointnames = [item for item in pointnames for _ in range(4)]
     post = ["_cam1_X", "_cam1_Y", "_cam2_X", "_cam2_Y"] * nvar
     cols = [m + str(n) for m, n in zip(pointnames, post)]
 
@@ -174,59 +160,24 @@ def dlc_to_xma(cam1data, cam2data, trialname, savepath):
 
 
 def analyze_xromm_videos(
-    path_config_file,
-    path_data_to_analyze: str,
-    iteration,
-    nnetworks=1,
-    path_config_file_cam2=[],
+    path_config_file: str,
+    iteration: int,
+    data_processor: XMADataProcessor,
+    nnetworks: int = 1,
+    path_config_file_cam2: str | None = None,
 ):
     # assumes you have cam1 and cam2 videos as .avi in their own seperate trial folders
     # assumes all folders w/i new_data_path are trial folders
-    # convert jpg stacks?
 
     # analyze videos
     cameras = [1, 2]
-    config = path_config_file
     configs = [path_config_file, path_config_file_cam2]
-    subs = [
-        [
-            "c01",
-            "c1",
-            "C01",
-            "C1",
-            "Cam1",
-            "cam1",
-            "Cam01",
-            "cam01",
-            "Camera1",
-            "camera1",
-        ],
-        [
-            "c02",
-            "c2",
-            "C02",
-            "C2",
-            "Cam2",
-            "cam2",
-            "Cam02",
-            "cam02",
-            "Camera2",
-            "camera2",
-        ],
-    ]
-    data_analysis_path = Path(path_data_to_analyze)
-    trialnames = [
-        folder
-        for folder in data_analysis_path.glob("*")
-        if (data_analysis_path / folder).is_dir() and not folder.name.startswith(".")
-    ]
+    trials = data_processor.list_trials()
 
-    for trialnum, trial in enumerate(trialnames):
-        trialpath = data_analysis_path / trial
-        contents = trialpath.glob("*")
+    for trialpath in trials:
         savepath = trialpath / f"it{iteration}"
         if savepath.exists():
-            temp = savepath.glob("*")
+            temp = savepath.glob("*Predicted2DPoints.csv")
             if temp:
                 raise ValueError(
                     f"There are already predicted points in iteration {iteration} subfolders"
@@ -236,31 +187,17 @@ def analyze_xromm_videos(
         # get video file
         filename = None
         for camera in cameras:
-            for name in contents:
-                if any(x in name.name for x in subs[camera - 1]):
-                    filename = name.name
-            if filename is None:
-                raise ValueError("Cannot locate %s video file or image folder" % trial)
-
-            video = trialpath / filename
-            print(video)
+            # Error handling handled by find_cam_file helper
+            video = data_processor.find_cam_file(trialpath, f"cam{camera}")
             # analyze video
             if nnetworks == 1:
-                analyze_videos(config, [video], destfolder=savepath, save_as_csv=True)
+                analyze_videos(
+                    configs[0], [video], destfolder=savepath, save_as_csv=True
+                )
             else:
                 analyze_videos(
                     configs[camera - 1], [video], destfolder=savepath, save_as_csv=True
                 )
-
-        # get filenames and read analyzed data
-        datafiles = list(savepath.glob("*.h5"))
-        if not datafiles:
-            raise ValueError(
-                "Cannot find predicted points. Some wrong with DeepLabCut?"
-            )
-        cam1data = pd.read_hdf(savepath / datafiles[0])
-        cam2data = pd.read_hdf(savepath / datafiles[1])
-        dlc_to_xma(cam1data, cam2data, trial, savepath)
 
 
 def add_frames(

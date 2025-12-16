@@ -14,6 +14,8 @@ import pandas as pd
 import random
 from ruamel.yaml import YAML
 
+from deepxromm.xrommtools import dlc_to_xma
+
 logger = logging.getLogger()
 logger.setLevel(logging.DEBUG)
 
@@ -25,6 +27,69 @@ class XMADataProcessor:
         self._config = config
         self._swap_markers = config["swapped_markers"]
         self._cross_markers = config["crossed_markers"]
+
+    def dlc_to_xma(self):
+        """Convert DLC-formatted training output into XMAlab-formatted data"""
+        mode = self._config["mode"]
+        trials = self.list_trials()
+
+        if mode in ["2D", "per_cam"]:
+            correct_function_signature = dlc_to_xma
+        elif mode == "rgb":
+            correct_function_signature = self._split_dlc_to_xma
+        else:
+            raise AttributeError(f"Unsupported mode: {mode}")
+
+        for trial in trials:
+            correct_function_signature(trial, int(self._config["iteration"]))
+
+    def _split_dlc_to_xma(self, trial_path: Path, iteration: int, save_hdf=True):
+        """Takes the output from RGB deeplabcut and splits it into XMAlab-readable output"""
+        current_files = trial_path.glob("*")
+        logger.debug(f"Current files in directory {current_files}")
+        trial_csv_path = self.find_trial_csv(trial_path)
+        rgb_parts = self.get_bodyparts_from_xma(trial_csv_path, mode="rgb")
+
+        bodyparts_xy = []
+        for part in rgb_parts:
+            bodyparts_xy.append(part + "_X")
+            bodyparts_xy.append(part + "_Y")
+
+        # REFACTOR: This should be added as a feature of find_trial_csv
+        iteration_folder = trial_path / f"it{iteration}"
+        csv_path = self.find_trial_csv(
+            iteration_folder, "rgbDLC"
+        )  # Assumes that the project itself doesn't have rgbDLC in this format in it
+        trial = trial_path.name
+
+        logger.debug(f"Found CSV path: {csv_path} for trial {trial}")
+        xma_csv_path = iteration_folder / f"{trial}-Predicted2DPoints.csv"
+
+        df = pd.read_csv(csv_path, skiprows=1)
+        assert type(df) == pd.DataFrame
+        df.index = df["bodyparts"]
+        df = df.drop(columns=df.columns[df.loc["coords"] == "likelihood"])
+        df = df.drop(
+            columns=[
+                column
+                for column in df.columns
+                if column not in rgb_parts
+                and column not in [f"{bodypart}.1" for bodypart in rgb_parts]
+            ]
+        )
+        df.columns = bodyparts_xy
+        df = df.drop(index="coords")
+        df.to_csv(xma_csv_path, index=False)
+        print(
+            "Successfully split DLC format to XMALab 2D points; saved "
+            + str(xma_csv_path)
+        )
+        if save_hdf:
+            tracked_hdf = csv_path.with_suffix("hdf")
+            logger.debug(f"Tracked hdf stored at {str(tracked_hdf)}")
+            df.to_hdf(
+                tracked_hdf, "df_with_missing", format="table", mode="w", nan_rep="NaN"
+            )
 
     def validate_codec(self, codec: str, width: int = 640, height: int = 480) -> bool:
         """
@@ -106,12 +171,12 @@ To change the codec, update your project config file:
 Note: Codec availability depends on your OpenCV build and system codecs.
 """.strip()
 
-    def find_trial_csv(self, trial_path: Path) -> Path:
+    def find_trial_csv(self, trial_path: Path, identifier: str = "") -> Path:
         """
         Takes the path to a trial and returns the path to a trial CSV.
         Errors if there is not exactly 1 trial CSV in a trial folder.
         """
-        csv_path = list(trial_path.glob("*.csv"))
+        csv_path = list(trial_path.glob(f"*{identifier}.csv"))
         if len(csv_path) > 1:
             raise FileExistsError(f"Found more than 1 CSV file for trial: {trial_path}")
         if len(csv_path) <= 0:
