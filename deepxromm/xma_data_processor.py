@@ -686,7 +686,7 @@ Note: Codec availability depends on your OpenCV build and system codecs.
             source_path=video_path,
             frame_indices=zero_indexed_frames,
             output_dir=labeled_data_path,
-            output_name_base=video_path.stem,  # Gets trial name from filename
+            output_name_base=video_path.parent.name,  # Gets trial name from filename
             mode="rgb",
             compression=compression,
         )
