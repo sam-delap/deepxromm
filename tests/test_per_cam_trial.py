@@ -42,13 +42,13 @@ class TestPerCamTrialProcess(unittest.TestCase):
         shutil.copy("trial_slice.csv", str(self.trial_csv))
         shutil.copy("trial_cam1_slice.avi", str(self.cam1_path))
         shutil.copy("trial_cam2_slice.avi", str(self.cam2_path))
+        self.deepxromm = DeepXROMM.load_project(self.working_dir)
+        self.deepxromm.xma_to_dlc()
 
     def test_first_frame_matches_in_dlc_csv(self):
         """When I run xma_to_dlc, does the DLC CSV have the same data as my original file?"""
-        deepxromm = DeepXROMM.load_project(self.working_dir)
-        deepxromm.xma_to_dlc()
-        cam1_dlc_proj = Path(deepxromm.config["path_config_file"]).parent
-        cam2_dlc_proj = Path(deepxromm.config["path_config_file_2"]).parent
+        cam1_dlc_proj = Path(self.deepxromm.config["path_config_file"]).parent
+        cam2_dlc_proj = Path(self.deepxromm.config["path_config_file_2"]).parent
 
         xmalab_data = pd.read_csv(self.trial_csv)
         xmalab_first_row = xmalab_data.loc[0, :]
@@ -81,15 +81,12 @@ class TestPerCamTrialProcess(unittest.TestCase):
 
     def test_last_frame_matches_in_dlc_csv(self):
         """When I run xma_to_dlc, does the DLC CSV have the same data as my original file?"""
-        deepxromm = DeepXROMM.load_project(self.working_dir)
-        deepxromm.xma_to_dlc()
-
         # Load XMAlab data
         xmalab_data = pd.read_csv(self.trial_csv)
 
         # Load DLC data
-        cam1_dlc_proj = Path(deepxromm.config["path_config_file"]).parent
-        cam2_dlc_proj = Path(deepxromm.config["path_config_file_2"]).parent
+        cam1_dlc_proj = Path(self.deepxromm.config["path_config_file"]).parent
+        cam2_dlc_proj = Path(self.deepxromm.config["path_config_file_2"]).parent
 
         cam1_labeled_data_path = cam1_dlc_proj / "labeled-data/MyData_cam1"
         cam2_labeled_data_path = cam2_dlc_proj / "labeled-data/MyData_cam2"
@@ -137,15 +134,12 @@ class TestPerCamTrialProcess(unittest.TestCase):
 
     def test_random_frame_matches_in_dlc_csv(self):
         """When I run xma_to_dlc, does the DLC CSV have the same data as my original file?"""
-        deepxromm = DeepXROMM.load_project(self.working_dir)
-        deepxromm.xma_to_dlc()
-
         # Load XMAlab data
         xmalab_data = pd.read_csv(self.trial_csv)
 
         # Load DLC data
-        cam1_dlc_proj = Path(deepxromm.config["path_config_file"]).parent
-        cam2_dlc_proj = Path(deepxromm.config["path_config_file_2"]).parent
+        cam1_dlc_proj = Path(self.deepxromm.config["path_config_file"]).parent
+        cam2_dlc_proj = Path(self.deepxromm.config["path_config_file_2"]).parent
 
         cam1_labeled_data_path = cam1_dlc_proj / "labeled-data/MyData_cam1"
         cam2_labeled_data_path = cam2_dlc_proj / "labeled-data/MyData_cam2"
