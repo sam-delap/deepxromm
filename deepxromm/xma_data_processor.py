@@ -996,6 +996,7 @@ Note: Codec availability depends on your OpenCV build and system codecs.
                     )
                 )
             else:
+                print(self._config)
                 relnames[idx] = str(
                     Path(relname).relative_to(
                         Path(self._config["path_config_file"]).parent
