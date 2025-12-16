@@ -1,19 +1,15 @@
-"""Unit tests for deepxromm"""
+"""
+Unit tests for deepxromm project creation
+"""
 
 import os
 from pathlib import Path
 import shutil
 import unittest
-import random
 
-import cv2
-import numpy as np
-import pandas as pd
-import pytest
 from ruamel.yaml import YAML
 
 from deepxromm import DeepXROMM
-from deepxromm.xma_data_processor import XMADataProcessor
 
 SAMPLE_FRAME = Path(__file__).parent / "sample_frame.jpg"
 SAMPLE_FRAME_INPUT = Path(__file__).parent / "sample_frame_input.csv"
