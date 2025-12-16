@@ -8,7 +8,6 @@ import pandas as pd
 import numpy as np
 
 from deepxromm import DeepXROMM
-from deepxromm.xrommtools import dlc_to_xma
 
 SAMPLE_FRAME = Path(__file__).parent / "sample_frame.jpg"
 SAMPLE_FRAME_INPUT = Path(__file__).parent / "sample_frame_input.csv"
@@ -291,6 +290,9 @@ class TestDlcToXma2D(unittest.TestCase):
         # Generate mock DLC analysis output
         self.create_mock_dlc_analysis_2d()
 
+        # Run DLC to XMA
+        self.deepxromm.dlc_to_xma()
+
     def create_mock_dlc_analysis_2d(self):
         """Create realistic DLC analysis output for 2D mode"""
         # Read DLC training dataset created by xma_to_dlc
@@ -322,20 +324,8 @@ class TestDlcToXma2D(unittest.TestCase):
         When I call dlc_to_xma
         Then it creates XMAlab format CSV and HDF5 files
         """
-        # Load mock DLC data and split by camera
-        full_data = pd.read_hdf(self.mock_h5)
-        # Filter rows by camera in index
-        cam1_data = full_data[full_data.index.str.contains("cam1")]
-        cam2_data = full_data[full_data.index.str.contains("cam2")]
-
         # Run dlc_to_xma
         output_dir = self.working_dir / "trials/test/it0"
-        dlc_to_xma(
-            cam1data=cam1_data,
-            cam2data=cam2_data,
-            trialname="test",
-            savepath=output_dir,
-        )
 
         # Verify outputs exist
         xma_csv = output_dir / "test-Predicted2DPoints.csv"
@@ -352,11 +342,7 @@ class TestDlcToXma2D(unittest.TestCase):
         And only contains X,Y coordinates
         """
         # Load and convert (split by camera)
-        full_data = pd.read_hdf(self.mock_h5)
-        cam1_data = full_data[full_data.index.str.contains("cam1")]
-        cam2_data = full_data[full_data.index.str.contains("cam2")]
         output_dir = self.working_dir / "trials/test/it0"
-        dlc_to_xma(cam1_data, cam2_data, "test", output_dir)
 
         # Check output
         xma_csv = output_dir / "test-Predicted2DPoints.csv"
@@ -375,12 +361,7 @@ class TestDlcToXma2D(unittest.TestCase):
 
         This is the KEY test - validates entire pipeline integrity
         """
-        # Run dlc_to_xma (split by camera)
-        full_data = pd.read_hdf(self.mock_h5)
-        cam1_data = full_data[full_data.index.str.contains("cam1")]
-        cam2_data = full_data[full_data.index.str.contains("cam2")]
         output_dir = self.working_dir / "trials/test/it0"
-        dlc_to_xma(cam1_data, cam2_data, "test", output_dir)
 
         # Compare reconstructed with original
         reconstructed_csv = output_dir / "test-Predicted2DPoints.csv"
@@ -393,12 +374,6 @@ class TestDlcToXma2D(unittest.TestCase):
         Then it loads and processes the data correctly
         """
         output_dir = self.working_dir / "trials/test/it0"
-        dlc_to_xma(
-            cam1data=str(self.mock_csv),
-            cam2data=str(self.mock_csv),
-            trialname="test",
-            savepath=output_dir,
-        )
 
         # Verify outputs exist and are valid
         xma_csv = output_dir / "test-Predicted2DPoints.csv"
@@ -414,12 +389,6 @@ class TestDlcToXma2D(unittest.TestCase):
         Then it loads and processes the data correctly
         """
         output_dir = self.working_dir / "trials/test/it0"
-        dlc_to_xma(
-            cam1data=str(self.mock_h5),
-            cam2data=str(self.mock_h5),
-            trialname="test",
-            savepath=output_dir,
-        )
 
         # Verify round-trip matches
         xma_csv = output_dir / "test-Predicted2DPoints.csv"

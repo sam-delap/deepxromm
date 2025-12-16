@@ -153,7 +153,7 @@ Note: Codec availability depends on your OpenCV build and system codecs.
         return parts_unique
 
     def make_rgb_videos(self, suffix: str):
-        """For all trials in given data path merges 2 videos into single RBG video."""
+        """For all trials in given data path merges 2 videos into single RGB video."""
         trials = self.list_trials(suffix=suffix)
         for path_to_trial in trials:
             self._merge_rgb(path_to_trial)
@@ -1002,7 +1002,6 @@ Note: Codec availability depends on your OpenCV build and system codecs.
                     )
                 )
             else:
-                print(self._config)
                 relnames[idx] = str(
                     Path(relname).relative_to(
                         Path(self._config["path_config_file"]).parent
