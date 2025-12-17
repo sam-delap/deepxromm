@@ -139,7 +139,7 @@ class Project:
         # Save configuration
         config_file = working_dir / "project_config.yaml"
         with config_file.open("w") as config:
-            yaml.dump(config_data, config)
+            yaml.dump(config_data, config, sort_keys=False)
 
         # Cleanup
         try:
@@ -246,7 +246,7 @@ class Project:
             )
 
         with dlc_config_path.open("w") as dlc_config:
-            yaml.dump(dlc_yaml, dlc_config)
+            yaml.dump(dlc_yaml, dlc_config, sort_keys=False)
 
         # Check DLC bodyparts (marker names) for config 2 if needed
         if project["mode"] == "per_cam":
@@ -269,7 +269,7 @@ class Project:
                 )
 
             with dlc_config_path_2.open("w") as dlc_config:
-                yaml.dump(dlc_yaml, dlc_config)
+                yaml.dump(dlc_yaml, dlc_config, sort_keys=False)
 
         # Check test_autocorrect params for defaults
         if project["test_autocorrect"]:
@@ -284,6 +284,6 @@ class Project:
 
         # Update changed attributes to match in the file
         with config_path.open("w") as file:
-            yaml.dump(project, file)
+            yaml.dump(project, file, sort_keys=False)
 
         return project

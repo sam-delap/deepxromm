@@ -1,6 +1,10 @@
 name: Run test suite and publish to testPyPI
 run-name: Run tests for ${{ github.head_ref }}
-on: [pull_request]
+on: 
+  pull_request:
+  push:
+    branches:
+      - main
 jobs:
   tests:
     name: Run unit tests
@@ -11,7 +15,7 @@ jobs:
       - name: Install uv
         uses: astral-sh/setup-uv@v7
         with:
-          version: 0.9.5
+          version: 0.9.18
 
       - name: Set up python
         run: uv python install

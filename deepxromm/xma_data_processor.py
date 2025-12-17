@@ -684,7 +684,7 @@ Note: Codec availability depends on your OpenCV build and system codecs.
         dlc_proj["bodyparts"] = parts_unique_final
 
         with open(self._config["path_config_file"], "w") as dlc_config:
-            yaml.dump(dlc_proj, dlc_config)
+            yaml.dump(dlc_proj, dlc_config, sort_keys=False)
 
         df = df.dropna(how="all")
         list_of_frames = df.index + 1

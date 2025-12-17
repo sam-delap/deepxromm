@@ -101,7 +101,7 @@ class TestDefaultsPerformance(unittest.TestCase):
         # Modify the number of frames (similar to how a user would)
         tmp["nframes"] = 2
         with self.config.open("w") as fp:
-            yaml.dump(tmp, fp)
+            yaml.dump(tmp, fp, sort_keys=False)
 
         # Check that the user is warned
         with self.assertWarns(UserWarning):
@@ -151,7 +151,7 @@ class TestDefaultsPerformance(unittest.TestCase):
             tmp = yaml.safe_load(config)
         tmp["mode"] = "rgb"
         with self.config.open("w") as fp:
-            yaml.dump(tmp, fp)
+            yaml.dump(tmp, fp, sort_keys=False)
         DeepXROMM.load_project(self.working_dir)
 
         path_to_config = self.working_dir / f"tmp-NA-{date}" / "config.yaml"
@@ -172,7 +172,7 @@ class TestDefaultsPerformance(unittest.TestCase):
         tmp["mode"] = "rgb"
         tmp["swapped_markers"] = True
         with self.config.open("w") as fp:
-            yaml.dump(tmp, fp)
+            yaml.dump(tmp, fp, sort_keys=False)
         DeepXROMM.load_project(self.working_dir)
 
         path_to_config = self.working_dir / f"tmp-NA-{date}" / "config.yaml"
@@ -206,7 +206,7 @@ class TestDefaultsPerformance(unittest.TestCase):
         tmp["mode"] = "rgb"
         tmp["crossed_markers"] = True
         with self.config.open("w") as fp:
-            yaml.dump(tmp, fp)
+            yaml.dump(tmp, fp, sort_keys=False)
         DeepXROMM.load_project(self.working_dir)
 
         path_to_config = self.working_dir / f"tmp-NA-{date}" / "config.yaml"
@@ -238,7 +238,7 @@ class TestDefaultsPerformance(unittest.TestCase):
         tmp["swapped_markers"] = True
         tmp["crossed_markers"] = True
         with self.config.open("w") as fp:
-            yaml.dump(tmp, fp)
+            yaml.dump(tmp, fp, sort_keys=False)
         DeepXROMM.load_project(self.working_dir)
 
         path_to_config = self.working_dir / f"tmp-NA-{date}" / "config.yaml"
@@ -276,7 +276,7 @@ class TestDefaultsPerformance(unittest.TestCase):
         config_dlc["bodyparts"] = ["foo", "bar"]
 
         with path_to_config.open("w") as dlc_config:
-            yaml.dump(config_dlc, dlc_config)
+            yaml.dump(config_dlc, dlc_config, sort_keys=False)
 
         with self.assertRaises(SyntaxError):
             DeepXROMM.load_project(self.working_dir)
@@ -289,7 +289,7 @@ class TestDefaultsPerformance(unittest.TestCase):
         tmp["test_autocorrect"] = True
         tmp["marker"] = "foo"
         with self.config.open("w") as fp:
-            yaml.dump(tmp, fp)
+            yaml.dump(tmp, fp, sort_keys=False)
 
         with self.assertRaises(SyntaxError):
             DeepXROMM.load_project(self.working_dir)
@@ -303,10 +303,24 @@ class TestDefaultsPerformance(unittest.TestCase):
         tmp["trial_name"] = "test"
 
         with self.config.open("w") as fp:
-            yaml.dump(tmp, fp)
+            yaml.dump(tmp, fp, sort_keys=False)
 
         with self.assertRaises(SyntaxError):
             DeepXROMM.load_project(self.working_dir)
+
+    def test_config_update_does_not_sort_keys(self):
+        """When we update the config, does the data remain sorted according to how it is in default_config?"""
+        with open(self.working_dir / "project_config.yaml", "r") as f:
+            current_config = yaml.safe_load(f)
+        DeepXROMM.load_project(self.working_dir)
+        with open(self.working_dir / "project_config.yaml", "r") as f:
+            updated_config = yaml.safe_load(f)
+
+        for current_key, updated_key in zip(
+            current_config.keys(), updated_config.keys()
+        ):
+            with self.subTest(folder=current_key):
+                self.assertTrue(current_key == updated_key)
 
     def test_migration_from_tracking_mode_to_mode(self):
         """Does loading a config with deprecated 'tracking_mode' auto-migrate to 'mode'?"""
@@ -316,7 +330,7 @@ class TestDefaultsPerformance(unittest.TestCase):
         del tmp["mode"]  # Remove new key if it exists
         tmp["tracking_mode"] = "2D"  # Use deprecated key
         with self.config.open("w") as fp:
-            yaml.dump(tmp, fp)
+            yaml.dump(tmp, fp, sort_keys=False)
 
         # Load project (should trigger migration)
         with self.assertWarns(DeprecationWarning):
@@ -338,7 +352,7 @@ class TestDefaultsPerformance(unittest.TestCase):
         tmp["mode"] = "2D"
         tmp["tracking_mode"] = "rgb"  # Different value
         with self.config.open("w") as fp:
-            yaml.dump(tmp, fp)
+            yaml.dump(tmp, fp, sort_keys=False)
 
         # Verify error is raised
         with self.assertRaises(ValueError) as context:
@@ -357,7 +371,7 @@ class TestDefaultsPerformance(unittest.TestCase):
         tmp["mode"] = "2D"
         tmp["tracking_mode"] = "2D"  # Same value
         with self.config.open("w") as fp:
-            yaml.dump(tmp, fp)
+            yaml.dump(tmp, fp, sort_keys=False)
 
         # Load project (should trigger migration with warning)
         with self.assertWarns(DeprecationWarning):
