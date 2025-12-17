@@ -26,7 +26,7 @@ class DeepXROMM:
 
     @classmethod
     def create_new_project(
-        cls, working_dir=None, experimenter="RBT", mode="2D", codec="avc1"
+        cls, working_dir=None, experimenter="NA", mode="2D", codec="avc1"
     ):
         """Create a new xrommtools project"""
         deepxromm = DeepXROMM.__new__(DeepXROMM)
