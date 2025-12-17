@@ -147,46 +147,48 @@ class TestRGBTrialProcess(unittest.TestCase):
         shutil.rmtree(project_path)
 
 
+def set_up_project(working_dir: Path):
+    """RGB setup method to set up a project that's got xma_to_dlc and dlc_to_xma run on it"""
+    DeepXROMM.create_new_project(working_dir, mode="rgb", codec=DEEPXROMM_TEST_CODEC)
+
+    # Copy trial slice data
+    trial_dir = working_dir / "trainingdata/test"
+    trial_dir.mkdir(parents=True, exist_ok=True)
+    trial_csv = trial_dir / "test.csv"
+    rgb_path = trial_dir / "test_cam1.avi"
+    cam2_path = trial_dir / "test_cam2.avi"
+
+    shutil.copy("trial_slice.csv", str(trial_csv))
+    shutil.copy("trial_cam1_slice.avi", str(rgb_path))
+    shutil.copy("trial_cam2_slice.avi", str(cam2_path))
+
+    # Run xma_to_dlc to create training dataset
+    deepxromm = DeepXROMM.load_project(working_dir)
+    deepxromm.xma_to_dlc()
+
+    # Copy in mock DLC data
+    rgb_df = pd.read_hdf("trial_rgbdlc.h5")
+    output_dir = working_dir / "trials/test/it0"
+    output_dir.mkdir(parents=True, exist_ok=True)
+    mock_rgb_h5 = output_dir / "test_rgbDLC_resnet50_test_projectDec1shuffle1_100000.h5"
+    mock_rgb_csv = (
+        output_dir / "test_rgbDLC_resnet50_test_projectDec1shuffle1_100000.csv"
+    )
+    rgb_df.to_hdf(mock_rgb_h5, key="df_with_missing", mode="w")
+    rgb_df.to_csv(mock_rgb_csv, na_rep="NaN")
+
+    # Run DLC to XMA
+    deepxromm.dlc_to_xma()
+    return mock_rgb_h5, deepxromm
+
+
 class TestDlcToXmaRGB(unittest.TestCase):
     """Test dlc_to_xma function in rgb mode with round-trip verification"""
 
     def setUp(self):
-        """Create 2D project and generate mock DLC analysis output"""
+        """Create RGB project and generate mock DLC analysis output"""
         self.working_dir = Path.cwd() / "tmp"
-        DeepXROMM.create_new_project(
-            self.working_dir, mode="rgb", codec=DEEPXROMM_TEST_CODEC
-        )
-
-        # Copy trial slice data
-        trial_dir = self.working_dir / "trainingdata/test"
-        trial_dir.mkdir(parents=True, exist_ok=True)
-        self.trial_csv = trial_dir / "test.csv"
-        self.rgb_path = trial_dir / "test_cam1.avi"
-        self.cam2_path = trial_dir / "test_cam2.avi"
-
-        shutil.copy("trial_slice.csv", str(self.trial_csv))
-        shutil.copy("trial_cam1_slice.avi", str(self.rgb_path))
-        shutil.copy("trial_cam2_slice.avi", str(self.cam2_path))
-
-        # Run xma_to_dlc to create training dataset
-        self.deepxromm = DeepXROMM.load_project(self.working_dir)
-        self.deepxromm.xma_to_dlc()
-
-        # Copy in mock DLC data
-        rgb_df = pd.read_hdf("trial_rgbdlc.h5")
-        output_dir = self.working_dir / "trials/test/it0"
-        output_dir.mkdir(parents=True, exist_ok=True)
-        self.mock_rgb_h5 = (
-            output_dir / "test_rgbDLC_resnet50_test_projectDec1shuffle1_100000.h5"
-        )
-        self.mock_rgb_csv = (
-            output_dir / "test_rgbDLC_resnet50_test_projectDec1shuffle1_100000.csv"
-        )
-        rgb_df.to_hdf(self.mock_rgb_h5, key="df_with_missing", mode="w")
-        rgb_df.to_csv(self.mock_rgb_csv, na_rep="NaN")
-
-        # Run DLC to XMA
-        self.deepxromm.dlc_to_xma()
+        self.mock_rgb_h5, self.deepxromm = set_up_project(self.working_dir)
 
     def test_dlc_to_xma_creates_xmalab_format_files(self):
         """
