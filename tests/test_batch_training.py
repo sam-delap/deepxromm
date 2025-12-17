@@ -23,6 +23,7 @@ def set_up_project(project_dir: Path, mode: str):
 
     # Adjust maxiters to 5 to ensure that training completes quickly
     deepxromm_proj.config["maxiters"] = 5
+    print(deepxromm_proj.config)
     with (project_dir / "project_config.yaml").open("w") as fp:
         yaml.dump(deepxromm_proj.config, fp)
 
