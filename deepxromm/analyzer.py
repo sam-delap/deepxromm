@@ -57,14 +57,16 @@ class Analyzer:
                 destfolder = trial_path / f"it{iteration}"
                 deeplabcut.analyze_videos(
                     self._dlc_config,
-                    video_path,
+                    str(
+                        video_path
+                    ),  # DLC relies on .endswith to determine suffix, so this needs to be a string
                     destfolder=destfolder,
                     save_as_csv=True,
                 )
         else:
             raise ValueError(f"Unsupported mode: {mode}")
 
-    def _analyze_xromm_videos(self, iteration: int):
+    def _analyze_xromm_videos(self, iteration: int) -> None:
         """Analyze all novel videos in the 'trials' folder of a deepxromm project"""
         # assumes you have cam1 and cam2 videos as .avi in their own seperate trial folders
         # assumes all folders w/i new_data_path are trial folders
@@ -79,9 +81,10 @@ class Analyzer:
             if savepath.exists():
                 temp = savepath.glob("*Predicted2DPoints.csv")
                 if temp:
-                    raise ValueError(
-                        f"There are already predicted points in iteration {iteration} subfolders"
+                    print(
+                        f"There are already predicted points in iteration {iteration} subfolders... skipping point prediction"
                     )
+                    return
             else:
                 savepath.mkdir(parents=True, exist_ok=True)  # make new folder
             # get video file

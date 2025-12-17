@@ -69,7 +69,6 @@ class XMADataProcessor:
         xma_csv_path = iteration_folder / f"{trial}-Predicted2DPoints.csv"
 
         df = pd.read_csv(csv_path, skiprows=1)
-        assert type(df) == pd.DataFrame
         df.index = df["bodyparts"]
         df = df.drop(columns=df.columns[df.loc["coords"] == "likelihood"])
         df = df.drop(

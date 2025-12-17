@@ -18,8 +18,6 @@ def set_up_project(project_dir: Path, mode: str):
     deepxromm_proj = DeepXROMM.create_new_project(
         project_dir, mode=mode, codec=DEEPXROMM_TEST_CODEC
     )
-    trial_dir = project_dir / "trainingdata/test"
-    trial_dir.mkdir(parents=True, exist_ok=True)
 
     # Adjust maxiters to 5 to ensure that training completes quickly
     deepxromm_proj.config["maxiters"] = 5
@@ -28,14 +26,24 @@ def set_up_project(project_dir: Path, mode: str):
         yaml.dump(deepxromm_proj.config, fp)
 
     # Make vars for pathing to find files easily
+    trial_dir = project_dir / "trainingdata/test"
+    trial_dir.mkdir(parents=True, exist_ok=True)
     trial_csv = trial_dir / "test.csv"
     cam1_path = trial_dir / "test_cam1.avi"
     cam2_path = trial_dir / "test_cam2.avi"
 
-    # Copy sample CSV data (use existing sample file)
+    # Copy sample CSV data for training operations (use existing sample file)
     shutil.copy("trial_slice.csv", str(trial_csv))
     shutil.copy("trial_cam1_slice.avi", str(cam1_path))
     shutil.copy("trial_cam2_slice.avi", str(cam2_path))
+
+    # Create sample novel trial for analysis
+    novel_dir = project_dir / "trials/test"
+    novel_dir.mkdir(parents=True, exist_ok=True)
+
+    # Copy videos for analysis
+    shutil.copy("trial_cam1_slice.avi", str(novel_dir / "test_cam1.avi"))
+    shutil.copy("trial_cam2_slice.avi", str(novel_dir / "test_cam2.avi"))
 
 
 class TestBatchTrainer(unittest.TestCase):
@@ -56,6 +64,10 @@ class TestBatchTrainer(unittest.TestCase):
 
     def test_train_many_projects(self):
         """Invoke train_many_projects"""
+        # Invoke once to run through the whole process for each project type
+        DeepXROMM.train_many_projects(self.working_dir)
+
+        # Invoke again to ensure batch workflows complete idempotently (i.e. skips are not fatal)
         DeepXROMM.train_many_projects(self.working_dir)
 
     def tearDown(self):
