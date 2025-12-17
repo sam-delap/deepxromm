@@ -44,26 +44,12 @@ class Autocorrector:
         for trial in trials:
             # Find the appropriate pointsfile
             trial_name = trial.name
-            iteration_folder = self._trials_path / trial_name / f"it{iteration}"
-            trial_csv_location = (
-                iteration_folder / f"{trial_name}-Predicted2DPoints.csv"
+            iteration_folder = trial / f"it{iteration}"
+            trial_csv_location = self._data_processor.find_trial_csv(
+                iteration_folder, "Predicted2DPoints"
             )
-
-            print(f"Trial CSV: {trial_csv_location}")
-
-            try:
-                csv = pd.read_csv(trial_csv_location)
-            except FileNotFoundError as e:
-                print(
-                    f"Could not find predicted 2D points file. Please check the it{iteration} folder for trial {trial}"
-                )
-                raise e
-            out_name = (
-                self._trials_path
-                / trial_name
-                / f"it{iteration}"
-                / f"{trial_name}-AutoCorrected2DPoints.csv"
-            )
+            csv = pd.read_csv(trial_csv_location)
+            out_name = iteration_folder / f"{trial_name}-AutoCorrected2DPoints.csv"
 
             if self._config["test_autocorrect"]:
                 cams = [self._config["cam"]]
@@ -78,7 +64,6 @@ class Autocorrector:
             if not self._config["test_autocorrect"]:
                 print(f"Done! Saving to {out_name}")
                 csv.to_csv(out_name, index=False)
-                # Potential feature - write autocorrect to a DLC-compatible HDF?
 
     def _autocorrect_video(self, cam, trial_path, csv):
         """Run the autocorrect function on a single video within a single trial"""
@@ -119,7 +104,9 @@ class Autocorrector:
                 dlc = yaml.safe_load(dlc_config)
             iteration = dlc["iteration"]
             iteration_path = trial_path / f"it{iteration}"
-            trial_csv_path = self._data_processor.find_trial_csv(iteration_path)
+            trial_csv_path = self._data_processor.find_trial_csv(
+                iteration_path, "Predicted2DPoints"
+            )
             parts_unique = self._data_processor.get_bodyparts_from_xma(
                 trial_csv_path, mode="2D"
             )

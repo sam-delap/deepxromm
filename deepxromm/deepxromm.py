@@ -128,3 +128,4 @@ class DeepXROMM:
             deepxromm.create_training_dataset()
             deepxromm.train_network()
             deepxromm.analyze_videos()
+            deepxromm.dlc_to_xma()
