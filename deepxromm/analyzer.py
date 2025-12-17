@@ -124,7 +124,7 @@ class Analyzer:
             self._config["trial_1_name"] = trial1.stem
             self._config["trial_2_name"] = trial2.stem
             with self.project_config.open("w") as file:
-                yaml.dump(self._config, file)
+                yaml.dump(self._config, file, sort_keys=False)
             # TODO: pass the trial names directly instead of writing into config
             similarity_score[(trial1, trial2)] = self.analyze_video_similarity_trial()
         return similarity_score
@@ -178,7 +178,7 @@ class Analyzer:
             self._config["trial_1_name"] = trial1.stem
             self._config["trial_2_name"] = trial2.stem
             with self.project_config.open("w") as file:
-                yaml.dump(self._config, file)
+                yaml.dump(self._config, file, sort_keys=False)
             # TODO: pass the trial names directly instead of writing into config
             marker_similarity[(trial1, trial2)] = abs(
                 self.analyze_marker_similarity_trial()
