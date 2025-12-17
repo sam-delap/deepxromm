@@ -93,7 +93,9 @@ class Analyzer:
                 if mode == "2D":
                     deeplabcut.analyze_videos(
                         self._config["path_config_file"],
-                        [video],
+                        [
+                            str(video)
+                        ],  # DLC uses endswith filtering for suffixes for some reason
                         destfolder=savepath,
                         save_as_csv=True,
                     )
@@ -104,7 +106,9 @@ class Analyzer:
                     ]
                     deeplabcut.analyze_videos(
                         configs[camera - 1],
-                        [video],
+                        [
+                            str(video)
+                        ],  # DLC uses endswith filtering for suffixes for some reason
                         destfolder=savepath,
                         save_as_csv=True,
                     )
