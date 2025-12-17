@@ -49,8 +49,8 @@ class Analyzer:
 
         elif mode == "rgb":
             self._data_processor.make_rgb_videos("trials")
-            for trial in trials:
-                trial_path = self._trials_path / trial
+            for trial_path in trials:
+                trial = trial_path.name
                 current_files = trial_path.glob("*")
                 logger.debug(f"Current files in directory {current_files}")
                 video_path = trial_path / f"{trial}_rgb.avi"

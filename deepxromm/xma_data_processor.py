@@ -184,15 +184,18 @@ Note: Codec availability depends on your OpenCV build and system codecs.
             csv_path = list(trial_path.glob("*.csv"))
 
         if len(csv_path) > 1:
+            print(csv_path)
             raise FileExistsError(
                 f"Found more than 1 CSV file with identifier {identifier} for trial: {trial_path}"
             )
         if len(csv_path) <= 0:
+            logger.debug(f"Current files in {str(trial_path)}")
+            logger.debug(list(trial_path.glob("*")))
             raise FileNotFoundError(
                 f"Couldn't find a CSV file with identifier {identifier} for trial: {trial_path}"
             )
 
-        return trial_path / csv_path[0]
+        return csv_path[0]
 
     def get_bodyparts_from_xma(self, csv_path: Path, mode: str):
         """Takes the filepath of an XMAlab CSV file and returns marker names"""
