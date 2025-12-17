@@ -308,3 +308,21 @@ class TestDlcToXmaRGB(unittest.TestCase):
         project_path = Path.cwd() / "tmp"
         if project_path.exists():
             shutil.rmtree(project_path)
+
+
+class TestAutocorrectRGB(unittest.TestCase):
+    """Test that autocorrect runs properly for RGB project"""
+
+    def setUp(self):
+        """Create RGB project and generate mock DLC analysis output"""
+        self.working_dir = Path.cwd() / "tmp"
+        self.mock_rgb_h5, self.deepxromm = set_up_project(self.working_dir)
+
+    def run_autocorrect(self):
+        """Run autocorrect using the provided deepxromm project"""
+        self.deepxromm.autocorrect_trials()
+
+    def tearDown(self):
+        """Remove the created temp project"""
+        if self.working_dir.exists():
+            shutil.rmtree(self.working_dir)
