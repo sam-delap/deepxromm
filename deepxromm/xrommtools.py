@@ -15,135 +15,32 @@ from pathlib import Path
 import pandas as pd
 import numpy as np
 import cv2
-from deeplabcut.pose_estimation_tensorflow.predict_videos import analyze_videos
-from deepxromm.xma_data_processor import XMADataProcessor
 
 
-def xma_to_dlc(
-    path_config_file: Path,
-    trials_suffix: str,
-    dataset_name: str,
-    scorer: str,
-    nframes: int,
-    data_processor: XMADataProcessor,
-    nnetworks: int = 1,
-    path_config_file_cam2: Path | None = None,
-):
-    """
-    Create DeepLabCut training dataset from data tracked in XMALab.
-
-    Extracts frames and 2D point data from XMALab trials and converts them
-    into the format required by DeepLabCut for training.
-
-    Args:
-        path_config_file: Path to DLC config file (or cam1 config if nnetworks=2)
-        trials_suffix: Relative path from working_dir to trials folder
-                      (e.g., 'trainingdata', 'trials', 'data/experiments')
-        dataset_name: Name for the dataset
-        scorer: Name of scorer/experimenter
-        nframes: Number of frames to extract across all trials
-        data_processor: XMADataProcessor instance for utility methods
-        nnetworks: 1 for combined network, 2 for separate per-camera networks
-        path_config_file_cam2: Path to cam2 config file (required if nnetworks=2)
-
-    Raises:
-        ValueError: If frame/trial validation fails
-        FileNotFoundError: If required files are missing
-
-    Security:
-        All file access is validated against data_processor's working_dir to prevent
-        unauthorized access outside the project directory.
-    """
-    # PHASE 1: Setup and frame selection
-    cameras = [1, 2]
-
-    # Get list of trials (validates paths are within working_dir)
-    trialnames = data_processor.list_trials(trials_suffix)
-
-    # Read and validate CSVs
-    dfs, idx, pointnames = data_processor.read_trial_csv_with_validation(trialnames)
-
-    # Validate we have enough frames
-    total_frames = sum(len(x) for x in idx)
-    if total_frames < nframes:
+def dlc_to_xma(trial: Path, iteration: int):
+    # get filenames and read analyzed data
+    trialname = trial.name
+    iteration_folder = trial / f"it{iteration}"
+    cam1data = list(iteration_folder.glob("*cam1*.h5"))
+    cam2data = list(iteration_folder.glob("*cam2*.h5"))
+    if not cam1data:
         raise ValueError(
-            f"Requested {nframes} frames but only found {total_frames} "
-            f"valid frames across {len(trialnames)} trials"
+            "Cannot find cam1 predicted points. Have you run deepxromm.analyze_videos() for this project?"
         )
-
-    # Pick frames to extract
-    picked_frames = data_processor._extract_frame_selection_loop(idx, nframes)
-
-    # PHASE 2: Determine configuration and process
-    if nnetworks == 2 and path_config_file_cam2 is not None:
-        # Two separate networks, one per camera (per_cam mode)
-        configs = [path_config_file.parent, path_config_file_cam2.parent]
-
-        for camera in cameras:
-            _process_camera_per_cam(
-                camera,
-                configs[camera - 1],
-                dataset_name,
-                scorer,
-                trialnames,
-                picked_frames,
-                dfs,
-                pointnames,
-                data_processor,
-            )
-    else:
-        # Single network for both cameras (2D mode)
-        config = path_config_file.parent
-
-        _process_cameras_2d(
-            cameras,
-            config,
-            dataset_name,
-            scorer,
-            trialnames,
-            picked_frames,
-            dfs,
-            pointnames,
-            data_processor,
+    if not cam2data:
+        raise ValueError(
+            "Cannot find cam2 predicted points. Have you run deepxromm.analyze_videos() for this project?"
         )
+    cam1data = pd.read_hdf(cam1data[0])
+    cam2data = pd.read_hdf(cam2data[0])
+    h5_save_path = iteration_folder / f"{trialname}-Predicted2DPoints.h5"
+    csv_save_path = iteration_folder / f"{trialname}-Predicted2DPoints.csv"
 
-    print(
-        "Training data extracted to projectpath/labeled-data. "
-        "Now use deeplabcut.create_training_dataset"
-    )
-
-
-def dlc_to_xma(cam1data, cam2data, trialname, savepath):
-    h5_save_path = savepath + "/" + trialname + "-Predicted2DPoints.h5"
-    csv_save_path = savepath + "/" + trialname + "-Predicted2DPoints.csv"
-
-    if isinstance(cam1data, str):  # is string
-        if ".csv" in cam1data:
-            cam1data = pd.read_csv(cam1data, sep=",", header=None)
-            cam2data = pd.read_csv(cam2data, sep=",", header=None)
-            pointnames = list(cam1data.loc[1, 1:].unique())
-
-            # reformat CSV / get rid of headers
-            cam1data = cam1data.loc[3:, 1:]
-            cam1data.columns = range(cam1data.shape[1])
-            cam1data.index = range(cam1data.shape[0])
-            cam2data = cam2data.loc[3:, 1:]
-            cam2data.columns = range(cam2data.shape[1])
-            cam2data.index = range(cam2data.shape[0])
-
-        elif ".h5" in cam1data:  # is .h5 file
-            cam1data = pd.read_hdf(cam1data)
-            cam2data = pd.read_hdf(cam2data)
-            pointnames = list(cam1data.columns.get_level_values("bodyparts").unique())
-
-        else:
-            raise ValueError("2D point input is not in correct format")
-    else:
-        pointnames = list(cam1data.columns.get_level_values("bodyparts").unique())
+    pointnames = list(cam1data.columns.get_level_values("bodyparts").unique())
 
     # make new column names
     nvar = len(pointnames)
-    pointnames = [item for item in pointnames for repetitions in range(4)]
+    pointnames = [item for item in pointnames for _ in range(4)]
     post = ["_cam1_X", "_cam1_Y", "_cam2_X", "_cam2_Y"] * nvar
     cols = [m + str(n) for m, n in zip(pointnames, post)]
 
@@ -167,96 +64,6 @@ def dlc_to_xma(cam1data, cam2data, trialname, savepath):
     df.columns = cols
     df.to_hdf(h5_save_path, key="df_with_missing", mode="w")
     df.to_csv(csv_save_path, na_rep="NaN", index=False)
-
-
-def analyze_xromm_videos(
-    path_config_file,
-    path_data_to_analyze: str,
-    iteration,
-    nnetworks=1,
-    path_config_file_cam2=[],
-):
-    # assumes you have cam1 and cam2 videos as .avi in their own seperate trial folders
-    # assumes all folders w/i new_data_path are trial folders
-    # convert jpg stacks?
-
-    # analyze videos
-    cameras = [1, 2]
-    config = path_config_file
-    configs = [path_config_file, path_config_file_cam2]
-    subs = [
-        [
-            "c01",
-            "c1",
-            "C01",
-            "C1",
-            "Cam1",
-            "cam1",
-            "Cam01",
-            "cam01",
-            "Camera1",
-            "camera1",
-        ],
-        [
-            "c02",
-            "c2",
-            "C02",
-            "C2",
-            "Cam2",
-            "cam2",
-            "Cam02",
-            "cam02",
-            "Camera2",
-            "camera2",
-        ],
-    ]
-    data_analysis_path = Path(path_data_to_analyze)
-    trialnames = [
-        folder
-        for folder in data_analysis_path.glob("*")
-        if (data_analysis_path / folder).is_dir() and not folder.name.startswith(".")
-    ]
-
-    for trialnum, trial in enumerate(trialnames):
-        trialpath = data_analysis_path / trial
-        contents = trialpath.glob("*")
-        savepath = trialpath / f"it{iteration}"
-        if savepath.exists():
-            temp = savepath.glob("*")
-            if temp:
-                raise ValueError(
-                    f"There are already predicted points in iteration {iteration} subfolders"
-                )
-        else:
-            savepath.mkdir(parents=True, exist_ok=True)  # make new folder
-        # get video file
-        filename = None
-        for camera in cameras:
-            for name in contents:
-                if any(x in name.name for x in subs[camera - 1]):
-                    filename = name.name
-            if filename is None:
-                raise ValueError("Cannot locate %s video file or image folder" % trial)
-
-            video = trialpath / filename
-            print(video)
-            # analyze video
-            if nnetworks == 1:
-                analyze_videos(config, [video], destfolder=savepath, save_as_csv=True)
-            else:
-                analyze_videos(
-                    configs[camera - 1], [video], destfolder=savepath, save_as_csv=True
-                )
-
-        # get filenames and read analyzed data
-        datafiles = list(savepath.glob("*.h5"))
-        if not datafiles:
-            raise ValueError(
-                "Cannot find predicted points. Some wrong with DeepLabCut?"
-            )
-        cam1data = pd.read_hdf(savepath / datafiles[0])
-        cam2data = pd.read_hdf(savepath / datafiles[1])
-        dlc_to_xma(cam1data, cam2data, trial, savepath)
 
 
 def add_frames(
@@ -589,162 +396,3 @@ def add_frames(
     print(
         f"Frames from {len(trialnames)} trials successfully added to training dataset"
     )
-
-
-def _process_camera_per_cam(
-    camera: int,
-    config_dir: Path,
-    dataset_name: str,
-    scorer: str,
-    trialnames: list[Path],
-    picked_frames: list[list[int]],
-    dfs: list[pd.DataFrame],
-    pointnames: list[str],
-    data_processor,
-) -> None:
-    """
-    Process single camera for per_cam mode (nnetworks=2).
-
-    Each camera gets its own separate DLC project and dataset.
-
-    Args:
-        camera: Camera number (1 or 2)
-        config_dir: DLC config file parent directory for this camera
-        dataset_name: Name of the dataset
-        scorer: Name of scorer/experimenter
-        trialnames: List of trial directory paths
-        picked_frames: List of frame indices per trial
-        dfs: List of DataFrames (one per trial)
-        pointnames: List of body part names
-        data_processor: XMADataProcessor instance
-    """
-    print(f"Extracting camera {camera} trial images and 2D points...")
-
-    # Setup output directory with camera-specific dataset name
-    camera_dataset_name = f"{dataset_name}_cam{camera}"
-    newpath = config_dir / "labeled-data" / camera_dataset_name
-    if newpath.exists():
-        contents = list(newpath.glob("*"))
-        if len(contents) > 0:
-            print(
-                f"Directory {newpath} already contains data. "
-                "Please use a different dataset name or remove the existing dataset to update it"
-            )
-            return
-    else:
-        newpath.mkdir(parents=True, exist_ok=True)
-
-    # Process each trial
-    relnames = []
-    data = pd.DataFrame()
-
-    for trialnum, trial_path in enumerate(trialnames):
-        trial_name = trial_path.name
-
-        # Extract frames using unified interface
-        frames = sorted(picked_frames[trialnum])
-        # Find the camera video/image source
-        cam_identifier = f"cam{camera}"
-        cam_file = data_processor.find_cam_file(trial_path, cam_identifier)
-        source_path = trial_path / cam_file
-
-        trial_relnames = data_processor.extract_frames_from_video(
-            source_path=source_path,
-            frame_indices=frames,
-            output_dir=newpath,
-            output_name_base=trial_name,
-            mode="per_cam",
-            camera=camera,
-            compression=0,
-        )
-        relnames.extend(trial_relnames)
-
-        # Extract 2D points for this camera
-        temp_data = data_processor.extract_2d_points_for_camera(
-            dfs[trialnum], camera, frames
-        )
-        data = pd.concat([data, temp_data])
-
-    # Create and save DLC dataset
-    data_processor.save_dlc_dataset(data, scorer, relnames, pointnames, newpath)
-    print("...done.")
-
-
-def _process_cameras_2d(
-    cameras: list[int],
-    config_dir: Path,
-    dataset_name: str,
-    scorer: str,
-    trialnames: list[Path],
-    picked_frames: list[list[int]],
-    dfs: list[pd.DataFrame],
-    pointnames: list[str],
-    data_processor,
-) -> None:
-    """
-    Process both cameras for 2D mode (nnetworks=1).
-
-    Both cameras are combined into a single DLC project and dataset.
-
-    Args:
-        cameras: List of camera numbers [1, 2]
-        config_dir: DLC config file parent directory
-        dataset_name: Name of the dataset
-        scorer: Name of scorer/experimenter
-        trialnames: List of trial directory paths
-        picked_frames: List of frame indices per trial
-        dfs: List of DataFrames (one per trial)
-        pointnames: List of body part names
-        data_processor: XMADataProcessor instance
-    """
-    # Setup output directory
-    newpath = config_dir / "labeled-data" / dataset_name
-    if newpath.exists():
-        contents = list(newpath.glob("*"))
-        if len(contents) > 0:
-            print(
-                f"Directory {newpath} already contains data. "
-                "Please use a different dataset name or clear the directory."
-            )
-            return
-    else:
-        newpath.mkdir(parents=True, exist_ok=True)
-
-    relnames = []
-    data = pd.DataFrame()
-
-    for camera in cameras:
-        print(f"Extracting camera {camera} trial images and 2D points...")
-
-        for trialnum, trial_path in enumerate(trialnames):
-            trial_name = trial_path.name
-
-            # Extract frames using unified interface
-            frames = sorted(picked_frames[trialnum])
-            # Find the camera video/image source
-            cam_identifier = f"cam{camera}"
-            cam_file = data_processor.find_cam_file(trial_path, cam_identifier)
-            source_path = trial_path / cam_file
-
-            trial_relnames = data_processor.extract_frames_from_video(
-                source_path=source_path,
-                frame_indices=frames,
-                output_dir=newpath,
-                output_name_base=trial_name,
-                mode="2D",
-                camera=camera,
-                compression=0,
-            )
-            relnames.extend(trial_relnames)
-
-            # Extract 2D points for this camera
-            temp_data = data_processor.extract_2d_points_for_camera(
-                dfs[trialnum], camera, frames
-            )
-            # Reset column names for combining data from multiple cameras
-            temp_data.columns = range(temp_data.shape[1])
-            data = pd.concat([data, temp_data])
-
-    # Create and save DLC dataset
-    data_processor.save_dlc_dataset(data, scorer, relnames, pointnames, newpath)
-    print("DLC dataset extracted from provided XMAlab trials")

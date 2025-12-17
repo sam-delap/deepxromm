@@ -14,6 +14,8 @@ import pandas as pd
 import random
 from ruamel.yaml import YAML
 
+from deepxromm.xrommtools import dlc_to_xma
+
 logger = logging.getLogger()
 logger.setLevel(logging.DEBUG)
 
@@ -25,6 +27,74 @@ class XMADataProcessor:
         self._config = config
         self._swap_markers = config["swapped_markers"]
         self._cross_markers = config["crossed_markers"]
+
+    def dlc_to_xma(self):
+        """Convert DLC-formatted training output into XMAlab-formatted data"""
+        mode = self._config["mode"]
+        trials = self.list_trials()
+        yaml = YAML()
+
+        if mode in ["2D", "per_cam"]:
+            correct_function_signature = dlc_to_xma
+        elif mode == "rgb":
+            correct_function_signature = self._split_dlc_to_xma
+        else:
+            raise AttributeError(f"Unsupported mode: {mode}")
+
+        with open(self._config["path_config_file"], "r") as dlc_config:
+            yaml = YAML()
+            dlc_proj = yaml.load(dlc_config)
+
+        iteration = int(dlc_proj["iteration"])
+        for trial in trials:
+            correct_function_signature(trial, iteration)
+
+    def _split_dlc_to_xma(self, trial_path: Path, iteration: int, save_hdf=True):
+        """Takes the output from RGB deeplabcut and splits it into XMAlab-readable output"""
+        current_files = trial_path.glob("*")
+        logger.debug(f"Current files in directory {current_files}")
+        # Use the CSV from the user's training data to fetch bodyparts
+        sample_trial_path = self.list_trials("trainingdata")[0]
+        trial_csv_path = self.find_trial_csv(sample_trial_path)
+        rgb_parts = self.get_bodyparts_from_xma(trial_csv_path, mode="rgb")
+
+        bodyparts_xy = []
+        for part in rgb_parts:
+            bodyparts_xy.append(part + "_X")
+            bodyparts_xy.append(part + "_Y")
+
+        iteration_folder = trial_path / f"it{iteration}"
+        csv_path = self.find_trial_csv(
+            iteration_folder, "rgbDLC"
+        )  # Assumes that the project itself doesn't have rgbDLC in this format in it
+        trial = trial_path.name
+        xma_csv_path = iteration_folder / f"{trial}-Predicted2DPoints.csv"
+
+        df = pd.read_csv(csv_path, skiprows=1)
+        assert type(df) == pd.DataFrame
+        df.index = df["bodyparts"]
+        df = df.drop(columns=df.columns[df.loc["coords"] == "likelihood"])
+        df = df.drop(
+            columns=[
+                column
+                for column in df.columns
+                if column not in rgb_parts
+                and column not in [f"{bodypart}.1" for bodypart in rgb_parts]
+            ]
+        )
+        df.columns = bodyparts_xy
+        df = df.drop(index="coords")
+        df.to_csv(xma_csv_path, index=False)
+        print(
+            "Successfully split DLC format to XMALab 2D points; saved "
+            + str(xma_csv_path)
+        )
+        if save_hdf:
+            tracked_hdf = xma_csv_path.with_suffix(".h5")
+            logger.debug(f"Tracked hdf stored at {str(tracked_hdf)}")
+            df.to_hdf(
+                tracked_hdf, "df_with_missing", format="table", mode="w", nan_rep="NaN"
+            )
 
     def validate_codec(self, codec: str, width: int = 640, height: int = 480) -> bool:
         """
@@ -106,16 +176,24 @@ To change the codec, update your project config file:
 Note: Codec availability depends on your OpenCV build and system codecs.
 """.strip()
 
-    def find_trial_csv(self, trial_path: Path) -> Path:
+    def find_trial_csv(self, trial_path: Path, identifier: str | None = None) -> Path:
         """
         Takes the path to a trial and returns the path to a trial CSV.
         Errors if there is not exactly 1 trial CSV in a trial folder.
         """
-        csv_path = list(trial_path.glob("*.csv"))
+        if identifier is not None:
+            csv_path = list(trial_path.glob(f"*{identifier}*.csv"))
+        else:
+            csv_path = list(trial_path.glob("*.csv"))
+
         if len(csv_path) > 1:
-            raise FileExistsError(f"Found more than 1 CSV file for trial: {trial_path}")
+            raise FileExistsError(
+                f"Found more than 1 CSV file with identifier {identifier} for trial: {trial_path}"
+            )
         if len(csv_path) <= 0:
-            raise FileNotFoundError(f"Couldn't find a CSV file for trial: {trial_path}")
+            raise FileNotFoundError(
+                f"Couldn't find a CSV file with identifier {identifier} for trial: {trial_path}"
+            )
 
         return trial_path / csv_path[0]
 
@@ -153,7 +231,7 @@ Note: Codec availability depends on your OpenCV build and system codecs.
         return parts_unique
 
     def make_rgb_videos(self, suffix: str):
-        """For all trials in given data path merges 2 videos into single RBG video."""
+        """For all trials in given data path merges 2 videos into single RGB video."""
         trials = self.list_trials(suffix=suffix)
         for path_to_trial in trials:
             self._merge_rgb(path_to_trial)
@@ -544,8 +622,9 @@ Note: Codec availability depends on your OpenCV build and system codecs.
         """Takes csv of XMALab 2D XY coordinates from 2 cameras, outputs spliced hdf+csv data for DeepLabCut"""
         dlc_path = Path(self._config["path_config_file"]).parent
         trial_name = trial_path.name
-        substitute_data_relpath = Path("labeled-data") / self._config["dataset_name"]
-        substitute_data_abspath = dlc_path / substitute_data_relpath
+        substitute_data_abspath = (
+            dlc_path / "labeled-data" / self._config["dataset_name"]
+        )
         trial_csv_path = self.find_trial_csv(trial_path)
         markers = self.get_bodyparts_from_xma(trial_csv_path, mode="2D")
 
@@ -622,7 +701,12 @@ Note: Codec availability depends on your OpenCV build and system codecs.
         print("Importing frames: ")
         print(unique_frames)
         df["frame_index"] = [
-            str(substitute_data_relpath / f"{trial_name}_rgb_{str(index).zfill(4)}.png")
+            str(
+                (
+                    substitute_data_abspath
+                    / f"{trial_name}_rgb_{str(index).zfill(4)}.png"
+                ).relative_to(dlc_path)
+            )
             for index in unique_frames
         ]
         df["scorer"] = self._config["experimenter"]
@@ -680,7 +764,7 @@ Note: Codec availability depends on your OpenCV build and system codecs.
             source_path=video_path,
             frame_indices=zero_indexed_frames,
             output_dir=labeled_data_path,
-            output_name_base=video_path.stem,  # Gets trial name from filename
+            output_name_base=video_path.parent.name,  # Gets trial name from filename
             mode="rgb",
             compression=compression,
         )
@@ -923,31 +1007,6 @@ Note: Codec availability depends on your OpenCV build and system codecs.
 
         return extracted_paths
 
-    def process_trial_data(
-        self,
-        trial_path: Path,
-        camera: int,
-        picked_frames: list,
-    ) -> pd.DataFrame:
-        """Process trial data and extract 2D points for specific camera"""
-        # Load trial CSV
-        csv_path = self.find_trial_csv(trial_path)
-        df = pd.read_csv(csv_path, sep=",", header=None)
-
-        # Extract point names
-        df = df.loc[1:,].reset_index(drop=True)
-
-        # Extract frames and sort
-        frames = sorted(picked_frames)
-
-        # Extract 2D point data
-        xpos = df.iloc[frames, 0 + (camera - 1) * 2 :: 4]
-        ypos = df.iloc[frames, 1 + (camera - 1) * 2 :: 4]
-        temp_data = pd.concat([xpos, ypos], axis=1).sort_index(axis=1)
-        temp_data.columns = range(temp_data.shape[1])
-
-        return temp_data
-
     def build_dlc_dataframe(
         self,
         data: pd.DataFrame,
@@ -996,7 +1055,6 @@ Note: Codec availability depends on your OpenCV build and system codecs.
                     )
                 )
             else:
-                print(self._config)
                 relnames[idx] = str(
                     Path(relname).relative_to(
                         Path(self._config["path_config_file"]).parent

@@ -66,6 +66,9 @@ class DeepXROMM:
         """Analyze videos with a pre-existing network"""
         self._analyzer.analyze_videos()
 
+    def dlc_to_xma(self):
+        self._data_processor.dlc_to_xma()
+
     def autocorrect_trials(self):
         """Do XMAlab-style autocorrect on the tracked beads for all trials"""
         self._autocorrector.autocorrect_trials()
