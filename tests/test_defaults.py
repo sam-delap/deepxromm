@@ -308,6 +308,20 @@ class TestDefaultsPerformance(unittest.TestCase):
         with self.assertRaises(SyntaxError):
             DeepXROMM.load_project(self.working_dir)
 
+    def test_config_update_does_not_sort_keys(self):
+        """When we update the config, does the data remain sorted according to how it is in default_config?"""
+        with open(self.working_dir / "project_config.yaml", "r") as f:
+            current_config = yaml.safe_load(f)
+        DeepXROMM.load_project(self.working_dir)
+        with open(self.working_dir / "project_config.yaml", "r") as f:
+            updated_config = yaml.safe_load(f)
+
+        for current_key, updated_key in zip(
+            current_config.keys(), updated_config.keys()
+        ):
+            with self.subTest(folder=current_key):
+                self.assertTrue(current_key == updated_key)
+
     def test_migration_from_tracking_mode_to_mode(self):
         """Does loading a config with deprecated 'tracking_mode' auto-migrate to 'mode'?"""
         # Modify config to use deprecated key
