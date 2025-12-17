@@ -1007,31 +1007,6 @@ Note: Codec availability depends on your OpenCV build and system codecs.
 
         return extracted_paths
 
-    def process_trial_data(
-        self,
-        trial_path: Path,
-        camera: int,
-        picked_frames: list,
-    ) -> pd.DataFrame:
-        """Process trial data and extract 2D points for specific camera"""
-        # Load trial CSV
-        csv_path = self.find_trial_csv(trial_path)
-        df = pd.read_csv(csv_path, sep=",", header=None)
-
-        # Extract point names
-        df = df.loc[1:,].reset_index(drop=True)
-
-        # Extract frames and sort
-        frames = sorted(picked_frames)
-
-        # Extract 2D point data
-        xpos = df.iloc[frames, 0 + (camera - 1) * 2 :: 4]
-        ypos = df.iloc[frames, 1 + (camera - 1) * 2 :: 4]
-        temp_data = pd.concat([xpos, ypos], axis=1).sort_index(axis=1)
-        temp_data.columns = range(temp_data.shape[1])
-
-        return temp_data
-
     def build_dlc_dataframe(
         self,
         data: pd.DataFrame,
