@@ -189,6 +189,7 @@ Note: Codec availability depends on your OpenCV build and system codecs.
                 f"Found more than 1 CSV file with identifier {identifier} for trial: {trial_path}"
             )
         if len(csv_path) <= 0:
+            print(f"Current files in {str(trial_path)}")
             print(list(trial_path.glob("*")))
             raise FileNotFoundError(
                 f"Couldn't find a CSV file with identifier {identifier} for trial: {trial_path}"
