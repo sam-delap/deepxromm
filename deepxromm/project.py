@@ -7,7 +7,7 @@ import deeplabcut
 import numpy as np
 import pandas as pd
 from pathlib import Path
-from ruamel.yaml import YAML
+import yaml
 
 from .xma_data_processor import XMADataProcessor
 
@@ -15,7 +15,7 @@ from .xma_data_processor import XMADataProcessor
 DEFAULT_CODEC = "avc1"
 
 
-def _migrate_tracking_mode(config):
+def _migrate_tracking_mode(config: dict):
     """Migrate deprecated 'tracking_mode' to 'mode' with backwards compatibility.
 
     This function handles the transition from 'tracking_mode' to 'mode' introduced
@@ -111,9 +111,8 @@ class Project:
         )
 
         config_path = Path(__file__).parent / "default_config.yaml"
-        yaml = YAML()
         with config_path.open() as file:
-            config_data = yaml.load(file)
+            config_data = yaml.safe_load(file)
 
         config_data.update(
             {
@@ -166,9 +165,8 @@ class Project:
 
         # Open the config
         config_path = working_dir / "project_config.yaml"
-        yaml = YAML()
         with config_path.open("r") as config_file:
-            project = yaml.load(config_file)
+            project = yaml.safe_load(config_file)
 
         # Migrate deprecated 'tracking_mode' to 'mode'
         project = _migrate_tracking_mode(project)
@@ -236,10 +234,9 @@ class Project:
         )
 
         # TODO: use DLC's config loader functions to handle this
-        dlc_config_loader = YAML()
         dlc_config_path = Path(project["path_config_file"])
         with dlc_config_path.open("r") as dlc_config:
-            dlc_yaml = dlc_config_loader.load(dlc_config)
+            dlc_yaml = yaml.safe_load(dlc_config)
 
         if dlc_yaml["bodyparts"] == default_bodyparts:
             dlc_yaml["bodyparts"] = bodyparts
@@ -253,7 +250,6 @@ class Project:
 
         # Check DLC bodyparts (marker names) for config 2 if needed
         if project["mode"] == "per_cam":
-            dlc_config_loader = YAML()
             try:
                 dlc_config_path_2 = Path(project["path_config_file_2"])
             except KeyError as e:
@@ -263,7 +259,7 @@ class Project:
                 print("If not, re-run 'create_new_project' using mode='per_cam'")
                 raise e
             with dlc_config_path_2.open("r") as dlc_config:
-                dlc_yaml = dlc_config_loader.load(dlc_config)
+                dlc_yaml = yaml.safe_load(dlc_config)
             # Better conditional logic could definitely be had to reduce function calls here
             if dlc_yaml["bodyparts"] == default_bodyparts:
                 dlc_yaml["bodyparts"] = bodyparts

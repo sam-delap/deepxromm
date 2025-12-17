@@ -11,7 +11,7 @@ import deeplabcut
 import imagehash
 import pandas as pd
 from PIL import Image
-from ruamel.yaml import YAML
+import yaml
 
 from .xma_data_processor import XMADataProcessor
 
@@ -39,9 +39,8 @@ class Analyzer:
         trials = self._data_processor.list_trials()
 
         # Establish project vars
-        yaml = YAML()
         with open(self._dlc_config) as dlc_config:
-            dlc = yaml.load(dlc_config)
+            dlc = yaml.safe_load(dlc_config)
         iteration = dlc["iteration"]
 
         mode = self._config["mode"]
@@ -58,14 +57,16 @@ class Analyzer:
                 destfolder = trial_path / f"it{iteration}"
                 deeplabcut.analyze_videos(
                     self._dlc_config,
-                    video_path,
+                    str(
+                        video_path
+                    ),  # DLC relies on .endswith to determine suffix, so this needs to be a string
                     destfolder=destfolder,
                     save_as_csv=True,
                 )
         else:
             raise ValueError(f"Unsupported mode: {mode}")
 
-    def _analyze_xromm_videos(self, iteration: int):
+    def _analyze_xromm_videos(self, iteration: int) -> None:
         """Analyze all novel videos in the 'trials' folder of a deepxromm project"""
         # assumes you have cam1 and cam2 videos as .avi in their own seperate trial folders
         # assumes all folders w/i new_data_path are trial folders
@@ -80,9 +81,10 @@ class Analyzer:
             if savepath.exists():
                 temp = savepath.glob("*Predicted2DPoints.csv")
                 if temp:
-                    raise ValueError(
-                        f"There are already predicted points in iteration {iteration} subfolders"
+                    print(
+                        f"There are already predicted points in iteration {iteration} subfolders... skipping point prediction"
                     )
+                    return
             else:
                 savepath.mkdir(parents=True, exist_ok=True)  # make new folder
             # get video file
@@ -93,7 +95,9 @@ class Analyzer:
                 if mode == "2D":
                     deeplabcut.analyze_videos(
                         self._config["path_config_file"],
-                        [video],
+                        [
+                            str(video)
+                        ],  # DLC uses endswith filtering for suffixes for some reason
                         destfolder=savepath,
                         save_as_csv=True,
                     )
@@ -104,7 +108,9 @@ class Analyzer:
                     ]
                     deeplabcut.analyze_videos(
                         configs[camera - 1],
-                        [video],
+                        [
+                            str(video)
+                        ],  # DLC uses endswith filtering for suffixes for some reason
                         destfolder=savepath,
                         save_as_csv=True,
                     )
@@ -113,7 +119,6 @@ class Analyzer:
         """Analyze all videos in a project and take their average similar. This is dangerous, as it will assume that all cam1/cam2 pairs match
         or don't match!"""
         similarity_score = {}
-        yaml = YAML()
         trial_combos = combinations(self._data_processor.list_trials(), 2)
         for trial1, trial2 in trial_combos:
             self._config["trial_1_name"] = trial1.stem
@@ -166,7 +171,6 @@ class Analyzer:
     def analyze_marker_similarity_project(self):
         """Analyze all videos in a project and get their average rhythmicity. This assumes that all cam1/2 pairs are either the same or different!"""
         marker_similarity = {}
-        yaml = YAML()
 
         trial_perms = combinations(self._data_processor.list_trials(), 2)
         logger.debug(f"Trial permutations for project: {trial_perms}")

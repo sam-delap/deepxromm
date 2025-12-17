@@ -12,7 +12,7 @@ from PIL import Image
 import numpy as np
 import pandas as pd
 import random
-from ruamel.yaml import YAML
+import yaml
 
 from deepxromm.xrommtools import dlc_to_xma
 
@@ -32,7 +32,6 @@ class XMADataProcessor:
         """Convert DLC-formatted training output into XMAlab-formatted data"""
         mode = self._config["mode"]
         trials = self.list_trials()
-        yaml = YAML()
 
         if mode in ["2D", "per_cam"]:
             correct_function_signature = dlc_to_xma
@@ -42,8 +41,7 @@ class XMADataProcessor:
             raise AttributeError(f"Unsupported mode: {mode}")
 
         with open(self._config["path_config_file"], "r") as dlc_config:
-            yaml = YAML()
-            dlc_proj = yaml.load(dlc_config)
+            dlc_proj = yaml.safe_load(dlc_config)
 
         iteration = int(dlc_proj["iteration"])
         for trial in trials:
@@ -71,7 +69,6 @@ class XMADataProcessor:
         xma_csv_path = iteration_folder / f"{trial}-Predicted2DPoints.csv"
 
         df = pd.read_csv(csv_path, skiprows=1)
-        assert type(df) == pd.DataFrame
         df.index = df["bodyparts"]
         df = df.drop(columns=df.columns[df.loc["coords"] == "likelihood"])
         df = df.drop(
@@ -682,8 +679,7 @@ Note: Codec availability depends on your OpenCV build and system codecs.
         print("Importing markers: ")
         print(parts_unique_final)
         with open(self._config["path_config_file"], "r") as dlc_config:
-            yaml = YAML()
-            dlc_proj = yaml.load(dlc_config)
+            dlc_proj = yaml.safe_load(dlc_config)
 
         dlc_proj["bodyparts"] = parts_unique_final
 

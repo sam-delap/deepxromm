@@ -9,7 +9,7 @@ import cv2
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-from ruamel.yaml import YAML
+import yaml
 
 from .xma_data_processor import XMADataProcessor
 
@@ -36,9 +36,8 @@ class Autocorrector:
         trials = self._data_processor.list_trials()
 
         # Establish project vars
-        yaml = YAML()
         with self._dlc_config_path.open("r") as dlc_config:
-            dlc = yaml.load(dlc_config)
+            dlc = yaml.safe_load(dlc_config)
 
         iteration = dlc["iteration"]
 
@@ -116,9 +115,8 @@ class Autocorrector:
         if self._config["test_autocorrect"]:
             parts_unique = [self._config["marker"]]
         else:
-            yaml = YAML()
             with open(self._dlc_config_path) as dlc_config:
-                dlc = yaml.load(dlc_config)
+                dlc = yaml.safe_load(dlc_config)
             iteration = dlc["iteration"]
             iteration_path = trial_path / f"it{iteration}"
             trial_csv_path = self._data_processor.find_trial_csv(iteration_path)

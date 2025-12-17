@@ -15,7 +15,7 @@
 - **Logging**: Module-level logger with `logging.getLogger(__name__)`
 - **Classes**: Use factory methods (`@classmethod`) for complex initialization
 - **Error handling**: Specific exceptions with descriptive messages
-- **Dependencies**: Use ruamel.yaml for YAML, pandas for data, cv2 for image processing
+- **Dependencies**: Use PyYAML for YAML, pandas for data, cv2 for image processing
 - **Naming**: snake_case for functions/variables, PascalCase for classes
 
 ## Version Control with Git
