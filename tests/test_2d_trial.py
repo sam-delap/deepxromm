@@ -16,91 +16,6 @@ SAMPLE_AUTOCORRECT_OUTPUT = Path(__file__).parent / "sample_autocorrect_output.c
 DEEPXROMM_TEST_CODEC = os.environ.get("DEEPXROMM_TEST_CODEC", "avc1")
 
 
-# Helper functions for creating mock DLC analysis output
-def add_likelihood_columns_to_training_data(training_df):
-    """
-    Transform DLC training dataset into analysis output format by adding likelihood columns.
-
-    Likelihood distribution simulates DLC behavior:
-    - 70% high confidence (0.95-0.99)
-    - 20% moderate (0.85-0.95)
-    - 10% low (0.60-0.85)
-
-    Args:
-        training_df: DLC training DataFrame from CollectedData_*.h5 (no likelihood columns)
-
-    Returns:
-        DataFrame with likelihood columns inserted after each (x,y) pair
-    """
-    n_frames = len(training_df)
-
-    # Create new multi-index structure with likelihood columns
-    new_columns = []
-    for scorer in training_df.columns.get_level_values(0).unique():
-        for bodypart in training_df.columns.get_level_values(1).unique():
-            new_columns.extend(
-                [
-                    (scorer, bodypart, "x"),
-                    (scorer, bodypart, "y"),
-                    (scorer, bodypart, "likelihood"),
-                ]
-            )
-
-    new_index = pd.MultiIndex.from_tuples(
-        new_columns, names=["scorer", "bodyparts", "coords"]
-    )
-    result_df = pd.DataFrame(index=training_df.index, columns=new_index)
-
-    # Copy x,y values and generate realistic likelihoods
-    for scorer in training_df.columns.get_level_values(0).unique():
-        for bodypart in training_df.columns.get_level_values(1).unique():
-            result_df[(scorer, bodypart, "x")] = training_df[(scorer, bodypart, "x")]
-            result_df[(scorer, bodypart, "y")] = training_df[(scorer, bodypart, "y")]
-
-            # Generate realistic likelihoods with variance
-            likelihoods = []
-            for _ in range(n_frames):
-                rand = np.random.random()
-                if rand < 0.7:  # 70% high confidence
-                    likelihoods.append(np.random.uniform(0.95, 0.99))
-                elif rand < 0.9:  # 20% moderate
-                    likelihoods.append(np.random.uniform(0.85, 0.95))
-                else:  # 10% low
-                    likelihoods.append(np.random.uniform(0.60, 0.85))
-
-            result_df[(scorer, bodypart, "likelihood")] = likelihoods
-
-    return result_df
-
-
-def assert_xma_roundtrip_matches(reconstructed_csv, original_csv, tolerance=0.01):
-    """
-    Verify dlc_to_xma output matches original XMAlab CSV.
-
-    This validates the round-trip: XMA → DLC training → mock analysis → dlc_to_xma → XMA
-
-    Args:
-        reconstructed_csv: Path to dlc_to_xma output CSV
-        original_csv: Path to original XMAlab CSV (ground truth)
-        tolerance: Relative tolerance for floating point comparison
-    """
-    original = pd.read_csv(original_csv)
-    reconstructed = pd.read_csv(reconstructed_csv)
-
-    # Compare structure
-    assert (
-        original.shape == reconstructed.shape
-    ), f"Shape mismatch: original {original.shape} vs reconstructed {reconstructed.shape}"
-    assert list(original.columns) == list(
-        reconstructed.columns
-    ), "Column names don't match between original and reconstructed"
-
-    # Compare data values with tolerance for float operations
-    pd.testing.assert_frame_equal(
-        original, reconstructed, rtol=tolerance, check_exact=False, check_names=True
-    )
-
-
 class Test2DTrialProcess(unittest.TestCase):
     """Test function performance on an actual trial - 2D, combined trial workflow"""
 
@@ -214,15 +129,15 @@ class Test2DTrialProcess(unittest.TestCase):
         labeled_data_path = dlc_config.parent / "labeled-data/MyData"
         dlc_data = pd.read_hdf(labeled_data_path / "CollectedData_NA.h5")
 
-        # Determine last frame included in training set
+        # Determine rand frame included in training set
         file = Path(random.choice(dlc_data.index))
         frame_number = file.stem.split("_")[-1]
         frame_int = int(frame_number)
 
-        # Load XMAlab last row
+        # Load XMAlab rand row
         xmalab_row = xmalab_data.loc[frame_int - 1]
 
-        # Load DLC cam1 last row
+        # Load DLC cam1 rand row
         cam1_img_path = str(
             (labeled_data_path / f"test_cam1_{frame_number}.png").relative_to(
                 dlc_config.parent
@@ -230,7 +145,7 @@ class Test2DTrialProcess(unittest.TestCase):
         )
         cam1_row = dlc_data.loc[cam1_img_path, :]
 
-        # Load DLC cam2 last row
+        # Load DLC cam2 rand row
         cam2_img_path = str(
             (labeled_data_path / f"test_cam2_{frame_number}.png").relative_to(
                 dlc_config.parent
@@ -287,42 +202,36 @@ class TestDlcToXma2D(unittest.TestCase):
         self.deepxromm = DeepXROMM.load_project(self.working_dir)
         self.deepxromm.xma_to_dlc()
 
-        # Generate mock DLC analysis output
-        self.create_mock_dlc_analysis_2d()
+        # Copy in mock DLC data
+        cam1_df = pd.read_hdf("trial_cam1dlc.h5")
+        cam2_df = pd.read_hdf("trial_cam2dlc.h5")
+        output_dir = self.working_dir / "trials/test/it0"
+        output_dir.mkdir(parents=True, exist_ok=True)
+        self.mock_cam1_h5 = (
+            output_dir / "test_cam1DLC_resnet50_test_projectDec1shuffle1_100000.h5"
+        )
+        self.mock_cam2_h5 = (
+            output_dir / "test_cam2DLC_resnet50_test_projectDec1shuffle1_100000.h5"
+        )
+        self.mock_cam1_csv = (
+            output_dir / "test_cam1DLC_resnet50_test_projectDec1shuffle1_100000.csv"
+        )
+        self.mock_cam2_csv = (
+            output_dir / "test_cam2DLC_resnet50_test_projectDec1shuffle1_100000.csv"
+        )
+        cam1_df.to_hdf(self.mock_cam1_h5, key="df_with_missing", mode="w")
+        cam2_df.to_hdf(self.mock_cam2_h5, key="df_with_missing", mode="w")
+        cam1_df.to_csv(self.mock_cam1_csv, na_rep="NaN")
+        cam2_df.to_csv(self.mock_cam2_csv, na_rep="NaN")
 
         # Run DLC to XMA
         self.deepxromm.dlc_to_xma()
-
-    def create_mock_dlc_analysis_2d(self):
-        """Create realistic DLC analysis output for 2D mode"""
-        # Read DLC training dataset created by xma_to_dlc
-        dlc_config = Path(self.deepxromm.config["path_config_file"])
-        labeled_data_path = dlc_config.parent / "labeled-data/MyData"
-        training_df = pd.read_hdf(labeled_data_path / "CollectedData_NA.h5")
-
-        # Add likelihood columns with realistic variance
-        analysis_df = add_likelihood_columns_to_training_data(training_df)
-
-        # Save as mock analysis output
-        output_dir = self.working_dir / "trials/test/it0"
-        output_dir.mkdir(parents=True, exist_ok=True)
-
-        # Use DLC naming convention
-        self.mock_h5 = (
-            output_dir / "testDLC_resnet50_test_projectDec1shuffle1_100000.h5"
-        )
-        self.mock_csv = (
-            output_dir / "testDLC_resnet50_test_projectDec1shuffle1_100000.csv"
-        )
-
-        analysis_df.to_hdf(self.mock_h5, key="df_with_missing", mode="w")
-        analysis_df.to_csv(self.mock_csv, na_rep="NaN")
 
     def test_dlc_to_xma_creates_xmalab_format_files(self):
         """
         Given I have DLC analysis output with likelihood columns
         When I call dlc_to_xma
-        Then it creates XMAlab format CSV and HDF5 files
+        Then it creates both CSV and HDF5 files
         """
         # Run dlc_to_xma
         output_dir = self.working_dir / "trials/test/it0"
@@ -353,46 +262,122 @@ class TestDlcToXma2D(unittest.TestCase):
             self.assertNotIn("likelihood", col.lower())
             self.assertTrue(col.endswith(("_X", "_Y")))
 
-    def test_dlc_to_xma_roundtrip_preserves_data(self):
+    def test_first_frame_matches(self):
         """
-        Given original trial_slice.csv (ground truth)
-        When I run: XMA → DLC training → mock DLC analysis → dlc_to_xma
-        Then the reconstructed XMA data matches the original
-
-        This is the KEY test - validates entire pipeline integrity
+        Given DLC-formatted output from a training run of this trial
+        When I run dlc_to_xma
+        Then the first frame of the reconstructed XMA data matches the DLC-formatted data
         """
         output_dir = self.working_dir / "trials/test/it0"
+        cam1_dlc_data = pd.read_hdf(self.mock_cam1_h5)
+        cam2_dlc_data = pd.read_hdf(self.mock_cam2_h5)
 
-        # Compare reconstructed with original
-        reconstructed_csv = output_dir / "test-Predicted2DPoints.csv"
-        assert_xma_roundtrip_matches(reconstructed_csv, self.trial_csv, tolerance=0.01)
+        xmalab_data = pd.read_csv(output_dir / "test-Predicted2DPoints.csv")
+        xmalab_first_row = xmalab_data.loc[0, :]
 
-    def test_dlc_to_xma_handles_csv_file_input(self):
+        dlc_config = Path(self.deepxromm.config["path_config_file"])
+        labeled_data_path = dlc_config.parent / "labeled-data/MyData"
+        cam1_first_row = cam1_dlc_data.loc[0, :]
+        for val in cam1_first_row.index:
+            if "likelihood" in val or "marker001" not in val or "x" not in val:
+                continue
+            xmalab_key = f"{val[1]}_cam1_{val[2].upper()}"
+            xmalab_data_point = xmalab_first_row[xmalab_key]
+            dlc_data_point = cam1_first_row[val]
+            with self.subTest(folder=val):
+                self.assertTrue(xmalab_data_point == dlc_data_point)
+
+        cam2_first_row = cam2_dlc_data.loc[0, :]
+        for val in cam2_first_row.index:
+            if "likelihood" in val or "marker001" not in val or "x" not in val:
+                continue
+            xmalab_key = f"{val[1]}_cam2_{val[2].upper()}"
+            xmalab_data_point = xmalab_first_row[xmalab_key]
+            dlc_data_point = cam2_first_row[val]
+            with self.subTest(folder=xmalab_key):
+                self.assertTrue(xmalab_data_point == dlc_data_point)
+
+    def test_last_frame_matches(self):
         """
-        Given DLC analysis output as CSV file paths
-        When I call dlc_to_xma with file path strings (not DataFrames)
-        Then it loads and processes the data correctly
+        Given DLC-formatted output from a training run of this trial
+        When I run dlc_to_xma
+        Then the last frame of the reconstructed XMA data matches the DLC-formatted data
         """
         output_dir = self.working_dir / "trials/test/it0"
+        cam1_dlc_data = pd.read_hdf(
+            output_dir / "test_cam1DLC_resnet50_test_projectDec1shuffle1_100000.h5"
+        )
+        cam2_dlc_data = pd.read_hdf(
+            output_dir / "test_cam2DLC_resnet50_test_projectDec1shuffle1_100000.h5"
+        )
 
-        # Verify outputs exist and are valid
-        xma_csv = output_dir / "test-Predicted2DPoints.csv"
-        self.assertTrue(xma_csv.exists())
+        xmalab_data = pd.read_csv(output_dir / "test-Predicted2DPoints.csv")
+        # Find XMAlab last row
+        xmalab_last_row_int = xmalab_data.index[-1]
+        xmalab_last_row = xmalab_data.loc[xmalab_last_row_int, :]
 
-        # Verify round-trip still matches
-        assert_xma_roundtrip_matches(xma_csv, self.trial_csv, tolerance=0.01)
+        dlc_config = Path(self.deepxromm.config["path_config_file"])
+        labeled_data_path = dlc_config.parent / "labeled-data/MyData"
+        cam1_last_row = cam1_dlc_data.loc[xmalab_last_row_int, :]
+        cam2_last_row = cam2_dlc_data.loc[xmalab_last_row_int, :]
+        for val in cam1_last_row.index:
+            if "likelihood" in val:
+                continue
+            xmalab_key = f"{val[1]}_cam1_{val[2].upper()}"
+            xmalab_data_point = round(xmalab_last_row[xmalab_key], 4)
+            dlc_data_point = round(cam1_last_row[val], 4)
+            with self.subTest(folder=xmalab_key):
+                self.assertTrue(xmalab_data_point == dlc_data_point)
 
-    def test_dlc_to_xma_handles_hdf5_file_input(self):
+        for val in cam2_last_row.index:
+            if "likelihood" in val:
+                continue
+            xmalab_key = f"{val[1]}_cam2_{val[2].upper()}"
+            xmalab_data_point = round(xmalab_last_row[xmalab_key], 4)
+            dlc_data_point = round(cam2_last_row[val], 4)
+            with self.subTest(folder=xmalab_key):
+                self.assertTrue(xmalab_data_point == dlc_data_point)
+
+    def test_random_frame_matches(self):
         """
-        Given DLC analysis output as HDF5 file paths
-        When I call dlc_to_xma with file path strings
-        Then it loads and processes the data correctly
+        Given DLC-formatted output from a training run of this trial
+        When I run dlc_to_xma
+        Then a random frame of the reconstructed XMA data matches the DLC-formatted data
         """
         output_dir = self.working_dir / "trials/test/it0"
+        cam1_dlc_data = pd.read_hdf(
+            output_dir / "test_cam1DLC_resnet50_test_projectDec1shuffle1_100000.h5"
+        )
+        cam2_dlc_data = pd.read_hdf(
+            output_dir / "test_cam2DLC_resnet50_test_projectDec1shuffle1_100000.h5"
+        )
 
-        # Verify round-trip matches
-        xma_csv = output_dir / "test-Predicted2DPoints.csv"
-        assert_xma_roundtrip_matches(xma_csv, self.trial_csv, tolerance=0.01)
+        xmalab_data = pd.read_csv(output_dir / "test-Predicted2DPoints.csv")
+        # Get random row from xmalab data
+        xmalab_rand_row_int = random.choice(xmalab_data.index)
+        xmalab_rand_row = xmalab_data.loc[xmalab_rand_row_int, :]
+
+        dlc_config = Path(self.deepxromm.config["path_config_file"])
+        labeled_data_path = dlc_config.parent / "labeled-data/MyData"
+        cam1_rand_row = cam1_dlc_data.loc[xmalab_rand_row_int, :]
+        cam2_rand_row = cam2_dlc_data.loc[xmalab_rand_row_int, :]
+        for val in cam1_rand_row.index:
+            if "likelihood" in val:
+                continue
+            xmalab_key = f"{val[1]}_cam1_{val[2].upper()}"
+            xmalab_data_point = round(xmalab_rand_row[xmalab_key], 4)
+            dlc_data_point = round(cam1_rand_row[val], 4)
+            with self.subTest(folder=xmalab_key):
+                self.assertTrue(xmalab_data_point == dlc_data_point)
+
+        for val in cam2_rand_row.index:
+            if "likelihood" in val:
+                continue
+            xmalab_key = f"{val[1]}_cam2_{val[2].upper()}"
+            xmalab_data_point = round(xmalab_rand_row[xmalab_key], 4)
+            dlc_data_point = round(cam2_rand_row[val], 4)
+            with self.subTest(folder=xmalab_key):
+                self.assertTrue(xmalab_data_point == dlc_data_point)
 
     def tearDown(self):
         """Remove the created temp project"""

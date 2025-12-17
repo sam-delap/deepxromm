@@ -15,22 +15,24 @@ from pathlib import Path
 import pandas as pd
 import numpy as np
 import cv2
-from deeplabcut.pose_estimation_tensorflow.predict_videos import analyze_videos
 
 
 def dlc_to_xma(trial: Path, iteration: int):
     # get filenames and read analyzed data
     trialname = trial.name
     iteration_folder = trial / f"it{iteration}"
-    datafiles = list(iteration_folder.glob("*.h5"))
-    if not datafiles:
+    cam1data = list(iteration_folder.glob("*cam1*.h5"))
+    cam2data = list(iteration_folder.glob("*cam2*.h5"))
+    if not cam1data:
         raise ValueError(
-            "Cannot find predicted points. Have you run deepxromm.analyze_videos() for this project?"
+            "Cannot find cam1 predicted points. Have you run deepxromm.analyze_videos() for this project?"
         )
-    print(datafiles[0])
-    cam1data = pd.read_hdf(datafiles[0])
-    print(datafiles[1])
-    cam2data = pd.read_hdf(datafiles[1])
+    if not cam2data:
+        raise ValueError(
+            "Cannot find cam2 predicted points. Have you run deepxromm.analyze_videos() for this project?"
+        )
+    cam1data = pd.read_hdf(cam1data[0])
+    cam2data = pd.read_hdf(cam2data[0])
     h5_save_path = iteration_folder / f"{trialname}-Predicted2DPoints.h5"
     csv_save_path = iteration_folder / f"{trialname}-Predicted2DPoints.csv"
 

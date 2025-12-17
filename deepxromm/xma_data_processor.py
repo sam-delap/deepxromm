@@ -32,6 +32,7 @@ class XMADataProcessor:
         """Convert DLC-formatted training output into XMAlab-formatted data"""
         mode = self._config["mode"]
         trials = self.list_trials()
+        yaml = YAML()
 
         if mode in ["2D", "per_cam"]:
             correct_function_signature = dlc_to_xma
@@ -40,14 +41,21 @@ class XMADataProcessor:
         else:
             raise AttributeError(f"Unsupported mode: {mode}")
 
+        with open(self._config["path_config_file"], "r") as dlc_config:
+            yaml = YAML()
+            dlc_proj = yaml.load(dlc_config)
+
+        iteration = int(dlc_proj["iteration"])
         for trial in trials:
-            correct_function_signature(trial, int(self._config["iteration"]))
+            correct_function_signature(trial, iteration)
 
     def _split_dlc_to_xma(self, trial_path: Path, iteration: int, save_hdf=True):
         """Takes the output from RGB deeplabcut and splits it into XMAlab-readable output"""
         current_files = trial_path.glob("*")
         logger.debug(f"Current files in directory {current_files}")
-        trial_csv_path = self.find_trial_csv(trial_path)
+        # Use the CSV from the user's training data to fetch bodyparts
+        sample_trial_path = self.list_trials("trainingdata")[0]
+        trial_csv_path = self.find_trial_csv(sample_trial_path)
         rgb_parts = self.get_bodyparts_from_xma(trial_csv_path, mode="rgb")
 
         bodyparts_xy = []
@@ -55,14 +63,11 @@ class XMADataProcessor:
             bodyparts_xy.append(part + "_X")
             bodyparts_xy.append(part + "_Y")
 
-        # REFACTOR: This should be added as a feature of find_trial_csv
         iteration_folder = trial_path / f"it{iteration}"
         csv_path = self.find_trial_csv(
             iteration_folder, "rgbDLC"
         )  # Assumes that the project itself doesn't have rgbDLC in this format in it
         trial = trial_path.name
-
-        logger.debug(f"Found CSV path: {csv_path} for trial {trial}")
         xma_csv_path = iteration_folder / f"{trial}-Predicted2DPoints.csv"
 
         df = pd.read_csv(csv_path, skiprows=1)
@@ -85,7 +90,7 @@ class XMADataProcessor:
             + str(xma_csv_path)
         )
         if save_hdf:
-            tracked_hdf = csv_path.with_suffix("hdf")
+            tracked_hdf = xma_csv_path.with_suffix(".h5")
             logger.debug(f"Tracked hdf stored at {str(tracked_hdf)}")
             df.to_hdf(
                 tracked_hdf, "df_with_missing", format="table", mode="w", nan_rep="NaN"
@@ -171,16 +176,24 @@ To change the codec, update your project config file:
 Note: Codec availability depends on your OpenCV build and system codecs.
 """.strip()
 
-    def find_trial_csv(self, trial_path: Path, identifier: str = "") -> Path:
+    def find_trial_csv(self, trial_path: Path, identifier: str | None = None) -> Path:
         """
         Takes the path to a trial and returns the path to a trial CSV.
         Errors if there is not exactly 1 trial CSV in a trial folder.
         """
-        csv_path = list(trial_path.glob(f"*{identifier}.csv"))
+        if identifier is not None:
+            csv_path = list(trial_path.glob(f"*{identifier}*.csv"))
+        else:
+            csv_path = list(trial_path.glob("*.csv"))
+
         if len(csv_path) > 1:
-            raise FileExistsError(f"Found more than 1 CSV file for trial: {trial_path}")
+            raise FileExistsError(
+                f"Found more than 1 CSV file with identifier {identifier} for trial: {trial_path}"
+            )
         if len(csv_path) <= 0:
-            raise FileNotFoundError(f"Couldn't find a CSV file for trial: {trial_path}")
+            raise FileNotFoundError(
+                f"Couldn't find a CSV file with identifier {identifier} for trial: {trial_path}"
+            )
 
         return trial_path / csv_path[0]
 

@@ -46,7 +46,7 @@ class Analyzer:
 
         mode = self._config["mode"]
         if mode in ["2D", "per_cam"]:
-            self._analyze_xromm_videos()
+            self._analyze_xromm_videos(iteration)
 
         elif mode == "rgb":
             self._data_processor.make_rgb_videos("trials")
@@ -65,7 +65,7 @@ class Analyzer:
         else:
             raise ValueError(f"Unsupported mode: {mode}")
 
-    def _analyze_xromm_videos(self):
+    def _analyze_xromm_videos(self, iteration: int):
         """Analyze all novel videos in the 'trials' folder of a deepxromm project"""
         # assumes you have cam1 and cam2 videos as .avi in their own seperate trial folders
         # assumes all folders w/i new_data_path are trial folders
@@ -73,7 +73,6 @@ class Analyzer:
         # analyze videos
         cameras = [1, 2]
         trials = self._data_processor.list_trials()
-        iteration = int(self._config["iteration"])
         mode = self._config["mode"]
 
         for trialpath in trials:
