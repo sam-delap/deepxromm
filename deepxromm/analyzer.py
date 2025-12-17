@@ -11,7 +11,7 @@ import deeplabcut
 import imagehash
 import pandas as pd
 from PIL import Image
-from ruamel.yaml import YAML
+import yaml
 
 from .xma_data_processor import XMADataProcessor
 
@@ -39,9 +39,8 @@ class Analyzer:
         trials = self._data_processor.list_trials()
 
         # Establish project vars
-        yaml = YAML()
         with open(self._dlc_config) as dlc_config:
-            dlc = yaml.load(dlc_config)
+            dlc = yaml.safe_load(dlc_config)
         iteration = dlc["iteration"]
 
         mode = self._config["mode"]
@@ -117,7 +116,6 @@ class Analyzer:
         """Analyze all videos in a project and take their average similar. This is dangerous, as it will assume that all cam1/cam2 pairs match
         or don't match!"""
         similarity_score = {}
-        yaml = YAML()
         trial_combos = combinations(self._data_processor.list_trials(), 2)
         for trial1, trial2 in trial_combos:
             self._config["trial_1_name"] = trial1.stem
@@ -170,7 +168,6 @@ class Analyzer:
     def analyze_marker_similarity_project(self):
         """Analyze all videos in a project and get their average rhythmicity. This assumes that all cam1/2 pairs are either the same or different!"""
         marker_similarity = {}
-        yaml = YAML()
 
         trial_perms = combinations(self._data_processor.list_trials(), 2)
         logger.debug(f"Trial permutations for project: {trial_perms}")

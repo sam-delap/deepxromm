@@ -10,7 +10,7 @@ import unittest
 import cv2
 import pandas as pd
 from datetime import datetime as dt
-from ruamel.yaml import YAML
+import yaml
 
 from deepxromm import DeepXROMM
 
@@ -95,9 +95,8 @@ class TestDefaultsPerformance(unittest.TestCase):
 
     def test_warn_users_if_nframes_doesnt_match_csv(self):
         """If the number of frames in the CSV doesn't match the number of frames specified, do I issue a warning?"""
-        yaml = YAML()
         with self.config.open() as config:
-            tmp = yaml.load(config)
+            tmp = yaml.safe_load(config)
 
         # Modify the number of frames (similar to how a user would)
         tmp["nframes"] = 2
@@ -111,10 +110,9 @@ class TestDefaultsPerformance(unittest.TestCase):
     def test_yaml_file_updates_nframes_after_load_if_frames_is_0(self):
         """If the user doesn't specify how many frames they want analyzed,
         does their YAML file get updated with how many are in the CSV?"""
-        yaml = YAML()
         DeepXROMM.load_project(self.working_dir)
         with self.config.open() as config:
-            tmp = yaml.load(config)
+            tmp = yaml.safe_load(config)
         self.assertEqual(tmp["nframes"], 1, msg=f"Actual nframes: {tmp['nframes']}")
 
     def test_warn_if_user_has_tracked_less_than_threshold_frames(self):
@@ -138,30 +136,27 @@ class TestDefaultsPerformance(unittest.TestCase):
 
     def test_bodyparts_add_from_csv_if_not_defined(self):
         """If the user hasn't specified the bodyparts from their trial, we can pull them from the CSV"""
-        yaml = YAML()
         date = dt.today().strftime("%Y-%m-%d")
         DeepXROMM.load_project(self.working_dir)
         config_path = Path(self.working_dir) / f"tmp-NA-{date}" / "config.yaml"
 
         with config_path.open() as dlc_config:
-            config_obj = yaml.load(dlc_config)
+            config_obj = yaml.safe_load(dlc_config)
         self.assertEqual(config_obj["bodyparts"], ["foo", "bar", "baz"])
 
     def test_bodyparts_add_from_csv_in_3d(self):
         """If the user wants to do 3D tracking, we output the desired list of bodyparts"""
-        yaml = YAML()
         date = dt.today().strftime("%Y-%m-%d")
         with self.config.open("r") as config:
-            tmp = yaml.load(config)
+            tmp = yaml.safe_load(config)
         tmp["mode"] = "rgb"
         with self.config.open("w") as fp:
             yaml.dump(tmp, fp)
         DeepXROMM.load_project(self.working_dir)
 
         path_to_config = self.working_dir / f"tmp-NA-{date}" / "config.yaml"
-        yaml = YAML()
         with path_to_config.open("r") as dlc_config:
-            config_obj = yaml.load(dlc_config)
+            config_obj = yaml.safe_load(dlc_config)
 
         self.assertEqual(
             config_obj["bodyparts"],
@@ -170,11 +165,10 @@ class TestDefaultsPerformance(unittest.TestCase):
 
     def test_bodyparts_add_synthetic(self):
         """Can we add swapped markers?"""
-        yaml = YAML()
         date = dt.today().strftime("%Y-%m-%d")
 
         with self.config.open("r") as config:
-            tmp = yaml.load(config)
+            tmp = yaml.safe_load(config)
         tmp["mode"] = "rgb"
         tmp["swapped_markers"] = True
         with self.config.open("w") as fp:
@@ -182,9 +176,8 @@ class TestDefaultsPerformance(unittest.TestCase):
         DeepXROMM.load_project(self.working_dir)
 
         path_to_config = self.working_dir / f"tmp-NA-{date}" / "config.yaml"
-        yaml = YAML()
         with path_to_config.open("r") as dlc_config:
-            config_obj = yaml.load(dlc_config)
+            config_obj = yaml.safe_load(dlc_config)
 
         self.assertEqual(
             config_obj["bodyparts"],
@@ -206,11 +199,10 @@ class TestDefaultsPerformance(unittest.TestCase):
 
     def test_bodyparts_add_crossed(self):
         """Can we add crossed markers?"""
-        yaml = YAML()
         date = dt.today().strftime("%Y-%m-%d")
 
         with self.config.open("r") as config:
-            tmp = yaml.load(config)
+            tmp = yaml.safe_load(config)
         tmp["mode"] = "rgb"
         tmp["crossed_markers"] = True
         with self.config.open("w") as fp:
@@ -218,9 +210,8 @@ class TestDefaultsPerformance(unittest.TestCase):
         DeepXROMM.load_project(self.working_dir)
 
         path_to_config = self.working_dir / f"tmp-NA-{date}" / "config.yaml"
-        yaml = YAML()
         with path_to_config.open("r") as dlc_config:
-            config_obj = yaml.load(dlc_config)
+            config_obj = yaml.safe_load(dlc_config)
 
         self.assertEqual(
             config_obj["bodyparts"],
@@ -239,11 +230,10 @@ class TestDefaultsPerformance(unittest.TestCase):
 
     def test_bodyparts_add_synthetic_and_crossed(self):
         """Can we add both swapped and crossed markers?"""
-        yaml = YAML()
         date = dt.today().strftime("%Y-%m-%d")
 
         with self.config.open("r") as config:
-            tmp = yaml.load(config)
+            tmp = yaml.safe_load(config)
         tmp["mode"] = "rgb"
         tmp["swapped_markers"] = True
         tmp["crossed_markers"] = True
@@ -252,9 +242,8 @@ class TestDefaultsPerformance(unittest.TestCase):
         DeepXROMM.load_project(self.working_dir)
 
         path_to_config = self.working_dir / f"tmp-NA-{date}" / "config.yaml"
-        yaml = YAML()
         with path_to_config.open("r") as dlc_config:
-            config_obj = yaml.load(dlc_config)
+            config_obj = yaml.safe_load(dlc_config)
 
         self.assertEqual(
             config_obj["bodyparts"],
@@ -279,12 +268,10 @@ class TestDefaultsPerformance(unittest.TestCase):
 
     def test_bodyparts_error_if_different_from_csv(self):
         """If the user specifies different bodyparts than their CSV, raise an error"""
-        yaml = YAML()
         date = dt.today().strftime("%Y-%m-%d")
         path_to_config = self.working_dir / f"tmp-NA-{date}" / "config.yaml"
-        yaml = YAML()
         with path_to_config.open("r") as dlc_config:
-            config_dlc = yaml.load(dlc_config)
+            config_dlc = yaml.safe_load(dlc_config)
 
         config_dlc["bodyparts"] = ["foo", "bar"]
 
@@ -296,9 +283,8 @@ class TestDefaultsPerformance(unittest.TestCase):
 
     def test_autocorrect_error_if_trial_not_set(self):
         """If the user doesn't specify a trial to test autocorrect with, do we error?"""
-        yaml = YAML()
         with self.config.open("r") as config:
-            tmp = yaml.load(config)
+            tmp = yaml.safe_load(config)
 
         tmp["test_autocorrect"] = True
         tmp["marker"] = "foo"
@@ -310,10 +296,8 @@ class TestDefaultsPerformance(unittest.TestCase):
 
     def test_autocorrect_error_if_marker_not_set(self):
         """If the user doesn't specify a marker to test autocorrect with, do we error?"""
-        yaml = YAML()
-
         with self.config.open("r") as config:
-            tmp = yaml.load(config)
+            tmp = yaml.safe_load(config)
 
         tmp["test_autocorrect"] = True
         tmp["trial_name"] = "test"
@@ -326,11 +310,9 @@ class TestDefaultsPerformance(unittest.TestCase):
 
     def test_migration_from_tracking_mode_to_mode(self):
         """Does loading a config with deprecated 'tracking_mode' auto-migrate to 'mode'?"""
-        yaml = YAML()
-
         # Modify config to use deprecated key
         with self.config.open("r") as config:
-            tmp = yaml.load(config)
+            tmp = yaml.safe_load(config)
         del tmp["mode"]  # Remove new key if it exists
         tmp["tracking_mode"] = "2D"  # Use deprecated key
         with self.config.open("w") as fp:
@@ -342,7 +324,7 @@ class TestDefaultsPerformance(unittest.TestCase):
 
         # Verify config was migrated and saved
         with self.config.open("r") as config:
-            migrated = yaml.load(config)
+            migrated = yaml.safe_load(config)
 
         self.assertIn("mode", migrated)
         self.assertNotIn("tracking_mode", migrated)
@@ -350,11 +332,9 @@ class TestDefaultsPerformance(unittest.TestCase):
 
     def test_conflicting_mode_values_raises_error(self):
         """Does having both 'mode' and 'tracking_mode' with different values raise ValueError?"""
-        yaml = YAML()
-
         # Create config with conflicting values
         with self.config.open("r") as config:
-            tmp = yaml.load(config)
+            tmp = yaml.safe_load(config)
         tmp["mode"] = "2D"
         tmp["tracking_mode"] = "rgb"  # Different value
         with self.config.open("w") as fp:
@@ -371,11 +351,9 @@ class TestDefaultsPerformance(unittest.TestCase):
 
     def test_duplicate_mode_values_migrates_successfully(self):
         """Does having both keys with same value migrate successfully?"""
-        yaml = YAML()
-
         # Create config with duplicate but matching values
         with self.config.open("r") as config:
-            tmp = yaml.load(config)
+            tmp = yaml.safe_load(config)
         tmp["mode"] = "2D"
         tmp["tracking_mode"] = "2D"  # Same value
         with self.config.open("w") as fp:
@@ -387,7 +365,7 @@ class TestDefaultsPerformance(unittest.TestCase):
 
         # Verify only 'mode' remains
         with self.config.open("r") as config:
-            migrated = yaml.load(config)
+            migrated = yaml.safe_load(config)
 
         self.assertIn("mode", migrated)
         self.assertNotIn("tracking_mode", migrated)

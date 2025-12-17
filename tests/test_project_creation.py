@@ -7,7 +7,7 @@ from pathlib import Path
 import shutil
 import unittest
 
-from ruamel.yaml import YAML
+import yaml
 
 from deepxromm import DeepXROMM
 
@@ -40,7 +40,6 @@ class TestProjectCreation(unittest.TestCase):
 
     def test_project_config_has_these_variables(self):
         """Can we access each of the variables that's supposed to be in the config?"""
-        yaml = YAML()
         variables = [
             "task",
             "experimenter",
@@ -68,10 +67,9 @@ class TestProjectCreation(unittest.TestCase):
             "cam1s_are_the_same_view",
         ]
 
-        yaml = YAML()
         config_path = self.project_dir / "project_config.yaml"
         with config_path.open() as config:
-            project = yaml.load(config)
+            project = yaml.safe_load(config)
             for variable in variables:
                 with self.subTest(i=variable):
                     self.assertIsNotNone(project[variable])
