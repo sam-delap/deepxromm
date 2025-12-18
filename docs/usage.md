@@ -32,21 +32,25 @@ There are two ways to use this package. You can either:
     deepxromm = DeepXROMM.create_new_project(working_dir, experimenter, mode='rgb', codec='DIVX')
     ```
     
-    **Available tracking modes:**
-    - `2D` (default): Combines camera data into a single DeepLabCut project
-    - `per_cam`: Creates separate DeepLabCut projects for each camera view  
-    - `rgb`: Blends grayscale videos into RGB channels for single-network training
+### Available tracking modes:
 
-    **Video codec options:** 
-    - `avc1` (default): H.264 codec, good balance of quality and compatibility
-    - `XVID`, `DIVX`: Alternative compression codecs
-    - `mp4v`, `MJPG`: Other supported formats
-    - `uncompressed`: No compression (large file sizes)
+- `2D` (default): Combines camera data into a single DeepLabCut project
+- `per_cam`: Creates separate DeepLabCut projects for each camera view  
+- `rgb`: Blends grayscale videos into RGB channels for single-network training
 
-    > **Note:** Not all codecs are available on all systems. DeepXROMM will raise a `RuntimeError` if the specified codec is unavailable.
+> **Configuration:** For detailed information about each mode and related settings, see the [mode parameter](config.md#neural-network-customization) in the config file reference.
 
-    1. Keep your Python session open. We'll be running more commands here shortly
-1. You should now see something that looks like this inside of your project folder:
+### Video codec options:
+- `avc1` (default): H.264 codec, good balance of quality and compatibility
+- `XVID`, `DIVX`: Alternative compression codecs
+- `mp4v`, `MJPG`: Other supported formats
+- `uncompressed`: No compression (large file sizes)
+
+> **Note:** Not all codecs are available on all systems. DeepXROMM will raise a `RuntimeError` if the specified codec is unavailable.
+
+> **Configuration:** For more details about codec options and system compatibility, see [Video Codec Settings](config.md#video-codec-settings) in the config file reference.
+
+You should now see something that looks like this inside of your project folder:
     ```bash
     sample-proj
     │   project_config.yaml
@@ -55,9 +59,12 @@ There are two ways to use this package. You can either:
     ├───trainingdata
     ├───trials
     ```
+> **⚠️ Warning:** Keep your Python session open. We'll be running more commands here shortly
 
 ## Exporting your data from XMAlab in a usable format
-1. For now, DeepXROMM only supports analyzing **full distorted videos (.avi)**. However, we understand that many labs use distorted .tif or .jpg stacks and plan to add support for these in a later release
+1. DeepXROMM has built-in support for training data either as:
+    - Full distorted videos
+    - .tif/.jpg stacks (Functions are there, but untested as of mid-December 2025)
 1. Along with your distorted videos, DeepXROMM expects CSV training data (XMAlab 2D points) exported with the following settings
 ![XMAlab training data settings](XMA_export_settings.png){: .center}
 
@@ -71,17 +78,17 @@ There are two ways to use this package. You can either:
 
 ## Converting XMAlab data to DeepLabCut format
 
-XMAlab and DeepLabCut both use CSV files (or a more data-rich format called HDF) as their primary means of storing tracking data.
+1. XMAlab and DeepLabCut both use CSV files (or a more data-rich format called HDF) as their primary means of storing tracking data.
 In order to train a network for XMAlab trials, we need to convert the XMAlab-formatted data exported in the previous step
 to a format that DeepLabCut can use. To do this, you can run:
 
 ```python
 deepxromm.xma_to_dlc()
-```
+    ```
 
 ## Creating a training dataset
 
-Next, we'll use the DLC formatted data we just extracted and codify it as our training
+1. Next, we'll use the DLC formatted data we just extracted and codify it as our training
 data for this run of our model. To do this, you can run:
 
 ```python
@@ -116,7 +123,7 @@ deepxromm.create_training_dataset()
 
 For labs with multiple DeepXROMM projects, you can automate the entire training pipeline using the `train_many_projects()` static method.
 
-**Complete workflow performed:**
+### Steps executed during a batch training session:
 1. Load each project configuration
 2. Convert XMAlab data to DeepLabCut format (`xma_to_dlc()`)
 3. Create training datasets (`create_training_dataset()`)
@@ -124,7 +131,7 @@ For labs with multiple DeepXROMM projects, you can automate the entire training 
 5. Analyze videos with trained models (`analyze_videos()`)
 6. Convert predictions back to XMAlab format (`dlc_to_xma()`)
 
-**Usage:**
+You can initiate a batch training session by running:
 ```python
 from deepxromm import DeepXROMM
 
@@ -133,8 +140,8 @@ parent_directory = '/path/to/parent/containing/projects'
 DeepXROMM.train_many_projects(parent_directory)
 ```
 
-**Prerequisites:**
-- Each subdirectory should be a complete DeepXROMM project
+### Formatting your filesystem for batch training:
+- Each subdirectory of the parent directory should be a complete DeepXROMM project
 - Each project must have `project_config.yaml` 
 - Training data must be in `trainingdata/` folders
 - Trial videos must be in `trials/` folders
@@ -144,11 +151,15 @@ DeepXROMM.train_many_projects(parent_directory)
 **Cross-reference:** See individual workflow steps in sections above for details on each operation performed.
 
 ## Using autocorrect()
-This package comes pre-built with autocorrect() functions that leverage the same image filtering functions as XMAlab, and use the marker's outline to do centroid detection on each marker. You can modify the autocorrect function's performance using the **image processing** parameters from the [config file reference](config.md). You can also visualize the centroid detection process using the **test_autocorrect()** parameters.
-### Testing autocorrect() parameters on a single marker/frame combination
-You'll need a Python environment that is capable of displaying images, like a [Jupyter Notebook](https://jupyter.org/), for these steps  
 
-1. Go to your project_config.yaml file and find the "Autocorrect() Testing Vars" section of the config  
+This package comes pre-built with autocorrect() functions that leverage the same image filtering functions as XMAlab, and use the marker's outline to do centroid detection on each marker.
+You can modify the autocorrect function's performance using the **image processing** parameters from the [config file reference](config.md).
+You can also visualize the centroid detection process using the **test_autocorrect()** parameters.
+
+### Testing autocorrect() parameters on a single marker/frame combination
+You'll need a Python environment that is capable of displaying images, like a [Jupyter Notebook](https://jupyter.org/), for these steps.
+
+1. Go to your project_config.yaml file
 1. Change the value of **test_autocorrect** to true by replacing the word "false" with the word "true", like this:  
     ```YAML
     test_autocorrect: true
@@ -159,7 +170,9 @@ You'll need a Python environment that is capable of displaying images, like a [J
     deepxromm.autocorrect_trials()
     ```
 1. Tune autocorrect() settings until you are satisfied with the testing output
+
 ### Using autocorrect for a whole trial
+
 1. If you tested autocorrect, set the test_autocorrect variable in your config file to false
     ```YAML
     test_autocorrect: false
@@ -195,8 +208,6 @@ To use this function:
 deepxromm.get_max_dissimilarity_for_trial('/path/to/your/trial', size_of_window)
 ```
 
-> **Related:** For other analysis tools to evaluate your data, see [Advanced Analysis Methods](#advanced-analysis-methods).
-
 ## Advanced Analysis Methods
 
 DeepXROMM provides several analysis tools to help you explore and validate your XMA project data, compare trials, and assess tracking quality.
@@ -218,9 +229,10 @@ print(similarity_scores)  # Dictionary with similarity metrics
 - Identify outlier trials with different lighting or setup
 - Validate stereo camera alignment
 
-> **⚠️ Warning:** This method assumes all cam1/cam2 pairs in your project have the same relationship (either all similar or all different). Mixed similarity patterns may produce unreliable results.
+> **⚠️ Warning:** This method assumes all cam1/cam2 pairs in your project have the same relationship. Configure the `cam1s_are_the_same_view` parameter in your project config to control this behavior. See [Video Similarity Analysis](config.md#video-similarity-analysis) in the config file reference for details.
 
 #### Trial-Level Video Comparison
+
 Compare similarity between camera views for a specific trial:
 
 ```python
@@ -235,6 +247,7 @@ print(f"Cam1/Cam2 similarity: {similarity_score}")
 ### Marker Trajectory Analysis
 
 #### Project-Level Marker Comparison
+
 Analyze marker movement patterns across all trials:
 
 ```python
@@ -249,9 +262,10 @@ print(marker_similarity)  # Dictionary with marker trajectory metrics
 - Detect trials with unusual marker behavior
 - Validate tracking consistency across experimental conditions
 
-> **⚠️ Warning:** Like video analysis, this assumes consistent cam1/cam2 relationships across all trials.
+> **⚠️ Warning:** Like video analysis, this assumes consistent cam1/cam2 relationships across all trials. Configure the `cam1s_are_the_same_view` parameter to control this behavior. See [Video Similarity Analysis](config.md#video-similarity-analysis) in the config file reference.
 
 #### Trial-Level Marker Comparison
+
 Compare marker positions between camera views for a specific trial:
 
 ```python
@@ -269,19 +283,20 @@ print(f"Mean position differences: {marker_differences}")
 ### Utility Methods
 
 #### Extract Marker Names from XMAlab Data
+
 Programmatically retrieve bodypart/marker names from XMAlab CSV files:
 
 ```python
 marker_names = deepxromm.get_bodyparts_from_xma(
     csv_path='/path/to/trial/data.csv',
-    mode='2D'  # Match your project's mode
+    mode='2D'  # Match your project's mode (you can do this via deepxromm with deepxromm.config["mode"])
 )
 print(f"Found markers: {marker_names}")
 ```
 
 **Parameters:**
 - `csv_path` (str): Path to XMAlab 2D points CSV file
-- `mode` (str): Must match your project mode (`'2D'`, `'per_cam'`, or `'rgb'`)
+- `mode` (str): Should match your project mode (`'2D'`, `'per_cam'`, or `'rgb'`), but can be any valid mode
 
 **Returns:** List of marker names found in the CSV file
 

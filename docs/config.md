@@ -1,4 +1,4 @@
-# SDLC_XMALab Config File Reference
+# DeepXROMM Config File Reference
 ## Project Settings
 **task**: The animal/behavior you’re trying to study. Pulled from the name given to your project folder  
 **experimenter**: Your initials  
@@ -7,14 +7,14 @@
 **dataset_name**: An arbitary name for your dataset. Used when generating training data for DeepLabCut, which can be found in the `labeled-data` folder inside of your DLC project folder. 
 
 ## Neural Network Customization
-**nframes**: The number of frames of video that you tracked before giving the network to DeepLabCut. Automatically determined from CSVs if set to 0  
-**max_iters**: The maximum number of iterations to train the network for before automatically stopping training. Default is 150,000  
-**tracking_threshold**: Fraction of the total video frames to include in the training sample. Used to warn if the network detects too many/too few frames when extracting frames to be passed to the network  
-**mode**: Determines the mode that sdlc_xmalab will attempt to train your network with:  
+**nframes**: The number of frames of video that you tracked before giving the network to DeepLabCut. **Default:** 0 (automatically determined from CSVs)  
+**maxiters**: The maximum number of iterations to train the network for before automatically stopping training. **Default:** 150,000  
+**tracking_threshold**: Fraction of the total video frames to include in the training sample. Used to warn if the network detects too many/too few frames when extracting frames to be passed to the network. **Default:** 0.1  
+**mode**: Determines how DeepXROMM structures your training data and neural networks. **Default:** `2D`
 
-- **2D** - cam1 and cam2 will both be passed to the network from their respective video files  
-- **per_cam** - cam1 and cam2 have their own networks
-- **rgb** - cam1 and cam2 will be merged into an RGB video, with cam1 as the red channel, cam2 as the green channel, and a blank frame as the blue channel  
+- **2D** - Combines both camera views into a single DeepLabCut project with shared bodypart names. Both cameras train together in one network.
+- **per_cam** - Creates separate DeepLabCut projects and networks for cam1 and cam2. Each camera trains independently.
+- **rgb** - Merges cam1 and cam2 into a single RGB video (cam1 → red channel, cam2 → green channel, blank → blue channel). Bodyparts are labeled with camera suffixes (e.g., "marker_cam1", "marker_cam2").  
 
 > **Deprecation Notice**: The `tracking_mode` key is deprecated as of version 0.2.5 and will be removed in version 1.0. 
 > Existing configs using `tracking_mode` will be automatically migrated to `mode` when loaded. 
@@ -23,6 +23,43 @@
 **swapped_markers**: Set to ‘true’ to create artificial markers with swapped y coordinates (y coordinates of swapped-cam1 will be cam2’s y coordinates). Only valid for the rgb mode  
 **crossed_markers**: Set to ‘true’ to create artificial markers that are the result of multiplying the x/y positions of cam1 and cam2 together (cx_cam1_cam2_x = cam1_x * cam2_x). Only valid for the rgb mode.  
 
+
+## Video Codec Settings
+**video_codec**: Specifies the video codec used for all video operations including video conversion, RGB splitting/merging, and test video generation. **Default:** `avc1`
+
+**Available options:**
+
+- `avc1` - H.264 codec, provides good balance of quality and compatibility
+- `XVID` - Xvid MPEG-4 codec
+- `DIVX` - DivX MPEG-4 codec
+- `mp4v` - MPEG-4 Part 2 codec
+- `MJPG` - Motion JPEG codec
+- `uncompressed` - No compression (very large file sizes)
+
+> **⚠️ Warning:** Codec availability depends on your OpenCV build and operating system. DeepXROMM will raise a `RuntimeError` if the specified codec is not available on your system.
+
+**When this setting is used:**
+
+- Creating RGB videos in `rgb` mode
+- Splitting RGB videos with `split_rgb()` method
+- Any video conversion operations during testing
+- Frame extraction for training
+
+## Video Similarity Analysis
+**cam1s_are_the_same_view**: Controls assumptions made during project-level video similarity analysis. **Default:** `true`
+
+**Values:**
+- `true` - Assumes all cam1 videos across trials capture the same view, and all cam2 videos capture the same view. Analysis compares cam1 across trials and cam2 across trials.
+- `false` - Assumes cam1 and cam2 capture different subjects or completely different experimental setups across trials.
+
+**When this setting matters:**
+- `analyze_video_similarity_project()` - Uses this setting to determine comparison strategy
+- `analyze_marker_similarity_project()` - Applies similar assumptions to marker trajectory analysis
+
+> **Note:** This setting does NOT affect trial-level analysis methods (`analyze_video_similarity_trial()`, `analyze_marker_similarity_trial()`), which always compare cam1 vs cam2 within a single trial.
+
+**Cross-reference:** See [Advanced Analysis Methods](usage.md#advanced-analysis-methods) in the usage guide for detailed information about video and marker similarity analysis.
+`
 ## Image Processing
 **search_area**: The area, in pixels, around which autocorrect() will search for a marker. The minimum is 10, the default is 15.  
 **threshold**: Grayscale value for image thresholding. Pixels with a value above this number are turned black, while pixels with a value below this number are turned <span style="color:white;background-color:black;">white</span>. The default is 8 (grayscale values range from 0=black to 255=white).  
