@@ -2,8 +2,6 @@
 There are two ways to use this package. You can either:
 
 1. Follow the usage guide below to run everything locally.
-1. Use the colab_tutorial.ipynb [Jupyter Notebook](https://drive.google.com/drive/folders/1X91DYNbcu4_tV1FMvF-28XB7p7SS-MBt) and an online computing platform like [Google Colab](https://colab.research.google.com/)
-    1. If you are using this option, be sure to make a copy of the notebook before using it so that you can save your changes!
 
 ## Getting started and creating a new project
 1. If you haven't already, follow the steps in the [installation guide](install.md) to install this package!
