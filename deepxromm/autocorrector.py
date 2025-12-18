@@ -87,7 +87,8 @@ class Autocorrector:
 
         for frame_index in range(int(video.get(cv2.CAP_PROP_FRAME_COUNT))):
             # Load frame
-            print(f"Current Frame: {frame_index + 1}")
+            if frame_index % 50 == 0:
+                print(f"Current Frame: {frame_index + 1}")
             ret, frame = video.read()
             if ret is False:
                 raise IOError("Error reading video frame")
