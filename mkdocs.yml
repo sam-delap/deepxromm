@@ -1,4 +1,4 @@
-site_name: DeepLabCut integration for XROMM (DeepXROMM) Docs
+site_name: DeepLabCut Integration for XROMM (DeepXROMM) Docs
 site_url: https://sam-delap.github.io/deepxromm/
 nav:
   - Home: index.md

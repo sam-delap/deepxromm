@@ -1,12 +1,13 @@
 # Installation Guide
 ## Prerequisites
-1. A recent version of python. These docs were built using python 3.9.16
-2. If you're running locally, you'll also need DeepLabCut's [dependencies](https://deeplabcut.github.io/DeepLabCut/docs/installation.html)
+1. **Python 3.10** (tested and known to work with DeepXROMM)
+
+> **Note:** DeepXROMM depends on DeepLabCut, which requires Python 3.10+. 
 
 ## Creating a conda environment
 Run the following command
 ```bash
-conda create -n your-env-name python=your-py-version
+conda create -n your-env-name python=3.10
 ```
 
 ## Installing Python dependencies
@@ -22,3 +23,5 @@ conda create -n your-env-name python=your-py-version
     ```bash
     pip install deepxromm
     ```
+
+> **Note:** The `[cli]` optional dependency adds IPython for interactive use, but all core functionality works with the base package.
