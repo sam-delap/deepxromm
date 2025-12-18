@@ -466,7 +466,8 @@ Note: Codec availability depends on your OpenCV build and system codecs.
         i = 1
         while rgb_video.isOpened():
             ret, frame = rgb_video.read()
-            print(f"Current Frame: {i}")
+            if i == 1 or i % 50 == 0:
+                print(f"Current Frame: {i}")
             i = i + 1
             if ret:
                 B, G, R = cv2.split(frame)
@@ -567,7 +568,8 @@ Note: Codec availability depends on your OpenCV build and system codecs.
 
         i = 1
         while cam1_video.isOpened():
-            print(f"Current Frame: {i}")
+            if i == 1 or i % 50 == 0:
+                print(f"Current Frame: {i}")
             ret_cam1, frame_cam1 = cam1_video.read()
             _, frame_cam2 = cam2_video.read()
             if ret_cam1:

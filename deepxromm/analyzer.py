@@ -290,7 +290,8 @@ class Analyzer:
         hashes = []
         print("Creating hashes for video")
         for i in range(video_frames):
-            print(f"Current frame: {i}")
+            if i % 50 == 0:
+                print(f"Current frame: {i}")
             ret, frame = video.read()
             if not ret:
                 # Should this throw an error?
