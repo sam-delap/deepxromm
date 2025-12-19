@@ -238,6 +238,5 @@ class TestAutocorrectErrorHandling(unittest.TestCase):
 
     def tearDown(self):
         """Remove the created temp project"""
-        project_path = Path.cwd() / "tmp_error_test"
-        if project_path.exists():
-            shutil.rmtree(project_path)
+        if self.working_dir.exists():
+            shutil.rmtree(self.working_dir)
