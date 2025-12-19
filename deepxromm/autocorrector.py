@@ -30,9 +30,11 @@ class Autocorrector:
         self._data_processor = XMADataProcessor(config)
         self._config = config
         self._dlc_config_path = Path(config["path_config_file"])
+        self._skip_stats = {}  # Track skipped markers: {trial_name: count}
 
     def autocorrect_trials(self):
         """Do XMAlab-style autocorrect on the tracked beads for all trials"""
+        self._skip_stats = {}  # Reset for each run
         trials = self._data_processor.list_trials()
 
         # Establish project vars
@@ -64,6 +66,9 @@ class Autocorrector:
             if not self._config["test_autocorrect"]:
                 print(f"Done! Saving to {out_name}")
                 csv.to_csv(out_name, index=False)
+
+        # Print summary report
+        self._print_skip_summary()
 
     def _autocorrect_video(self, cam, trial_path, csv):
         """Run the autocorrect function on a single video within a single trial"""
@@ -123,23 +128,43 @@ class Autocorrector:
 
             subimage = frame[y_start:y_end, x_start:x_end]
 
-            subimage_filtered = self._filter_image(
-                subimage,
-                self._config["krad"],
-                self._config["gsigma"],
-                self._config["img_wt"],
-                self._config["blur_wt"],
-                self._config["gamma"],
-            )
+            # Validate subimage before processing
+            if subimage.size == 0 or subimage.shape[0] == 0 or subimage.shape[1] == 0:
+                logger.warning(
+                    f"Empty subimage for marker '{part}' at ({x_float:.1f}, {y_float:.1f}) "
+                    f"in frame {frame_index} on {cam}. Skipping autocorrect."
+                )
+                self._increment_skip_count(trial_path.name)
+                continue
 
-            subimage_float = subimage_filtered.astype(np.float32)
-            radius = int(1.5 * 5 + 0.5)  # 5 might be too high
-            sigma = radius * math.sqrt(2 * math.log(255)) - 1
-            subimage_blurred = cv2.GaussianBlur(
-                subimage_float, (2 * radius + 1, 2 * radius + 1), sigma
-            )
+            try:
+                subimage_filtered = self._filter_image(
+                    subimage,
+                    self._config["krad"],
+                    self._config["gsigma"],
+                    self._config["img_wt"],
+                    self._config["blur_wt"],
+                    self._config["gamma"],
+                )
 
-            subimage_diff = subimage_float - subimage_blurred
+                subimage_float = subimage_filtered.astype(np.float32)
+                radius = int(1.5 * 5 + 0.5)  # 5 might be too high
+                sigma = radius * math.sqrt(2 * math.log(255)) - 1
+                subimage_blurred = cv2.GaussianBlur(
+                    subimage_float, (2 * radius + 1, 2 * radius + 1), sigma
+                )
+
+                subimage_diff = subimage_float - subimage_blurred
+            except cv2.error as e:
+                logger.warning(
+                    f"Skipping autocorrect for marker '{part}' in frame {frame_index} "
+                    f"on {cam} at ({x_float:.1f}, {y_float:.1f}) (main blur) "
+                    f"[subimage: {subimage.shape}]: {str(e)}"
+                )
+                self._increment_skip_count(trial_path.name)
+                continue
+
+            subimage_diff
             subimage_diff = cv2.normalize(
                 subimage_diff, None, 0, 255, cv2.NORM_MINMAX
             ).astype(np.uint8)
@@ -165,7 +190,15 @@ class Autocorrector:
             )
 
             # Gaussian blur
-            subimage_gaussthresh = cv2.GaussianBlur(subimage_threshold, (3, 3), 1.3)
+            try:
+                subimage_gaussthresh = cv2.GaussianBlur(subimage_threshold, (3, 3), 1.3)
+            except cv2.error as e:
+                logger.warning(
+                    f"Skipping autocorrect for marker '{part}' in frame {frame_index} "
+                    f"on {cam} at ({x_float:.1f}, {y_float:.1f}) (threshold blur): {str(e)}"
+                )
+                self._increment_skip_count(trial_path.name)
+                continue
 
             # Find contours
             contours, _ = cv2.findContours(
@@ -239,7 +272,11 @@ class Autocorrector:
         """Filter the image to make it easier to see the bead"""
         krad = krad * 2 + 1
         # Gaussian blur
-        image_blur = cv2.GaussianBlur(image, (krad, krad), gsigma)
+        try:
+            image_blur = cv2.GaussianBlur(image, (krad, krad), gsigma)
+        except cv2.error as e:
+            logger.warning(f"GaussianBlur failed in filter_image: {str(e)}")
+            return image  # Return original unchanged
         # Add to original
         image_blend = cv2.addWeighted(image, img_wt, image_blur, blur_wt, 0)
         lut = np.array([((i / 255.0) ** gamma) * 255.0 for i in range(256)])
@@ -285,3 +322,26 @@ class Autocorrector:
             )
         plt.imshow(image)
         plt.show()
+
+    def _increment_skip_count(self, trial_name):
+        """Track skipped marker for summary reporting"""
+        if trial_name not in self._skip_stats:
+            self._skip_stats[trial_name] = 0
+        self._skip_stats[trial_name] += 1
+
+    def _print_skip_summary(self):
+        """Print summary of skipped markers during autocorrection"""
+        total_skipped = sum(self._skip_stats.values())
+
+        if total_skipped == 0:
+            return  # Silent when no issues
+
+        print("\n=== Autocorrect Summary ===")
+        print(f"Total markers skipped: {total_skipped}")
+
+        if len(self._skip_stats) > 0:
+            print("Breakdown by trial:")
+            for trial_name, count in self._skip_stats.items():
+                print(f"  - {trial_name}: {count} marker(s) skipped")
+
+        print("Check autocorrecter.log for details")
