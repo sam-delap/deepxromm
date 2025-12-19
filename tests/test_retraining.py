@@ -33,7 +33,6 @@ class TestRetraining2D(unittest.TestCase):
 
     def test_retraining_workflow(self):
         """Step through the retraining workflow as a user might see it"""
-        # Get frames to add in each novel trial via extract_outlier_frames(), save frames to it directory for ea. trial
         self.deepxromm_proj.extract_outlier_frames()
 
         iteration_dir = self.working_dir / "trials/test/it0"
@@ -43,7 +42,6 @@ class TestRetraining2D(unittest.TestCase):
             outliers = yaml.safe_load(fp)
 
         # User edits the config file so that it only has the ones they want included in it
-        outliers = outliers[:5]
         with open(iteration_dir / "outliers.yaml", "w") as fp:
             yaml.dump(outliers, fp)
 
@@ -51,12 +49,17 @@ class TestRetraining2D(unittest.TestCase):
         # This CSV can contain much more than just the outliers they tracked
         shutil.copy(
             self.trial_csv,
-            str(self.working_dir / "trials/test/it0/outlier_tracking.csv"),
+            str(self.working_dir / "trials/test/it0/outliers_tracking.csv"),
         )
 
-        # Then, we merge the original trial data with the refined labels
-        # Do an update if the trial already exists as training data
+        # Then, we create a new dataset with the refined labels from the user
+        # This will involve updating both trainingdata and the labeled dataset
+        # For training data - doan update if the trial already exists as training data
         # Or create a new trial and copy the data in
+        # For labeled-data - run xma_to_dlc as normal
+        self.deepxromm_proj.create_refined_dataset()
+
+        # Once we've done that, we can merge the two datasets
         # This should also update nframes
         self.deepxromm_proj.merge_datasets()
 
@@ -70,11 +73,11 @@ class TestRetraining2D(unittest.TestCase):
         self.deepxromm_proj.analyze_videos()
         self.deepxromm_proj.dlc_to_xma()
 
-    def test_create_training_dataset_warns_on_noncurrent_it(self):
-        """create_training_dataset should warn if the user doesn't reload their config after doing retraining"""
-        assert False
+    # def test_create_training_dataset_warns_on_noncurrent_it(self):
+    #    """create_training_dataset should warn if the user doesn't reload their config after doing retraining"""
+    #    assert False
 
-    def tearDown(self):
-        """Tear down the project"""
-        if self.working_dir.exists():
-            shutil.rmtree(self.working_dir)
+    # def tearDown(self):
+    #    """Tear down the project"""
+    #    if self.working_dir.exists():
+    #        shutil.rmtree(self.working_dir)

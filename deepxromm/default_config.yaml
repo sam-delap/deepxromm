@@ -33,3 +33,8 @@ cam1s_are_the_same_view: true
 # Codec availability depends on your OpenCV build and system
 # Common options: "avc1" (H.264), "DIVX", "XVID", "mp4v", "MJPG", "uncompressed"
 video_codec: "avc1"  # Codec for all video operations (split, merge, tests)
+
+# Retraining/augmentation settings
+augmenter:
+  outlier_algorithm: "jump" # Outlier algorithm for DLC to detect outliers
+  extraction_algorithm: "kmeans" # Extraction algorithm for DLC to extract outliers
