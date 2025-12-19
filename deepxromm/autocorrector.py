@@ -118,8 +118,8 @@ class Autocorrector:
             )
         for part in parts_unique:
             # Find point and offsets
-            x_float = csv.loc[frame_index, part + "_" + cam + "_X"]
-            y_float = csv.loc[frame_index, part + "_" + cam + "_Y"]
+            x_float = csv.loc[frame_index, f"{part}_{cam}_X"]
+            y_float = csv.loc[frame_index, f"{part}_{cam}_Y"]
             search_area_with_offset = self._config["search_area"] + 0.5
             x_start = int(x_float - search_area_with_offset)
             y_start = int(y_float - search_area_with_offset)
@@ -132,7 +132,7 @@ class Autocorrector:
             if subimage.size == 0 or subimage.shape[0] == 0 or subimage.shape[1] == 0:
                 logger.warning(
                     f"Empty subimage for marker '{part}' at ({x_float:.1f}, {y_float:.1f}) "
-                    f"in frame {frame_index} on {cam}. Skipping autocorrect."
+                    f"in frame {frame_index + 1} on {cam}. Skipping autocorrect."
                 )
                 self._increment_skip_count(trial_path.name)
                 continue
@@ -157,7 +157,7 @@ class Autocorrector:
                 subimage_diff = subimage_float - subimage_blurred
             except cv2.error as e:
                 logger.warning(
-                    f"Skipping autocorrect for marker '{part}' in frame {frame_index} "
+                    f"Skipping autocorrect for marker '{part}' in frame {frame_index + 1} "
                     f"on {cam} at ({x_float:.1f}, {y_float:.1f}) (main blur) "
                     f"[subimage: {subimage.shape}]: {str(e)}"
                 )
@@ -264,6 +264,10 @@ class Autocorrector:
                 detected_center, _ = cv2.minEnclosingCircle(contours[best_index])
                 csv.loc[frame_index, part + "_" + cam + "_X"] = detected_center[0]
                 csv.loc[frame_index, part + "_" + cam + "_Y"] = detected_center[1]
+            else:
+                print(
+                    f"Couldn't find better contour for {part} in {cam} video at {frame_index + 1} frame"
+                )
         return csv
 
     def _filter_image(

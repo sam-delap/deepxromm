@@ -97,7 +97,10 @@ class TestAutocorrectErrorHandling(unittest.TestCase):
         for cam in ["cam1", "cam2"]:
             video_path = self.working_dir / f"trials/test/test_{cam}.avi"
             out = cv2.VideoWriter(
-                str(video_path), cv2.VideoWriter_fourcc(*"DIVX"), 30, (1024, 512)
+                str(video_path),
+                cv2.VideoWriter_fourcc(*DEEPXROMM_TEST_CODEC),
+                30,
+                (1024, 512),
             )
             out.write(frame)
             out.release()
@@ -131,8 +134,11 @@ class TestAutocorrectErrorHandling(unittest.TestCase):
         self.assertAlmostEqual(output_csv.loc[0, "bead1_cam1_Y"], 5.0, places=1)
 
         # bead2 and bead3 should be processed (may change from autocorrection)
-        # Just verify they exist
+        # Verify that bead 2 has changed
         self.assertIn("bead2_cam1_X", output_csv.columns)
+        assert round(output_csv.loc[0, "bead2_cam1_X"], 1) != 512.0
+
+        # Verify that bead3 is also in the output
         self.assertIn("bead3_cam1_X", output_csv.columns)
 
     def test_autocorrect_skips_marker_on_empty_subimage_in_threshold_blur(self):
