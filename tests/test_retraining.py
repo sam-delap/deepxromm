@@ -42,6 +42,47 @@ def generic_nframes_not_updated_when_false(
     return deepxromm_proj.config["nframes"] == 5
 
 
+def generic_test_retraining_workflow(
+    deepxromm_proj: DeepXROMM, working_dir: Path, trial_csv: Path
+):
+    """Generic implementation of the retraining workflow that can be used across all 3 project modes"""
+    deepxromm_proj.extract_outlier_frames()
+
+    iteration_dir = working_dir / "trials/test/it0"
+
+    # User finds config file with outlier frames, extracts the ones they want to include
+    with open(iteration_dir / "outliers.yaml", "r") as fp:
+        outliers = yaml.safe_load(fp)
+
+    # User edits the config file so that it only has the ones they want included in it
+    outliers = outliers[:5]
+    with open(iteration_dir / "outliers.yaml", "w") as fp:
+        yaml.dump(outliers, fp)
+
+    # User deposits an XMAlab-formatted CSV with the word 'outliers' in it into the 'it#' folder
+    # This CSV can contain much more than just the outliers they tracked
+    shutil.copy(
+        trial_csv,
+        str(working_dir / "trials/test/it0/outliers_tracking.csv"),
+    )
+
+    # Merge the outliers into the user's existing dataset
+    deepxromm_proj.merge_datasets()
+
+    # Encourage the user to reload their config with all of the updates... warn them if they don't do this
+    deepxromm_proj = DeepXROMM.load_project(working_dir)
+
+    # Check that nframes matches our expectations (5 initial frames + 5 outlier frames = 10 total frames)
+    assert deepxromm_proj.config["nframes"] == 10
+
+    # Go through the rest of the retraining workflow
+    deepxromm_proj.xma_to_dlc()
+    deepxromm_proj.create_training_dataset()
+    deepxromm_proj.train_network()
+    deepxromm_proj.analyze_videos()
+    deepxromm_proj.dlc_to_xma()
+
+
 class TestRetraining2D(unittest.TestCase):
     """Test retraining on a 2D project"""
 
@@ -70,47 +111,9 @@ class TestRetraining2D(unittest.TestCase):
 
     def test_retraining_workflow(self):
         """Step through the retraining workflow as a user might see it"""
-        self.deepxromm_proj.extract_outlier_frames()
-
-        iteration_dir = self.working_dir / "trials/test/it0"
-        # User finds config file with outlier frames, extracts the ones they want to include
-        # For this test, we'll only open the merged outliers file, but ones do exist for each camera
-        with open(iteration_dir / "outliers.yaml", "r") as fp:
-            outliers = yaml.safe_load(fp)
-
-        # User edits the config file so that it only has the ones they want included in it
-        outliers = outliers[:5]
-        with open(iteration_dir / "outliers.yaml", "w") as fp:
-            yaml.dump(outliers, fp)
-
-        # User deposits an XMAlab-formatted CSV with the word 'outliers' in it into the 'it#' folder
-        # This CSV can contain much more than just the outliers they tracked
-        shutil.copy(
-            self.trial_csv,
-            str(self.working_dir / "trials/test/it0/outliers_tracking.csv"),
+        generic_test_retraining_workflow(
+            self.deepxromm_proj, self.working_dir, self.trial_csv
         )
-
-        # Then, we create a new dataset with the outliers from the user
-        # This will involve updating the folders in trainingdata
-        # For training data - do an update if the trial already exists as training data
-        # Or create a new trial and copy the data in
-        # This should also update nframes to include the outlier data
-        # And iteration to prepare for a new iteration of data collection
-        self.deepxromm_proj.merge_datasets()
-
-        # Encourage the user to reload their config with all of the updates
-        # This should warn if they don't do this
-        self.deepxromm_proj = DeepXROMM.load_project(self.working_dir)
-
-        # Check that nframes matches our expectations (5 initial frames + 5 outlier frames = 10 total frames)
-        assert self.deepxromm_proj.config["nframes"] == 10
-
-        # Go through the rest of the retraining workflow
-        self.deepxromm_proj.xma_to_dlc()
-        self.deepxromm_proj.create_training_dataset()
-        self.deepxromm_proj.train_network()
-        self.deepxromm_proj.analyze_videos()
-        self.deepxromm_proj.dlc_to_xma()
 
     def test_nframes_not_updated_when_false(self):
         """Given update_nframes is set to False, when the user runs merge_datasets, nframes in config is not updated"""
@@ -156,78 +159,9 @@ class TestRetrainingPerCam(unittest.TestCase):
 
     def test_retraining_workflow(self):
         """Step through the retraining workflow as a user might see it"""
-        self.deepxromm_proj.extract_outlier_frames()
-
-        iteration_dir = self.working_dir / "trials/test/it0"
-        # User finds config file with outlier frames, extracts the ones they want to include
-        # For this test, we'll only open the merged outliers file, but ones do exist for each camera
-        with open(iteration_dir / "outliers.yaml", "r") as fp:
-            outliers = yaml.safe_load(fp)
-
-        # User edits the config file so that it only has the ones they want included in it
-        outliers = outliers[:5]
-        with open(iteration_dir / "outliers.yaml", "w") as fp:
-            yaml.dump(outliers, fp)
-
-        # User deposits an XMAlab-formatted CSV with the word 'outliers' in it into the 'it#' folder
-        # This CSV can contain much more than just the outliers they tracked
-        shutil.copy(
-            self.trial_csv,
-            str(self.working_dir / "trials/test/it0/outliers_tracking.csv"),
+        generic_test_retraining_workflow(
+            self.deepxromm_proj, self.working_dir, self.trial_csv
         )
-
-        # Then, we create a new dataset with the outliers from the user
-        # This will involve updating the folders in trainingdata
-        # For training data - do an update if the trial already exists as training data
-        # Or create a new trial and copy the data in
-        # This should also update nframes to include the outlier data
-        # And iteration to prepare for a new iteration of data collection
-        self.deepxromm_proj.merge_datasets()
-
-        # Encourage the user to reload their config with all of the updates
-        # This should warn if they don't do this
-        self.deepxromm_proj = DeepXROMM.load_project(self.working_dir)
-
-        # Check that nframes matches our expectations (5 initial frames + 5 outlier frames = 10 total frames)
-        assert self.deepxromm_proj.config["nframes"] == 10
-
-        # Go through the rest of the retraining workflow
-        self.deepxromm_proj.xma_to_dlc()
-        self.deepxromm_proj.create_training_dataset()
-        self.deepxromm_proj.train_network()
-        self.deepxromm_proj.analyze_videos()
-        self.deepxromm_proj.dlc_to_xma()
-
-    def test_nframes_not_updated_when_false(self):
-        """Given update_nframes is set to False, when the user runs merge_datasets, nframes in config is not updated"""
-        self.deepxromm_proj.extract_outlier_frames()
-
-        iteration_dir = self.working_dir / "trials/test/it0"
-        # User finds config file with outlier frames, extracts the ones they want to include
-        # For this test, we'll only open the merged outliers file, but ones do exist for each camera
-        with open(iteration_dir / "outliers.yaml", "r") as fp:
-            outliers = yaml.safe_load(fp)
-
-        # User edits the config file so that it only has the ones they want included in it
-        outliers = outliers[:5]
-        with open(iteration_dir / "outliers.yaml", "w") as fp:
-            yaml.dump(outliers, fp)
-
-        # User deposits an XMAlab-formatted CSV with the word 'outliers' in it into the 'it#' folder
-        # This CSV can contain much more than just the outliers they tracked
-        shutil.copy(
-            self.trial_csv,
-            str(self.working_dir / "trials/test/it0/outliers_tracking.csv"),
-        )
-
-        self.deepxromm_proj.merge_datasets(update_nframes=False)
-
-        # Encourage the user to reload their config with all of the updates
-        # This should warn if they don't do this
-        self.deepxromm_proj = DeepXROMM.load_project(self.working_dir)
-
-        # Check that nframes matches our expectations (5 initial frames)
-        assert self.deepxromm_proj.config["nframes"] == 5
 
     def test_nframes_not_updated_when_false(self):
         """Given update_nframes is set to False, when the user runs merge_datasets, nframes in config is not updated"""
@@ -272,47 +206,9 @@ class TestRetrainingRGB(unittest.TestCase):
 
     def test_retraining_workflow(self):
         """Step through the retraining workflow as a user might see it"""
-        self.deepxromm_proj.extract_outlier_frames()
-
-        iteration_dir = self.working_dir / "trials/test/it0"
-        # User finds config file with outlier frames, extracts the ones they want to include
-        # For this test, we'll only open the merged outliers file, but ones do exist for each camera
-        with open(iteration_dir / "outliers.yaml", "r") as fp:
-            outliers = yaml.safe_load(fp)
-
-        # User edits the config file so that it only has the ones they want included in it
-        outliers = outliers[:5]
-        with open(iteration_dir / "outliers.yaml", "w") as fp:
-            yaml.dump(outliers, fp)
-
-        # User deposits an XMAlab-formatted CSV with the word 'outliers' in it into the 'it#' folder
-        # This CSV can contain much more than just the outliers they tracked
-        shutil.copy(
-            self.trial_csv,
-            str(self.working_dir / "trials/test/it0/outliers_tracking.csv"),
+        generic_test_retraining_workflow(
+            self.deepxromm_proj, self.working_dir, self.trial_csv
         )
-
-        # Then, we create a new dataset with the outliers from the user
-        # This will involve updating the folders in trainingdata
-        # For training data - do an update if the trial already exists as training data
-        # Or create a new trial and copy the data in
-        # This should also update nframes to include the outlier data
-        # And iteration to prepare for a new iteration of data collection
-        self.deepxromm_proj.merge_datasets()
-
-        # Encourage the user to reload their config with all of the updates
-        # This should warn if they don't do this
-        self.deepxromm_proj = DeepXROMM.load_project(self.working_dir)
-
-        # Check that nframes matches our expectations (5 initial frames + 5 outlier frames = 10 total frames)
-        assert self.deepxromm_proj.config["nframes"] == 10
-
-        # Go through the rest of the retraining workflow
-        self.deepxromm_proj.xma_to_dlc()
-        self.deepxromm_proj.create_training_dataset()
-        self.deepxromm_proj.train_network()
-        self.deepxromm_proj.analyze_videos()
-        self.deepxromm_proj.dlc_to_xma()
 
     def test_nframes_not_updated_when_false(self):
         """Given update_nframes is set to False, when the user runs merge_datasets, nframes in config is not updated"""
