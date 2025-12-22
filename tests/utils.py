@@ -1,4 +1,3 @@
-import unittest
 import os
 from pathlib import Path
 import yaml
@@ -44,3 +43,9 @@ def set_up_project(project_dir: Path, mode: str):
     deepxromm_proj = DeepXROMM.load_project(project_dir)
 
     return trial_csv, deepxromm_proj
+
+
+def tear_down_project(working_dir: Path):
+    """Helper function for tearing down a project"""
+    if working_dir.exists():
+        shutil.rmtree(working_dir)

@@ -236,24 +236,22 @@ Note: Codec availability depends on your OpenCV build and system codecs.
         for path_to_trial in trials:
             self._merge_rgb(path_to_trial)
 
-    def xma_to_dlc_rgb(self, suffix: str):
+    def xma_to_dlc_rgb(self, suffix: str, picked_frames: list[int]):
         """Convert XMAlab input into RGB-ready DLC input"""
         trials = self.list_trials(suffix=suffix)
-        for trial_path in trials:
-            df = pd.read_csv(self.find_trial_csv(trial_path))
+        for idx, trial_path in enumerate(trials):
+            list_of_frames = picked_frames[idx]
             substitute_data_relpath = (
                 Path("labeled-data") / self._config["dataset_name"]
             )
             dlc_config_path = Path(self._config["path_config_file"])
             substitute_data_abspath = dlc_config_path / substitute_data_relpath
-            df = df.dropna(how="all")
-            list_of_frames = df.index + 1
             self._extract_matched_frames_rgb(
                 trial_path,
                 substitute_data_abspath,
                 list_of_frames,
             )
-            self._splice_xma_to_dlc(trial_path)
+            self._splice_xma_to_dlc(trial_path, list_of_frames)
 
     def find_cam_file(self, path: Path, identifier: str):
         """Searches a file for a given cam video in the trail folder."""
@@ -620,7 +618,9 @@ Note: Codec availability depends on your OpenCV build and system codecs.
         cv2.destroyAllWindows()
         print(f"Merged RGB video created at {trial_path}/{trial_name}_rgb.avi!")
 
-    def _splice_xma_to_dlc(self, trial_path: Path, outlier_mode=False):
+    def _splice_xma_to_dlc(
+        self, trial_path: Path, list_of_frames: list[int], outlier_mode=False
+    ):
         """Takes csv of XMALab 2D XY coordinates from 2 cameras, outputs spliced hdf+csv data for DeepLabCut"""
         dlc_path = Path(self._config["path_config_file"]).parent
         trial_name = trial_path.name
@@ -630,15 +630,8 @@ Note: Codec availability depends on your OpenCV build and system codecs.
         trial_csv_path = self.find_trial_csv(trial_path)
         markers = self.get_bodyparts_from_xma(trial_csv_path, mode="2D")
 
-        # TODO: this entire section can be solved with a creative call to
-        # get_bodyparts_from_xma and some dataFrame manipulation to be
-        # significantly shorter (and potentially faster?)
-        try:
-            df = pd.read_csv(trial_csv_path)
-        except FileNotFoundError as e:
-            raise FileNotFoundError(
-                f"Cannot find your trainingdata 2DPoints csv file is named .csv"
-            ) from e
+        # Add salt to the training data, if desired
+        df = pd.read_csv(trial_csv_path)
         if self._swap_markers:
             print("Creating cam1Y-cam2Y-swapped synthetic markers")
             swaps = []
@@ -679,7 +672,7 @@ Note: Codec availability depends on your OpenCV build and system codecs.
         parts_final = [name.rsplit("_", 1)[0] for name in names_final]
         parts_unique_final = []
         for part in parts_final:
-            if not part in parts_unique_final:
+            if part not in parts_unique_final:
                 parts_unique_final.append(part)
         print("Importing markers: ")
         print(parts_unique_final)
@@ -691,8 +684,6 @@ Note: Codec availability depends on your OpenCV build and system codecs.
         with open(self._config["path_config_file"], "w") as dlc_config:
             yaml.dump(dlc_proj, dlc_config, sort_keys=False)
 
-        df = df.dropna(how="all")
-        list_of_frames = df.index + 1
         unique_frames_set = set(list_of_frames)
 
         # Ensure that all frames were unique originally
@@ -701,11 +692,13 @@ Note: Codec availability depends on your OpenCV build and system codecs.
         unique_frames = sorted(unique_frames_set)
         print("Importing frames: ")
         print(unique_frames)
+        # Cut data down to just the frames that we've picked
+        df = df.loc[unique_frames, :]
         df["frame_index"] = [
             str(
                 (
                     substitute_data_abspath
-                    / f"{trial_name}_rgb_{str(index).zfill(4)}.png"
+                    / f"{trial_name}_rgb_{str(index + 1).zfill(4)}.png"
                 ).relative_to(dlc_path)
             )
             for index in unique_frames
@@ -759,11 +752,11 @@ Note: Codec availability depends on your OpenCV build and system codecs.
         video_path = trainingdata_path / trial_name / f"{trial_name}_rgb.avi"
         dlc_path = Path(self._config["path_config_file"]).parent
         labeled_data_path = dlc_path / "labeled-data" / self._config["dataset_name"]
-        # Convert 1-indexed frame numbers to 0-indexed for new method
-        zero_indexed_frames = [idx - 1 for idx in indices]
+        if len(indices) < int(self._config["nframes"]):
+            raise ValueError("nframes is bigger than number of detected frames")
         frames_from_vid = self.extract_frames_from_video(
             source_path=video_path,
-            frame_indices=zero_indexed_frames,
+            frame_indices=indices,
             output_dir=labeled_data_path,
             output_name_base=video_path.parent.name,  # Gets trial name from filename
             mode="rgb",

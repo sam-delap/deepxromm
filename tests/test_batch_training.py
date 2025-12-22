@@ -5,7 +5,6 @@ Test of the 'train_many_projects' batch training pipeline
 import unittest
 import os
 from pathlib import Path
-import yaml
 import shutil
 
 from deepxromm import DeepXROMM

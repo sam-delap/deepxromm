@@ -80,7 +80,7 @@ class DeepXROMM:
 
     def merge_datasets(self, **kwargs):
         """Create a refined dataset that includes the data collected from the outliers in outliers.yaml for each trial"""
-        self._augmenter.merge_datasets()
+        self._augmenter.merge_datasets(**kwargs)
 
     def autocorrect_trials(self):
         """Do XMAlab-style autocorrect on the tracked beads for all trials"""

@@ -45,6 +45,7 @@ dev = [
     "pre-commit>=4.3.0",
     "pytest>=8.4.2",
     "pytest-cov>=7.0.0",
+    "ruff>=0.14.10",
 ]
 
 [tool.setuptools.package-data]
