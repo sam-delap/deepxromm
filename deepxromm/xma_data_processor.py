@@ -1,6 +1,7 @@
-"""Converts data from XMALab into the format useful for DLC training."""
+"""
+Standardized data format conversion for deepxromm projects
+"""
 
-import logging
 import tempfile
 from pathlib import Path
 
@@ -15,9 +16,7 @@ import random
 import yaml
 
 from deepxromm.xrommtools import dlc_to_xma
-
-logger = logging.getLogger()
-logger.setLevel(logging.INFO)
+from deepxromm.logging import logger
 
 
 class XMADataProcessor:
@@ -82,7 +81,7 @@ class XMADataProcessor:
         df.columns = bodyparts_xy
         df = df.drop(index="coords")
         df.to_csv(xma_csv_path, index=False)
-        print(
+        logger.info(
             "Successfully split DLC format to XMALab 2D points; saved "
             + str(xma_csv_path)
         )
@@ -184,7 +183,7 @@ Note: Codec availability depends on your OpenCV build and system codecs.
             csv_path = list(trial_path.glob("*.csv"))
 
         if len(csv_path) > 1:
-            print(csv_path)
+            logger.error(csv_path)
             raise FileExistsError(
                 f"Found more than 1 CSV file with identifier {identifier} for trial: {trial_path}"
             )
@@ -236,7 +235,7 @@ Note: Codec availability depends on your OpenCV build and system codecs.
         for path_to_trial in trials:
             self._merge_rgb(path_to_trial)
 
-    def xma_to_dlc_rgb(self, suffix: str, picked_frames: list[int]):
+    def xma_to_dlc_rgb(self, suffix: str, picked_frames: list[list[int]]):
         """Convert XMAlab input into RGB-ready DLC input"""
         trials = self.list_trials(suffix=suffix)
         for idx, trial_path in enumerate(trials):
@@ -259,7 +258,7 @@ Note: Codec availability depends on your OpenCV build and system codecs.
         logger.debug(files)
         if files:
             result = files[0]
-            print(f"Found file {result} for {identifier}")
+            logger.debug(f"Found file {result} for {identifier}")
             return files[0]
         else:
             raise FileNotFoundError(
@@ -344,7 +343,7 @@ Note: Codec availability depends on your OpenCV build and system codecs.
         try:
             rgb_video = cv2.VideoCapture(rgb_video_path)
         except FileNotFoundError as e:
-            print(f"Couldn't find video at {rgb_video_path}")
+            logger.error(f"Couldn't find video at {rgb_video_path}")
             raise e
         frame_width = int(rgb_video.get(3))
         frame_height = int(rgb_video.get(4))
@@ -465,7 +464,7 @@ Note: Codec availability depends on your OpenCV build and system codecs.
         while rgb_video.isOpened():
             ret, frame = rgb_video.read()
             if i == 1 or i % 50 == 0:
-                print(f"Current Frame: {i}")
+                logger.info(f"Current Frame: {i}")
             i = i + 1
             if ret:
                 B, G, R = cv2.split(frame)
@@ -500,9 +499,9 @@ Note: Codec availability depends on your OpenCV build and system codecs.
             blue_channel.release()
         rgb_video.release()
         cv2.destroyAllWindows()
-        print(f"Cam1 grayscale video created at {trial_path}/{out_name}cam1.avi!")
-        print(f"Cam2 grayscale video created at {trial_path}/{out_name}cam2.avi!")
-        print(
+        logger.info(f"Cam1 grayscale video created at {trial_path}/{out_name}cam1.avi!")
+        logger.info(f"Cam2 grayscale video created at {trial_path}/{out_name}cam2.avi!")
+        logger.info(
             f"Blue channel grayscale video created at {trial_path}/{out_name}blue.avi!"
         )
 
@@ -518,11 +517,11 @@ Note: Codec availability depends on your OpenCV build and system codecs.
         if codec is None:
             codec = self._config.get("video_codec", "avc1")
 
-        print("Merging RGBs")
+        logger.info("Merging RGBs")
         trial_name = trial_path.name
         rgb_video_path = trial_path / f"{trial_name}_rgb.avi"
         if rgb_video_path.exists():
-            print("RGB video already created. Skipping.")
+            logger.warning("RGB video already created. Skipping.")
             return
         cam1_video_path = self.find_cam_file(trial_path, "cam1")
         cam1_video = cv2.VideoCapture(cam1_video_path)
@@ -567,7 +566,7 @@ Note: Codec availability depends on your OpenCV build and system codecs.
         i = 1
         while cam1_video.isOpened():
             if i == 1 or i % 50 == 0:
-                print(f"Current Frame: {i}")
+                logger.info(f"Current Frame: {i}")
             ret_cam1, frame_cam1 = cam1_video.read()
             _, frame_cam2 = cam2_video.read()
             if ret_cam1:
@@ -616,7 +615,7 @@ Note: Codec availability depends on your OpenCV build and system codecs.
         cam2_video.release()
         out.release()
         cv2.destroyAllWindows()
-        print(f"Merged RGB video created at {trial_path}/{trial_name}_rgb.avi!")
+        logger.info(f"Merged RGB video created at {trial_path}/{trial_name}_rgb.avi!")
 
     def _splice_xma_to_dlc(self, trial_path: Path, list_of_frames: list[int]):
         """Takes csv of XMALab 2D XY coordinates from 2 cameras, outputs spliced hdf+csv data for DeepLabCut"""
@@ -631,7 +630,7 @@ Note: Codec availability depends on your OpenCV build and system codecs.
         # Add salt to the training data, if desired
         df = pd.read_csv(trial_csv_path)
         if self._swap_markers:
-            print("Creating cam1Y-cam2Y-swapped synthetic markers")
+            logger.info("Creating cam1Y-cam2Y-swapped synthetic markers")
             swaps = []
             df_sw = pd.DataFrame()
             for marker in markers:
@@ -649,9 +648,9 @@ Note: Codec availability depends on your OpenCV build and system codecs.
                 df_sw[swap_name_y2] = df[name_y1]
                 swaps.extend([swap_name_x1, swap_name_y1, swap_name_x2, swap_name_y2])
             df = df.join(df_sw)
-            print(swaps)
+            logger.debug(swaps)
         if self._cross_markers:
-            print("Creating cam1-cam2-crossed synthetic markers")
+            logger.info("Creating cam1-cam2-crossed synthetic markers")
             crosses = []
             df_cx = pd.DataFrame()
             for marker in markers:
@@ -665,15 +664,15 @@ Note: Codec availability depends on your OpenCV build and system codecs.
                 df_cx[cross_name_y] = df[name_y1] * df[name_y2]
                 crosses.extend([cross_name_x, cross_name_y])
             df = df.join(df_cx)
-            print(crosses)
+            logger.debug(crosses)
         names_final = df.columns.values
         parts_final = [name.rsplit("_", 1)[0] for name in names_final]
         parts_unique_final = []
         for part in parts_final:
             if part not in parts_unique_final:
                 parts_unique_final.append(part)
-        print("Importing markers: ")
-        print(parts_unique_final)
+        logger.debug("Importing markers: ")
+        logger.debug(parts_unique_final)
         with open(self._config["path_config_file"], "r") as dlc_config:
             dlc_proj = yaml.safe_load(dlc_config)
 
@@ -688,8 +687,8 @@ Note: Codec availability depends on your OpenCV build and system codecs.
         assert len(list_of_frames) == len(unique_frames_set)
 
         unique_frames = sorted(unique_frames_set)
-        print("Importing frames: ")
-        print(unique_frames)
+        logger.debug("Importing frames: ")
+        logger.debug(unique_frames)
         # Cut data down to just the frames that we've picked
         df = df.loc[unique_frames, :]
         df["frame_index"] = [
@@ -726,12 +725,9 @@ Note: Codec availability depends on your OpenCV build and system codecs.
         newdf.to_hdf(tracked_hdf, "df_with_missing", format="table", mode="w")
         tracked_csv = tracked_hdf.with_suffix(".csv")
         newdf.to_csv(tracked_csv, na_rep="NaN")
-        print(
-            "Successfully spliced XMALab 2D points to DLC format",
-            f"saved {tracked_hdf}",
-            f"saved {tracked_csv}",
-            sep="\n",
-        )
+        logger.info("Successfully spliced XMALab 2D points to DLC format")
+        logger.info(f"HDF saved to: {tracked_hdf}")
+        logger.info(f"CSV saved to: {tracked_csv}")
 
     def _extract_matched_frames_rgb(
         self, trial_path, labeled_data_path, indices, compression=1
@@ -756,7 +752,7 @@ Note: Codec availability depends on your OpenCV build and system codecs.
             compression=compression,
         )
         extracted_frames.append(frames_from_vid)
-        print("Extracted " + str(len(indices)) + f" matching frames from {video_path}")
+        logger.info(f"Extracted {len(indices)} matching frames from {video_path}")
 
     def _extract_frame_selection_loop(self, idx: list, nframes: int):
         """Extract the existing frame selection algorithm (preserve existing algorithm)
@@ -909,7 +905,8 @@ Note: Codec availability depends on your OpenCV build and system codecs.
 
             if frame_index in frame_indices_set:
                 # Print progress with human-readable (1-indexed) frame number
-                print(f"Extracting frame {frame_index + 1}")
+                if frame_index % 50 == 0:
+                    logger.info(f"Extracting frame {frame_index + 1}")
 
                 # Build filename based on mode (use 1-based indexing for file names)
                 frame_str = str(frame_index + 1).zfill(4)
@@ -968,7 +965,8 @@ Note: Codec availability depends on your OpenCV build and system codecs.
                 continue
 
             # Print progress with human-readable (1-indexed) frame number
-            print(f"Extracting frame {frame_idx + 1}")
+            if frame_idx % 50 == 0:
+                logger.info(f"Extracting frame {frame_idx + 1}")
 
             # Load image
             img_path = imgs[frame_idx]

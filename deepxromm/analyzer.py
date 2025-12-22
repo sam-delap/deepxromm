@@ -1,8 +1,6 @@
 """Primary interface for analyzing the XROMM data using trained network"""
 
-import os
 import math
-import logging
 from pathlib import Path
 
 from itertools import combinations
@@ -13,14 +11,8 @@ import pandas as pd
 from PIL import Image
 import yaml
 
-from .xma_data_processor import XMADataProcessor
-
-logger = logging.getLogger(__name__)
-logging.basicConfig(
-    filename="analyzer.log",
-    encoding="utf-8",
-    level=os.environ.get("DEEPXROMM_LOG_LEVEL", "INFO").upper(),
-)
+from deepxromm.xma_data_processor import XMADataProcessor
+from deepxromm.logging import logger
 
 
 class Analyzer:
@@ -81,7 +73,7 @@ class Analyzer:
             if savepath.exists():
                 temp = savepath.glob("*Predicted2DPoints.csv")
                 if temp:
-                    print(
+                    logger.warning(
                         f"There are already predicted points in iteration {iteration} subfolders... skipping point prediction"
                     )
                     return
@@ -274,10 +266,10 @@ class Analyzer:
             video1_frames + video2_frames, 2
         )  # Might need revision based on actual comparison logic
 
-        print(f"Video 1 frames: {video1_frames}")
-        print(f"Video 2 frames: {video2_frames}")
+        logger.debug(f"Video 1 frames: {video1_frames}")
+        logger.debug(f"Video 2 frames: {video2_frames}")
 
-        print("Comparing hashes between videos")
+        logger.info("Comparing hashes between videos")
         hash_dif = sum(hash1 - hash2 for hash1 in hashes1 for hash2 in hashes2)
 
         return hash_dif, noc
@@ -285,13 +277,13 @@ class Analyzer:
     def _hash_trial_video(self, video):
         """Generate image hashes for a single video"""
         video_frames = int(video.get(cv2.CAP_PROP_FRAME_COUNT))
-        print(f"Video frames: {video_frames}")
+        logger.info(f"Video frames: {video_frames}")
 
         hashes = []
-        print("Creating hashes for video")
+        logger.info("Creating hashes for video")
         for i in range(video_frames):
             if i % 50 == 0:
-                print(f"Current frame: {i}")
+                logger.info(f"Current frame: {i}")
             ret, frame = video.read()
             if not ret:
                 # Should this throw an error?
@@ -311,14 +303,14 @@ class Analyzer:
         hash_dif_vid2 = 0
 
         for slider in range(0, len(hashes1) // window):
-            print(f"Current start frame {slider * window}")
+            logger.debug(f"Current start frame {slider * window}")
             hash_dif_vid1, hash_dif_vid2 = self._compare_hash_sets(
                 hashes1[slider * window : (slider + 1) * window],
                 hashes2[slider * window : (slider + 1) * window],
             )
 
-            print(f"Current hash diff (vid 1): {hash_dif_vid1}")
-            print(f"Current hash diff (vid 2): {hash_dif_vid2}")
+            logger.debug(f"Current hash diff (vid 1): {hash_dif_vid1}")
+            logger.debug(f"Current hash diff (vid 2): {hash_dif_vid2}")
             if hash_dif_vid1 > max_hash_dif_vid1:
                 max_hash_dif_vid1 = hash_dif_vid1
                 start_frame_vid1 = slider * window
@@ -327,11 +319,11 @@ class Analyzer:
                 max_hash_dif_vid2 = hash_dif_vid2
                 start_frame_vid2 = slider * window
 
-            print(f"Max hash diff (vid 1): {max_hash_dif_vid1}")
-            print(f"Max hash diff (vid 2): {max_hash_dif_vid2}")
+            logger.info(f"Max hash diff (vid 1): {max_hash_dif_vid1}")
+            logger.info(f"Max hash diff (vid 2): {max_hash_dif_vid2}")
 
-            print(f"Start frame (vid 1): {start_frame_vid1}")
-            print(f"Start frame (vid 2): {start_frame_vid2}")
+            logger.info(f"Start frame (vid 1): {start_frame_vid1}")
+            logger.info(f"Start frame (vid 2): {start_frame_vid2}")
 
         return start_frame_vid1, start_frame_vid2
 
@@ -340,8 +332,8 @@ class Analyzer:
         hash1_dif = 0
         hash2_dif = 0
 
-        print(f"Hash set 1 {hashes1[0]}")
-        print(f"Hash set 2 {hashes2[0]}")
+        logger.debug(f"Hash set 1 {hashes1[0]}")
+        logger.debug(f"Hash set 2 {hashes2[0]}")
         # Compares all possible combinations of images
         for combination in combinations(hashes1, 2):
             hash1_dif = hash1_dif + (combination[0] - combination[1])

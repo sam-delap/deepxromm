@@ -8,6 +8,7 @@ import deeplabcut
 import pandas as pd
 
 from deepxromm.xma_data_processor import XMADataProcessor
+from deepxromm.logging import logger
 
 
 class OutlierAlgorithm(Enum):
@@ -107,25 +108,25 @@ class Augmenter:
         with open(self.path_config_file, "w") as fp:
             yaml.safe_dump(dlc_config, fp, sort_keys=False)
 
-        print(
+        logger.info(
             f"DeepLabCut training iteration updated from {self._iteration} to {next_iteration}"
         )
 
         # Update nframes in config
         if not update_nframes:
-            print(
+            logger.info(
                 "User has specified not to update nframes. Please update nframes in project_config.yaml to ensure all outlier frames are included in training data"
             )
             return
 
-        print("Updating nframes to include newly tracked outlier data...")
+        logger.info("Updating nframes to include newly tracked outlier data...")
         with open(self.working_dir / "project_config.yaml", "r") as fp:
             config = yaml.safe_load(fp)
         config["nframes"] = self.nframes
         with open(self.working_dir / "project_config.yaml", "w") as fp:
             config = yaml.safe_dump(config, fp, sort_keys=False)
 
-        print(
+        logger.info(
             f"nframes updated to include new outlier data. New nframes for training data: {self.nframes}"
         )
 
@@ -161,7 +162,7 @@ class Augmenter:
             if matched_outlier in outliers["cam2"]
         ]
         if len(matched_outliers) == 0:
-            print(
+            logger.info(
                 "No outliers matched. Concatenating cam1 and cam2 outliers in matched outliers"
             )
             matched_outliers = outliers["cam1"] + outliers["cam2"]

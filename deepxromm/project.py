@@ -9,7 +9,8 @@ import pandas as pd
 from pathlib import Path
 import yaml
 
-from .xma_data_processor import XMADataProcessor
+from deepxromm.xma_data_processor import XMADataProcessor
+from deepxromm.logging import logger
 
 # Sets the default codec for use in creating/loading project configs
 DEFAULT_CODEC = "avc1"
@@ -80,7 +81,7 @@ class Project:
             (working_dir / "trainingdata").mkdir(parents=True)
             (working_dir / "trials").mkdir(parents=True)
         except FileExistsError as e:
-            print(
+            logger.error(
                 "It looks like this project folder already exists. Try importing it with DeepXROMM.load_project(working_dir)"
             )
             raise e
@@ -253,10 +254,10 @@ class Project:
             try:
                 dlc_config_path_2 = Path(project["path_config_file_2"])
             except KeyError as e:
-                print(
+                logger.error(
                     "Path to second DLC config not found. Did you create the project as a per-cam project?"
                 )
-                print("If not, re-run 'create_new_project' using mode='per_cam'")
+                logger.error("If not, re-run 'create_new_project' using mode='per_cam'")
                 raise e
             with dlc_config_path_2.open("r") as dlc_config:
                 dlc_yaml = yaml.safe_load(dlc_config)
