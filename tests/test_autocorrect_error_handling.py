@@ -2,7 +2,6 @@
 Test error handling in autocorrect for empty frames and GaussianBlur failures
 """
 
-import logging
 import os
 from pathlib import Path
 import shutil

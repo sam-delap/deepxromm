@@ -3,11 +3,12 @@
 from pathlib import Path
 from ruamel.yaml.comments import CommentedMap
 
-from .analyzer import Analyzer
-from .autocorrector import Autocorrector
-from .network import Network
-from .project import Project
-from .xma_data_processor import XMADataProcessor
+from deepxromm.analyzer import Analyzer
+from deepxromm.autocorrector import Autocorrector
+from deepxromm.network import Network
+from deepxromm.project import Project
+from deepxromm.xma_data_processor import XMADataProcessor
+from deepxromm.augmenter import Augmenter
 
 
 class DeepXROMM:
@@ -18,6 +19,7 @@ class DeepXROMM:
     _autocorrector: Autocorrector
     _network: Network
     _data_processor: XMADataProcessor
+    _augmenter: Augmenter
 
     def __init__(self):
         # Prevent direct instantiation because we need to do different
@@ -37,6 +39,7 @@ class DeepXROMM:
         deepxromm._autocorrector = Autocorrector(deepxromm.config)
         deepxromm._network = Network(deepxromm.config)
         deepxromm._data_processor = XMADataProcessor(deepxromm.config)
+        deepxromm._augmenter = Augmenter(deepxromm.config)
         return deepxromm
 
     @classmethod
@@ -48,6 +51,7 @@ class DeepXROMM:
         deepxromm._autocorrector = Autocorrector(deepxromm.config)
         deepxromm._network = Network(deepxromm.config)
         deepxromm._data_processor = XMADataProcessor(deepxromm.config)
+        deepxromm._augmenter = Augmenter(deepxromm.config)
         return deepxromm
 
     def xma_to_dlc(self):
@@ -67,7 +71,16 @@ class DeepXROMM:
         self._analyzer.analyze_videos()
 
     def dlc_to_xma(self):
+        """Convert DLC output from training to XMA format"""
         self._data_processor.dlc_to_xma()
+
+    def extract_outlier_frames(self, **kwargs):
+        """Extract outlier frames for re-analysis from DLC output"""
+        self._augmenter.extract_outlier_frames(**kwargs)
+
+    def merge_datasets(self, **kwargs):
+        """Create a refined dataset that includes the data collected from the outliers in outliers.yaml for each trial"""
+        self._augmenter.merge_datasets(**kwargs)
 
     def autocorrect_trials(self):
         """Do XMAlab-style autocorrect on the tracked beads for all trials"""
@@ -75,7 +88,7 @@ class DeepXROMM:
 
     def get_bodyparts_from_xma(self, csv_path: str, mode: str):
         """Pull the names of the XMAlab markers from the 2Dpoints file"""
-        return self._data_processor.get_bodyparts_from_xma(csv_path, mode)
+        return self._data_processor.get_bodyparts_from_xma(Path(csv_path), mode)
 
     def split_rgb(self, trial_path, codec=None):
         """Takes a RGB video with different grayscale data written to the R, G,
