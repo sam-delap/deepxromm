@@ -6,7 +6,6 @@ import yaml
 
 import deeplabcut
 import pandas as pd
-import numpy as np
 
 from deepxromm.xma_data_processor import XMADataProcessor
 
@@ -134,7 +133,9 @@ class Augmenter:
         """Extract outlier frames for RGB projects"""
         analysis_path = trial_path / f"it{self._iteration}"
         cam_file = self._data_processor.find_cam_file(trial_path, "rgb")
-        outliers = self._get_outliers_for_camera(cam_file, **kwargs)
+        outliers = self._get_outliers_for_camera(
+            cam_file, self.path_config_file, **kwargs
+        )
         with open(analysis_path / "outliers.yaml", "w") as fp:
             yaml.safe_dump(outliers, fp)
 
