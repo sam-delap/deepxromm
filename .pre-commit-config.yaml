@@ -1,6 +1,14 @@
 repos:
-  - repo: https://github.com/psf/black-pre-commit-mirror
-    rev: 25.9.0
-    hooks:
-      - id: black
-        language_version: python3.10
+- repo: https://github.com/astral-sh/ruff-pre-commit
+  # Ruff version.
+  rev: v0.14.10
+  hooks:
+    # Run the linter.
+    - id: ruff-check
+      types_or: [python, pyi]
+      args: [ --fix ]
+      language_version: python3.10
+    # Run the formatter.
+    - id: ruff-format
+      types_or: [python, pyi]
+      language_version: python3.10

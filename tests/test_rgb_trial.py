@@ -237,8 +237,6 @@ class TestDlcToXmaRGB(unittest.TestCase):
         xmalab_data = pd.read_csv(output_dir / "test-Predicted2DPoints.csv")
         xmalab_first_row = xmalab_data.loc[0, :]
 
-        dlc_config = Path(self.deepxromm.config["path_config_file"])
-        labeled_data_path = dlc_config.parent / "labeled-data/MyData"
         rgb_first_row = rgb_dlc_data.loc[0, :]
         for val in rgb_first_row.index:
             if "likelihood" in val or "marker001" not in val or "x" not in val:
@@ -265,8 +263,6 @@ class TestDlcToXmaRGB(unittest.TestCase):
         xmalab_last_row_int = xmalab_data.index[-1]
         xmalab_last_row = xmalab_data.loc[xmalab_last_row_int, :]
 
-        dlc_config = Path(self.deepxromm.config["path_config_file"])
-        labeled_data_path = dlc_config.parent / "labeled-data/MyData"
         rgb_last_row = rgb_dlc_data.loc[xmalab_last_row_int, :]
         for val in rgb_last_row.index:
             if "likelihood" in val:
@@ -291,8 +287,6 @@ class TestDlcToXmaRGB(unittest.TestCase):
         xmalab_rand_row_int = random.choice(xmalab_data.index)
         xmalab_rand_row = xmalab_data.loc[xmalab_rand_row_int, :]
 
-        dlc_config = Path(self.deepxromm.config["path_config_file"])
-        labeled_data_path = dlc_config.parent / "labeled-data/MyData"
         rgb_rand_row = rgb_dlc_data.loc[xmalab_rand_row_int, :]
         for val in rgb_rand_row.index:
             if "likelihood" in val:
