@@ -64,12 +64,10 @@ class Augmenter:
             )
 
         for trial_path in self._data_processor.list_trials():
-            # DLC's looking for the path we saved its output to
             if self.mode == "rgb":
                 self._extract_outlier_frames_rgb(trial_path, **kwargs)
             else:
                 self._extract_outlier_frames_2cam(trial_path, **kwargs)
-        # Remove DLC-generated labeled-data folders
 
     def merge_datasets(self, update_nframes=True, update_init_weights=True):
         """Create a refined dataset that includes existing training data and outliers"""
@@ -173,8 +171,9 @@ class Augmenter:
         self, cam_file: Path, path_config_file: Path, **kwargs
     ):
         """Get outliers for a single camera of a project"""
+        # DLC's looking for the path we saved its output to
         analysis_path = cam_file.parent / f"it{self._iteration}"
-        # DLC will save these to labeled-data/<video_name> in its
+        # DLC will save these to labeled-data/<video_name>
         deeplabcut.extract_outlier_frames(
             path_config_file,
             [str(cam_file)],
@@ -196,6 +195,7 @@ class Augmenter:
                 )
             outliers.append(int(match.group(1)) + 1)
         return outliers  # Match DLC index with the way it will show up in XMAlab
+        # Remove DLC-generated labeled-data folders
 
     def _merge_existing_trial_with_outlier_data(
         self, training_trial_path: Path, outlier_csv: pd.DataFrame
