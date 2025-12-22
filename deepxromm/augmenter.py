@@ -65,92 +65,10 @@ class Augmenter:
 
         for trial_path in self._data_processor.list_trials():
             # DLC's looking for the path we saved its output to
-            analysis_path = trial_path / f"it{self._iteration}"
             if self.mode == "rgb":
-                cam_file = self._data_processor.find_cam_file(trial_path, "rgb")
-                # DLC will save these to labeled-data/<video_name> in its
-                deeplabcut.extract_outlier_frames(
-                    self.path_config_file,
-                    [str(cam_file)],
-                    outlieralgorithm=self.outlier_algorithm.value,
-                    extractionalgorithm=self.extraction_algorithm.value,
-                    destfolder=analysis_path,
-                    automatic=True,
-                    **kwargs,
-                )
-                vid_dataset_path = (
-                    self.path_config_file.parent / "labeled-data" / cam_file.stem
-                )
-                images = list(vid_dataset_path.glob("img*.png"))
-                outliers = []
-                for img in images:
-                    img_name = img.name
-                    match = re.search(r"img(\d+)\.png", img_name)
-                    if match is None:
-                        raise ValueError(
-                            "Couldn't parse frame number from image files. Something wrong with DeepLabCut?"
-                        )
-                    outliers.append(
-                        int(match.group(1)) + 1
-                    )  # Match DLC index with the way it will show up in XMAlab
-                with open(analysis_path / "outliers.yaml", "w") as fp:
-                    yaml.safe_dump(outliers, fp)
+                self._extract_outlier_frames_rgb(trial_path, **kwargs)
             else:
-
-                outliers = {}
-                for camera in ["cam1", "cam2"]:
-                    cam_file = self._data_processor.find_cam_file(trial_path, camera)
-                    if camera == "cam2" and self.path_config_file_2 is not None:
-                        deeplabcut.extract_outlier_frames(
-                            self.path_config_file_2,
-                            [str(cam_file)],
-                            outlieralgorithm=self.outlier_algorithm.value,
-                            extractionalgorithm=self.extraction_algorithm.value,
-                            destfolder=analysis_path,
-                            automatic=True,
-                            **kwargs,
-                        )
-                    else:
-                        deeplabcut.extract_outlier_frames(
-                            self.path_config_file,
-                            [str(cam_file)],
-                            outlieralgorithm=self.outlier_algorithm.value,
-                            extractionalgorithm=self.extraction_algorithm.value,
-                            destfolder=analysis_path,
-                            automatic=True,
-                            **kwargs,
-                        )
-                    vid_dataset_path = (
-                        self.path_config_file.parent / "labeled-data" / cam_file.stem
-                    )
-                    images = list(vid_dataset_path.glob("img*.png"))
-                    # Image numbers are off-by-one from XMAlab frame numbers, because
-                    # they are 0-indexed and XMAlab frame numbers are one-indexed
-                    outliers[camera] = []
-                    for img in images:
-                        img_name = img.name
-                        match = re.search(r"img(\d+)\.png", img_name)
-                        if match is None:
-                            raise ValueError(
-                                "Couldn't parse frame number from image files. Something wrong with DeepLabCut?"
-                            )
-                        outliers[camera].append(
-                            int(match.group(1)) + 1
-                        )  # Match DLC index with XMAlab frame number
-                    with open(analysis_path / f"{camera}_outliers.yaml", "w") as fp:
-                        yaml.safe_dump(outliers[camera], fp)
-                matched_outliers = [
-                    matched_outlier
-                    for matched_outlier in outliers["cam1"]
-                    if matched_outlier in outliers["cam2"]
-                ]
-                if len(matched_outliers) == 0:
-                    print(
-                        "No outliers matched. Concatenating cam1 and cam2 outliers in matched outliers"
-                    )
-                    matched_outliers = outliers["cam1"] + outliers["cam2"]
-                with open(analysis_path / "outliers.yaml", "w") as fp:
-                    yaml.safe_dump(matched_outliers, fp)
+                self._extract_outlier_frames_2cam(trial_path, **kwargs)
         # Remove DLC-generated labeled-data folders
 
     def merge_datasets(self, update_nframes=True, update_init_weights=True):
@@ -163,64 +81,24 @@ class Augmenter:
                 outliers = yaml.safe_load(fp)
 
             # Convert outliers back to 0-indexed because we're working with a DataFrame
-            if len(outliers) < 1000:
-                # Use list comprehension for smaller datasets
-                outliers = [outlier - 1 for outlier in outliers]
-            else:
-                # Use np.array() for larger datasets (performance boost)
-                outliers = np.array(outliers) - 1
+            outliers = [outlier - 1 for outlier in outliers]
 
             outlier_csv_path = self._data_processor.find_trial_csv(
                 analysis_path, "outliers"
             )
 
             outlier_csv = pd.read_csv(outlier_csv_path)
-
-            # Trim outlier CSV down to just outlier rows
             outlier_csv = outlier_csv.loc[outliers, :].reset_index(drop=True)
 
-            # Copy data around as-needed to set up the trainingdata for follow-on XMA to DLC extraction
-            # Assumes that the trial is named the same whether it is in novel trials or in trainingdata
+            # Assumes that the trial is named the same whether it is in novel trials or in trainingdata to DLC extraction
+            training_trial_path = self.working_dir / "trainingdata" / trial_path.name
             if trial_path.name in training_trial_names:
-                # Trial already exists, merge outlier data into current CSV
-                current_trial_csv_path = self._data_processor.find_trial_csv(
-                    self.working_dir / "trainingdata" / trial_path.name
+                self._merge_existing_trial_with_outlier_data(
+                    training_trial_path, outlier_csv
                 )
-                current_trial_csv = pd.read_csv(current_trial_csv_path)
-                df_combined = pd.concat([current_trial_csv, outlier_csv])
-                df_combined.sort_index(inplace=True)
-                df_combined_unique = df_combined.drop_duplicates()
-                df_combined_unique.to_csv(current_trial_csv_path, index=False)
             else:
-                # Trial doesn't exist, create the new trial folder and copy data in
-                # Create new training trial folder
-                new_training_trial = self.working_dir / "trainingdata" / trial_path.name
-                new_training_trial.mkdir()
-
-                # Copy data in in XMAlab format
-                if self.mode == "rgb":
-                    rgb_cam_file = self._data_processor.find_cam_file(trial_path, "rgb")
-                    shutil.copy(
-                        str(rgb_cam_file), str(new_training_trial / rgb_cam_file.name)
-                    )
-                else:
-                    cam1_cam_file = self._data_processor.find_cam_file(
-                        trial_path, "cam1"
-                    )
-                    cam2_cam_file = self._data_processor.find_cam_file(
-                        trial_path, "cam2"
-                    )
-                    shutil.copy(
-                        str(cam1_cam_file), str(new_training_trial / cam1_cam_file.name)
-                    )
-                    shutil.copy(
-                        str(cam2_cam_file), str(new_training_trial / cam2_cam_file.name)
-                    )
-
-                outlier_csv.to_csv(
-                    new_training_trial / f"{new_training_trial.name}.csv",
-                    na_rep="NaN",
-                    index=False,
+                self._create_new_trial_with_outlier_data(
+                    trial_path, training_trial_path, outlier_csv
                 )
             self.nframes = self.nframes + len(outlier_csv)
 
@@ -252,4 +130,108 @@ class Augmenter:
 
         print(
             f"nframes updated to include new outlier data. New nframes for training data: {self.nframes}"
+        )
+
+    def _extract_outlier_frames_rgb(self, trial_path: Path, **kwargs):
+        """Extract outlier frames for RGB projects"""
+        analysis_path = trial_path / f"it{self._iteration}"
+        cam_file = self._data_processor.find_cam_file(trial_path, "rgb")
+        outliers = self._get_outliers_for_camera(cam_file, **kwargs)
+        with open(analysis_path / "outliers.yaml", "w") as fp:
+            yaml.safe_dump(outliers, fp)
+
+    def _extract_outlier_frames_2cam(self, trial_path: Path, **kwargs):
+        """Extract outlier frames for 2-cam projects"""
+        analysis_path = trial_path / f"it{self._iteration}"
+        outliers = {}
+        for camera in ["cam1", "cam2"]:
+            cam_file = self._data_processor.find_cam_file(trial_path, camera)
+            if camera == "cam2" and self.path_config_file_2 is not None:
+                outliers[camera] = self._get_outliers_for_camera(
+                    cam_file, self.path_config_file_2, **kwargs
+                )
+            else:
+                outliers[camera] = self._get_outliers_for_camera(
+                    cam_file, self.path_config_file, **kwargs
+                )
+            with open(analysis_path / f"{camera}_outliers.yaml", "w") as fp:
+                yaml.safe_dump(outliers[camera], fp)
+        matched_outliers = [
+            matched_outlier
+            for matched_outlier in outliers["cam1"]
+            if matched_outlier in outliers["cam2"]
+        ]
+        if len(matched_outliers) == 0:
+            print(
+                "No outliers matched. Concatenating cam1 and cam2 outliers in matched outliers"
+            )
+            matched_outliers = outliers["cam1"] + outliers["cam2"]
+        with open(analysis_path / "outliers.yaml", "w") as fp:
+            yaml.safe_dump(matched_outliers, fp)
+
+    def _get_outliers_for_camera(
+        self, cam_file: Path, path_config_file: Path, **kwargs
+    ):
+        """Get outliers for a single camera of a project"""
+        analysis_path = cam_file.parent / f"it{self._iteration}"
+        # DLC will save these to labeled-data/<video_name> in its
+        deeplabcut.extract_outlier_frames(
+            path_config_file,
+            [str(cam_file)],
+            outlieralgorithm=self.outlier_algorithm.value,
+            extractionalgorithm=self.extraction_algorithm.value,
+            destfolder=analysis_path,
+            automatic=True,
+            **kwargs,
+        )
+        vid_dataset_path = self.path_config_file.parent / "labeled-data" / cam_file.stem
+        images = list(vid_dataset_path.glob("img*.png"))
+        outliers = []
+        for img in images:
+            img_name = img.name
+            match = re.search(r"img(\d+)\.png", img_name)
+            if match is None:
+                raise ValueError(
+                    "Couldn't parse frame number from image files. Something wrong with DeepLabCut?"
+                )
+            outliers.append(int(match.group(1)) + 1)
+        return outliers  # Match DLC index with the way it will show up in XMAlab
+
+    def _merge_existing_trial_with_outlier_data(
+        self, training_trial_path: Path, outlier_csv: pd.DataFrame
+    ):
+        """Merge outlier data into existing trial CSV"""
+        current_trial_csv_path = self._data_processor.find_trial_csv(
+            training_trial_path
+        )
+        current_trial_csv = pd.read_csv(current_trial_csv_path)
+        df_combined = pd.concat([current_trial_csv, outlier_csv])
+        df_combined.sort_index(inplace=True)
+        df_combined_unique = df_combined.drop_duplicates()
+        df_combined_unique.to_csv(current_trial_csv_path, index=False)
+
+    def _create_new_trial_with_outlier_data(
+        self, trial_path: Path, training_trial_path: Path, outlier_csv: pd.DataFrame
+    ):
+        """Create new trial for outlier data from trial that was not part of original training data"""
+        training_trial_path.mkdir()
+
+        # Copy data in in XMAlab format
+        if self.mode == "rgb":
+            rgb_cam_file = self._data_processor.find_cam_file(trial_path, "rgb")
+            shutil.copy(str(rgb_cam_file), str(training_trial_path / rgb_cam_file.name))
+        else:
+            cam1_cam_file = self._data_processor.find_cam_file(trial_path, "cam1")
+            cam2_cam_file = self._data_processor.find_cam_file(trial_path, "cam2")
+            shutil.copy(
+                str(cam1_cam_file), str(training_trial_path / cam1_cam_file.name)
+            )
+            shutil.copy(
+                str(cam2_cam_file), str(training_trial_path / cam2_cam_file.name)
+            )
+
+        outlier_csv.to_csv(
+            training_trial_path / f"{training_trial_path.name}.csv",
+            na_rep="NaN",
+            index=False,
         )
