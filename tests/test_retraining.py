@@ -42,6 +42,7 @@ class TestRetraining2D(unittest.TestCase):
             outliers = yaml.safe_load(fp)
 
         # User edits the config file so that it only has the ones they want included in it
+        outliers = outliers[:5]
         with open(iteration_dir / "outliers.yaml", "w") as fp:
             yaml.dump(outliers, fp)
 
@@ -52,15 +53,12 @@ class TestRetraining2D(unittest.TestCase):
             str(self.working_dir / "trials/test/it0/outliers_tracking.csv"),
         )
 
-        # Then, we create a new dataset with the refined labels from the user
-        # This will involve updating both trainingdata and the labeled dataset
-        # For training data - doan update if the trial already exists as training data
+        # Then, we create a new dataset with the outliers from the user
+        # This will involve updating the folders in trainingdata
+        # For training data - do an update if the trial already exists as training data
         # Or create a new trial and copy the data in
-        # For labeled-data - run xma_to_dlc as normal
-        self.deepxromm_proj.create_refined_dataset()
-
-        # Once we've done that, we can merge the two datasets
-        # This should also update nframes
+        # This should also update nframes to include the outlier data
+        # And iteration to prepare for a new iteration of data collection
         self.deepxromm_proj.merge_datasets()
 
         # Encourage the user to reload their config with all of the updates
@@ -68,16 +66,17 @@ class TestRetraining2D(unittest.TestCase):
         self.deepxromm = DeepXROMM.load_project(self.working_dir)
 
         # Go through the rest of the retraining workflow
+        self.deepxromm_proj.xma_to_dlc()
         self.deepxromm_proj.create_training_dataset()
         self.deepxromm_proj.train_network()
         self.deepxromm_proj.analyze_videos()
         self.deepxromm_proj.dlc_to_xma()
 
-    # def test_create_training_dataset_warns_on_noncurrent_it(self):
-    #    """create_training_dataset should warn if the user doesn't reload their config after doing retraining"""
-    #    assert False
+    # Test that nframes is updated after merge_datasets(), and that merge_datasets() defaults to updating nframes
+    # Test that nframes is not updated when user specifies 'update_nframes=False'
+    # Test that outlier collection actually adds the correct frames to a DF index in XMAlab format
 
-    # def tearDown(self):
-    #    """Tear down the project"""
-    #    if self.working_dir.exists():
-    #        shutil.rmtree(self.working_dir)
+    def tearDown(self):
+        """Tear down the project"""
+        if self.working_dir.exists():
+            shutil.rmtree(self.working_dir)

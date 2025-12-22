@@ -19,6 +19,7 @@ class DeepXROMM:
     _autocorrector: Autocorrector
     _network: Network
     _data_processor: XMADataProcessor
+    _augmenter: Augmenter
 
     def __init__(self):
         # Prevent direct instantiation because we need to do different
@@ -75,7 +76,11 @@ class DeepXROMM:
 
     def extract_outlier_frames(self, **kwargs):
         """Extract outlier frames for re-analysis from DLC output"""
-        self._augmenter.extract_outlier_frames()
+        self._augmenter.extract_outlier_frames(**kwargs)
+
+    def merge_datasets(self, **kwargs):
+        """Create a refined dataset that includes the data collected from the outliers in outliers.yaml for each trial"""
+        self._augmenter.merge_datasets()
 
     def autocorrect_trials(self):
         """Do XMAlab-style autocorrect on the tracked beads for all trials"""

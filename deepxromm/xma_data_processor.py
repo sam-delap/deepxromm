@@ -17,7 +17,7 @@ import yaml
 from deepxromm.xrommtools import dlc_to_xma
 
 logger = logging.getLogger()
-logger.setLevel(logging.DEBUG)
+logger.setLevel(logging.INFO)
 
 
 class XMADataProcessor:
