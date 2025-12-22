@@ -618,9 +618,7 @@ Note: Codec availability depends on your OpenCV build and system codecs.
         cv2.destroyAllWindows()
         print(f"Merged RGB video created at {trial_path}/{trial_name}_rgb.avi!")
 
-    def _splice_xma_to_dlc(
-        self, trial_path: Path, list_of_frames: list[int], outlier_mode=False
-    ):
+    def _splice_xma_to_dlc(self, trial_path: Path, list_of_frames: list[int]):
         """Takes csv of XMALab 2D XY coordinates from 2 cameras, outputs spliced hdf+csv data for DeepLabCut"""
         dlc_path = Path(self._config["path_config_file"]).parent
         trial_name = trial_path.name
@@ -721,15 +719,10 @@ Note: Codec availability depends on your OpenCV build and system codecs.
             dropna=False,
         )
         newdf.index.name = None
-        if not substitute_data_abspath.exists():
-            substitute_data_abspath.mkdir(parents=True, exist_ok=True)
-        if outlier_mode:
-            tracked_hdf = substitute_data_abspath / "MachineLabelsRefine.h5"
-        else:
-            data_name = "CollectedData_" + self._config["experimenter"] + ".h5"
-            tracked_hdf = substitute_data_abspath / data_name
+        substitute_data_abspath.mkdir(parents=True, exist_ok=True)
+        data_name = "CollectedData_" + self._config["experimenter"] + ".h5"
+        tracked_hdf = substitute_data_abspath / data_name
 
-        print(tracked_hdf)
         newdf.to_hdf(tracked_hdf, "df_with_missing", format="table", mode="w")
         tracked_csv = tracked_hdf.with_suffix(".csv")
         newdf.to_csv(tracked_csv, na_rep="NaN")
