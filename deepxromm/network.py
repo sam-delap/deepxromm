@@ -5,7 +5,8 @@ from pathlib import Path
 import deeplabcut
 import pandas as pd
 
-from .xma_data_processor import XMADataProcessor
+from deepxromm.xma_data_processor import XMADataProcessor
+from deepxromm.logging import logger
 
 
 class Network:
@@ -51,7 +52,7 @@ class Network:
                 )
 
         elif mode == "rgb":
-            print("We've selected an RGB video")
+            logger.debug("We've selected an RGB video")
             self._data_processor.make_rgb_videos("trainingdata")
             self._data_processor.xma_to_dlc_rgb("trainingdata", picked_frames)
         else:
@@ -101,7 +102,7 @@ class Network:
         if newpath.exists():
             contents = list(newpath.glob("*"))
             if len(contents) > 0:
-                print(
+                logger.warning(
                     f"Directory {newpath} already contains data. "
                     "Please use a different dataset name or clear the directory."
                 )
@@ -113,7 +114,7 @@ class Network:
         data = pd.DataFrame()
 
         for camera in cameras:
-            print(f"Extracting camera {camera} trial images and 2D points...")
+            logger.info(f"Extracting camera {camera} trial images and 2D points...")
             for trialnum, trial in enumerate(trials):
                 # Find the camera video/image source
                 cam_identifier = f"cam{camera}"
@@ -145,7 +146,7 @@ class Network:
         self._data_processor.save_dlc_dataset(
             data, self._config["experimenter"], relnames, pointnames, newpath
         )
-        print("DLC dataset extracted from provided XMAlab trials")
+        logger.info("DLC dataset extracted from provided XMAlab trials")
 
     def _process_camera_per_cam(
         self,
@@ -170,7 +171,7 @@ class Network:
             pointnames: List of body part names
             data_processor: XMADataProcessor instance
         """
-        print(f"Extracting camera {camera} trial images and 2D points...")
+        logger.info(f"Extracting camera {camera} trial images and 2D points...")
 
         # Setup output directory with camera-specific dataset name
         dataset_name = self._config["dataset_name"]
@@ -180,7 +181,7 @@ class Network:
         if newpath.exists():
             contents = list(newpath.glob("*"))
             if len(contents) > 0:
-                print(
+                logger.warning(
                     f"Directory {newpath} already contains data. "
                     "Please use a different dataset name or remove the existing dataset to update it"
                 )
@@ -223,4 +224,4 @@ class Network:
         self._data_processor.save_dlc_dataset(
             data, scorer, relnames, pointnames, newpath
         )
-        print("DLC dataset extracted from provided XMAlab trials")
+        logger.info("DLC dataset extracted from provided XMAlab trials")

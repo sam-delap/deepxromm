@@ -110,7 +110,7 @@ class TestAutocorrectErrorHandling(unittest.TestCase):
         """Test that markers causing empty subimages are skipped gracefully (main blur)"""
         # Given: Trial with boundary marker at (5, 5) that causes negative indices
         # When: Autocorrect processes the frame
-        with self.assertLogs("deepxromm.autocorrector", level="WARNING") as log_context:
+        with self.assertLogs("deepxromm", level="WARNING") as log_context:
             self.deepxromm.autocorrect_trials()
 
             # Then: Warning logged with "main blur" identifier
@@ -140,7 +140,7 @@ class TestAutocorrectErrorHandling(unittest.TestCase):
         # This is harder to trigger naturally, so we'll verify the mechanism exists
         # by checking that threshold blur errors would be caught if they occurred
         # For now, this test verifies the main blur case which tests the pattern
-        with self.assertLogs("deepxromm.autocorrector", level="WARNING") as log_context:
+        with self.assertLogs("deepxromm", level="WARNING") as log_context:
             self.deepxromm.autocorrect_trials()
 
             # Verify warning was logged
@@ -152,7 +152,7 @@ class TestAutocorrectErrorHandling(unittest.TestCase):
         empty_array = np.array([])
 
         # When: _filter_image is called
-        with self.assertLogs("deepxromm.autocorrector", level="WARNING") as log_context:
+        with self.assertLogs("deepxromm", level="WARNING") as log_context:
             result = self.deepxromm._autocorrector._filter_image(empty_array)
 
             # Then: Original empty array returned, warning logged
@@ -166,7 +166,7 @@ class TestAutocorrectErrorHandling(unittest.TestCase):
         """Test that error messages identify specific blur locations"""
         # Given: Marker at boundary
         # When: Autocorrect processes and encounters error
-        with self.assertLogs("deepxromm.autocorrector", level="WARNING") as log_context:
+        with self.assertLogs("deepxromm", level="WARNING") as log_context:
             self.deepxromm.autocorrect_trials()
 
             # Then: Log should contain location identifier
@@ -187,7 +187,7 @@ class TestAutocorrectErrorHandling(unittest.TestCase):
         """Test that valid markers are processed when some markers fail"""
         # Given: Frame with 3 markers - 1 at boundary, 2 valid
         # When: Autocorrect processes
-        with self.assertLogs("deepxromm.autocorrector", level="WARNING") as log_context:
+        with self.assertLogs("deepxromm", level="WARNING") as log_context:
             self.deepxromm.autocorrect_trials()
 
             # Then: No exceptions raised, processing completes

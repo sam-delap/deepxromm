@@ -753,6 +753,7 @@ dependencies = [
     { name = "deeplabcut", extra = ["tf"] },
     { name = "imagehash" },
     { name = "numpy" },
+    { name = "platformdirs" },
 ]
 
 [package.optional-dependencies]
@@ -780,6 +781,7 @@ requires-dist = [
     { name = "imagehash" },
     { name = "ipython", marker = "extra == 'cli'" },
     { name = "numpy", specifier = "<2" },
+    { name = "platformdirs", specifier = ">=4.5.1" },
 ]
 provides-extras = ["cli"]
 

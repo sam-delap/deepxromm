@@ -21,7 +21,8 @@ dependencies = [
     "blend_modes",
     "deeplabcut[tf]",
     "imagehash",
-    "numpy<2"
+    "numpy<2",
+    "platformdirs>=4.5.1",
 ]
 requires-python = ">=3.10"
 
