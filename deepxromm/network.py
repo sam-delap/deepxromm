@@ -7,20 +7,21 @@ import pandas as pd
 
 from deepxromm.xma_data_processor import XMADataProcessor
 from deepxromm.logging import logger
+from deepxromm.project import Project
 
 
 class Network:
     """Trains an XROMM labeling network using DLC."""
 
-    def __init__(self, config):
-        self.working_dir = Path(config["working_dir"])
+    def __init__(self, project: Project):
+        self.working_dir = project.working_dir
         self._trainingdata_path = self.working_dir / "trainingdata"  # Keep for RGB mode
-        self._data_processor = XMADataProcessor(config)
-        self._config = config
+        self._data_processor = XMADataProcessor(project)
+        self._project = project
 
     def xma_to_dlc(self) -> None:
         """Convert XMAlab data to DLC format"""
-        mode = self._config["mode"]
+        mode = self._project.mode
         trials = self._data_processor.list_trials("trainingdata")
         dfs, idx, pointnames = self._data_processor.read_trial_csv_with_validation(
             trials
@@ -28,7 +29,7 @@ class Network:
 
         # Validate we have enough frames
         total_frames = sum(len(x) for x in idx)
-        nframes = int(self._config["nframes"])
+        nframes = self._project.nframes
         if total_frames < nframes:
             raise ValueError(
                 f"Requested {nframes} frames but only found {total_frames} "
@@ -42,9 +43,10 @@ class Network:
             self._process_cameras_2d(trials, picked_frames, dfs, pointnames, cameras)
 
         elif mode == "per_cam":
+            assert self._project.path_config_file_2 is not None
             config_files = [
-                Path(self._config["path_config_file"]).parent,
-                Path(self._config["path_config_file_2"]).parent,
+                self._project.path_config_file.parent,
+                self._project.path_config_file_2.parent,
             ]
             for camera, config_file in zip(cameras, config_files):
                 self._process_camera_per_cam(
@@ -60,19 +62,19 @@ class Network:
 
     def create_training_dataset(self):
         """Create training dataset for data"""
-        deeplabcut.create_training_dataset(self._config["path_config_file"])
-        if self._config["mode"] == "per_cam":
-            deeplabcut.create_training_dataset(self._config["path_config_file_2"])
+        deeplabcut.create_training_dataset(str(self._project.path_config_file))
+        if self._project.mode == "per_cam":
+            deeplabcut.create_training_dataset(str(self._project.path_config_file_2))
 
     def train(self):
         """Starts training a network"""
         deeplabcut.train_network(
-            self._config["path_config_file"], maxiters=self._config["maxiters"]
+            str(self._project.path_config_file), maxiters=self._project.maxiters
         )
 
-        if self._config["mode"] == "per_cam":
+        if self._project.mode == "per_cam":
             deeplabcut.train_network(
-                self._config["path_config_file_2"], maxiters=self._config["maxiters"]
+                self._project.path_config_file_2, maxiters=self._project.maxiters
             )
 
     def _process_cameras_2d(
@@ -96,8 +98,8 @@ class Network:
             cameras: List of cameras
         """
 
-        config_dir = Path(self._config["path_config_file"]).parent
-        dataset_name = self._config["dataset_name"]
+        config_dir = self._project.path_config_file.parent
+        dataset_name = self._project.dataset_name
         newpath = config_dir / "labeled-data" / dataset_name
         if newpath.exists():
             contents = list(newpath.glob("*"))
@@ -144,7 +146,7 @@ class Network:
 
         # Create and save DLC dataset
         self._data_processor.save_dlc_dataset(
-            data, self._config["experimenter"], relnames, pointnames, newpath
+            data, self._project.experimenter, relnames, pointnames, newpath
         )
         logger.info("DLC dataset extracted from provided XMAlab trials")
 
@@ -174,8 +176,8 @@ class Network:
         logger.info(f"Extracting camera {camera} trial images and 2D points...")
 
         # Setup output directory with camera-specific dataset name
-        dataset_name = self._config["dataset_name"]
-        scorer = self._config["experimenter"]
+        dataset_name = self._project.dataset_name
+        scorer = self._project.experimenter
         camera_dataset_name = f"{dataset_name}_cam{camera}"
         newpath = config_dir / "labeled-data" / camera_dataset_name
         if newpath.exists():

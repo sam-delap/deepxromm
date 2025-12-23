@@ -48,7 +48,7 @@ class TestRGBTrialProcess(unittest.TestCase):
         xmalab_first_row = xmalab_data.loc[0, :]
 
         # Load DLC data
-        dlc_config = Path(self.deepxromm.config["path_config_file"])
+        dlc_config = Path(self.deepxromm.project.path_config_file)
         labeled_data_path = dlc_config.parent / "labeled-data/MyData"
         dlc_data = pd.read_hdf(labeled_data_path / "CollectedData_NA.h5")
 
@@ -74,7 +74,7 @@ class TestRGBTrialProcess(unittest.TestCase):
         xmalab_data = pd.read_csv(self.trial_csv)
 
         # Load DLC data
-        dlc_config = Path(self.deepxromm.config["path_config_file"])
+        dlc_config = Path(self.deepxromm.project.path_config_file)
         labeled_data_path = dlc_config.parent / "labeled-data/MyData"
         dlc_data = pd.read_hdf(labeled_data_path / "CollectedData_NA.h5")
 
@@ -110,7 +110,7 @@ class TestRGBTrialProcess(unittest.TestCase):
         xmalab_data = pd.read_csv(self.trial_csv)
 
         # Load DLC data
-        dlc_config = Path(self.deepxromm.config["path_config_file"])
+        dlc_config = Path(self.deepxromm.project.path_config_file)
         labeled_data_path = dlc_config.parent / "labeled-data/MyData"
         dlc_data = pd.read_hdf(labeled_data_path / "CollectedData_NA.h5")
 

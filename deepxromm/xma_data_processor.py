@@ -2,7 +2,6 @@
 Standardized data format conversion for deepxromm projects
 """
 
-import tempfile
 from pathlib import Path
 
 from subprocess import Popen, PIPE
@@ -22,14 +21,18 @@ from deepxromm.logging import logger
 class XMADataProcessor:
     """Converts data from XMALab into the format useful for DLC training."""
 
-    def __init__(self, config):
-        self._config = config
-        self._swap_markers = config["swapped_markers"]
-        self._cross_markers = config["crossed_markers"]
+    def __init__(self, project):
+        self.project = project
+        # TODO: Move this into project functionality, or somewhere that doesn't require referencing this way
+        self._swap_markers = False
+        self._cross_markers = False
+        if self.project.mode == "rgb":
+            self._swap_markers = project.swapped_markers
+            self._cross_markers = project.crossed_markers
 
     def dlc_to_xma(self):
         """Convert DLC-formatted training output into XMAlab-formatted data"""
-        mode = self._config["mode"]
+        mode = self.project.mode
         trials = self.list_trials()
 
         if mode in ["2D", "per_cam"]:
@@ -39,7 +42,7 @@ class XMADataProcessor:
         else:
             raise AttributeError(f"Unsupported mode: {mode}")
 
-        with open(self._config["path_config_file"], "r") as dlc_config:
+        with self.project.path_config_file.open("r") as dlc_config:
             dlc_proj = yaml.safe_load(dlc_config)
 
         iteration = int(dlc_proj["iteration"])
@@ -91,86 +94,6 @@ class XMADataProcessor:
             df.to_hdf(
                 tracked_hdf, "df_with_missing", format="table", mode="w", nan_rep="NaN"
             )
-
-    def validate_codec(self, codec: str, width: int = 640, height: int = 480) -> bool:
-        """
-        Validate if a video codec is available on the current system.
-
-        Args:
-            codec: FourCC codec code (e.g., "avc1", "DIVX", "XVID")
-            width: Test video width (default 640)
-            height: Test video height (default 480)
-
-        Returns:
-            True if codec is available and functional, False otherwise
-
-        Note:
-            Special cases "uncompressed" and 0 always return True as they
-            use different encoding mechanisms.
-        """
-        # Special cases that don't use cv2.VideoWriter with fourcc
-        if codec == "uncompressed" or codec == 0:
-            return True
-
-        # Test codec by creating a temporary VideoWriter
-        with tempfile.TemporaryDirectory() as tmpdir:
-            try:
-                test_path = Path(tmpdir) / "codec_test.avi"
-                fourcc = cv2.VideoWriter_fourcc(*codec)
-                writer = cv2.VideoWriter(
-                    str(test_path),
-                    fourcc,
-                    1.0,  # Low FPS for test
-                    (width, height),
-                )
-
-                # Check if writer opened successfully
-                is_valid = writer.isOpened()
-
-                # Try writing a test frame to ensure codec actually works
-                if is_valid:
-                    test_frame = np.zeros((height, width, 3), dtype=np.uint8)
-                    writer.write(test_frame)
-
-                writer.release()
-                logger.info(
-                    f"Codec validation for '{codec}': {'PASSED' if is_valid else 'FAILED'}"
-                )
-                return is_valid
-
-            except Exception as e:
-                logger.warning(
-                    f"Codec validation for '{codec}' failed with exception: {e}"
-                )
-                return False
-
-    def get_codec_error_message(self, failed_codec: str, operation: str) -> str:
-        """
-        Generate descriptive error message for codec validation failure.
-
-        Args:
-            failed_codec: The codec that failed validation
-            operation: Operation type ("split" or "merge")
-
-        Returns:
-            Formatted error message with suggestions
-        """
-        return f"""
-Video codec '{failed_codec}' is not available on this system for {operation}_rgb operation.
-
-Common alternative codecs to try:
-  - "avc1"  : H.264 codec (best quality, not always available)
-  - "DIVX"  : DivX codec (widely available)
-  - "XVID"  : Xvid codec (widely available)
-  - "mp4v"  : MPEG-4 codec (generally available)
-  - "MJPG"  : Motion JPEG (always available, larger file sizes)
-  - "uncompressed" : Raw video via ffmpeg (largest files, highest quality)
-
-To change the codec, update your project config file:
-  video_codec: "DIVX"  # Change this line to one of the alternatives above
-
-Note: Codec availability depends on your OpenCV build and system codecs.
-""".strip()
 
     def find_trial_csv(self, trial_path: Path, identifier: str | None = None) -> Path:
         """
@@ -240,11 +163,10 @@ Note: Codec availability depends on your OpenCV build and system codecs.
         trials = self.list_trials(suffix=suffix)
         for idx, trial_path in enumerate(trials):
             list_of_frames = picked_frames[idx]
-            substitute_data_relpath = (
-                Path("labeled-data") / self._config["dataset_name"]
+            substitute_data_relpath = Path("labeled-data") / self.project.dataset_name
+            substitute_data_abspath = (
+                self.project.path_config_file / substitute_data_relpath
             )
-            dlc_config_path = Path(self._config["path_config_file"])
-            substitute_data_abspath = dlc_config_path / substitute_data_relpath
             self._extract_matched_frames_rgb(
                 trial_path,
                 substitute_data_abspath,
@@ -300,13 +222,12 @@ Note: Codec availability depends on your OpenCV build and system codecs.
                 "Suffix must be a relative path within working_dir."
             )
 
-        working_dir = Path(self._config["working_dir"])
-        trial_path = working_dir / suffix
+        trial_path = self.project.working_dir / suffix
 
         # Additional security check: ensure resolved path is within working_dir
         try:
             resolved_trial_path = trial_path.resolve()
-            resolved_working_dir = working_dir.resolve()
+            resolved_working_dir = self.project.working_dir.resolve()
             if not str(resolved_trial_path).startswith(str(resolved_working_dir)):
                 raise ValueError(
                     f"Security error: Path traversal detected. "
@@ -334,7 +255,7 @@ Note: Codec availability depends on your OpenCV build and system codecs.
         """Takes a RGB video with different grayscale data written to the R, G, and B channels and splits it back into its component source videos."""
         # Use provided codec, otherwise fall back to config value
         if codec is None:
-            codec = self._config.get("video_codec", "avc1")
+            codec = self.project.video_codec
 
         trial_name = trial_path.name
         out_name = trial_name + "_split_"
@@ -348,11 +269,6 @@ Note: Codec availability depends on your OpenCV build and system codecs.
         frame_width = int(rgb_video.get(3))
         frame_height = int(rgb_video.get(4))
         frame_rate = round(rgb_video.get(5), 2)
-
-        # Validate codec is available on this system (unless using uncompressed)
-        if not self.validate_codec(codec, frame_width, frame_height):
-            error_msg = self.get_codec_error_message(codec, "split")
-            raise RuntimeError(error_msg)
 
         if codec == "uncompressed":
             pix_format = "gray"  ##change to 'yuv420p' for color or 'gray' for grayscale. 'pal8' doesn't play on macs
@@ -515,7 +431,7 @@ Note: Codec availability depends on your OpenCV build and system codecs.
         """
         # Use provided codec, otherwise fall back to config value
         if codec is None:
-            codec = self._config.get("video_codec", "avc1")
+            codec = self.project.video_codec
 
         logger.info("Merging RGBs")
         trial_name = trial_path.name
@@ -532,11 +448,6 @@ Note: Codec availability depends on your OpenCV build and system codecs.
         frame_width = int(cam1_video.get(3))
         frame_height = int(cam1_video.get(4))
         frame_rate = round(cam1_video.get(5), 2)
-
-        # Validate codec is available on this system
-        if not self.validate_codec(codec, frame_width, frame_height):
-            error_msg = self.get_codec_error_message(codec, "merge")
-            raise RuntimeError(error_msg)
 
         # Note: "uncompressed" codec is not supported for merge_rgb
         # If needed in the future, implement ffmpeg pipeline like in split_rgb
@@ -619,11 +530,9 @@ Note: Codec availability depends on your OpenCV build and system codecs.
 
     def _splice_xma_to_dlc(self, trial_path: Path, list_of_frames: list[int]):
         """Takes csv of XMALab 2D XY coordinates from 2 cameras, outputs spliced hdf+csv data for DeepLabCut"""
-        dlc_path = Path(self._config["path_config_file"]).parent
+        dlc_path = self.project.path_config_file.parent
         trial_name = trial_path.name
-        substitute_data_abspath = (
-            dlc_path / "labeled-data" / self._config["dataset_name"]
-        )
+        substitute_data_abspath = dlc_path / "labeled-data" / self.project.dataset_name
         trial_csv_path = self.find_trial_csv(trial_path)
         markers = self.get_bodyparts_from_xma(trial_csv_path, mode="2D")
 
@@ -673,12 +582,12 @@ Note: Codec availability depends on your OpenCV build and system codecs.
                 parts_unique_final.append(part)
         logger.debug("Importing markers: ")
         logger.debug(parts_unique_final)
-        with open(self._config["path_config_file"], "r") as dlc_config:
+        with open(self.project.path_config_file, "r") as dlc_config:
             dlc_proj = yaml.safe_load(dlc_config)
 
         dlc_proj["bodyparts"] = parts_unique_final
 
-        with open(self._config["path_config_file"], "w") as dlc_config:
+        with open(self.project.path_config_file, "w") as dlc_config:
             yaml.dump(dlc_proj, dlc_config, sort_keys=False)
 
         unique_frames_set = set(list_of_frames)
@@ -700,7 +609,7 @@ Note: Codec availability depends on your OpenCV build and system codecs.
             )
             for index in unique_frames
         ]
-        df["scorer"] = self._config["experimenter"]
+        df["scorer"] = self.project.experimenter
         df = df.melt(id_vars=["frame_index", "scorer"])
         new = df["variable"].str.rsplit("_", n=1, expand=True)
         df["variable"], df["coords"] = new[0], new[1]
@@ -719,7 +628,7 @@ Note: Codec availability depends on your OpenCV build and system codecs.
         )
         newdf.index.name = None
         substitute_data_abspath.mkdir(parents=True, exist_ok=True)
-        data_name = "CollectedData_" + self._config["experimenter"] + ".h5"
+        data_name = "CollectedData_" + self.project.experimenter + ".h5"
         tracked_hdf = substitute_data_abspath / data_name
 
         newdf.to_hdf(tracked_hdf, "df_with_missing", format="table", mode="w")
@@ -736,12 +645,12 @@ Note: Codec availability depends on your OpenCV build and system codecs.
         Optionally, compress the output PNGs. Factor ranges from 0 (no compression) to 9 (most compression)
         """
         extracted_frames = []
-        trainingdata_path = Path(self._config["working_dir"]) / "trainingdata"
+        trainingdata_path = self.project.working_dir / "trainingdata"
         trial_name = trial_path.name
         video_path = trainingdata_path / trial_name / f"{trial_name}_rgb.avi"
-        dlc_path = Path(self._config["path_config_file"]).parent
-        labeled_data_path = dlc_path / "labeled-data" / self._config["dataset_name"]
-        if len(indices) < int(self._config["nframes"]):
+        dlc_path = self.project.path_config_file.parent
+        labeled_data_path = dlc_path / "labeled-data" / self.project.dataset_name
+        if len(indices) < int(self.project.nframes):
             raise ValueError("nframes is bigger than number of detected frames")
         frames_from_vid = self.extract_frames_from_video(
             source_path=video_path,
@@ -1033,17 +942,13 @@ Note: Codec availability depends on your OpenCV build and system codecs.
         temp[:] = np.nan
 
         for idx, relname in enumerate(relnames):
-            if "_cam2" in relname and self._config["mode"] == "per_cam":
+            if "_cam2" in relname and self.project.mode == "per_cam":
                 relnames[idx] = str(
-                    Path(relname).relative_to(
-                        Path(self._config["path_config_file_2"]).parent
-                    )
+                    Path(relname).relative_to(self.project.path_config_file_2.parent)
                 )
             else:
                 relnames[idx] = str(
-                    Path(relname).relative_to(
-                        Path(self._config["path_config_file"]).parent
-                    )
+                    Path(relname).relative_to(self.project.path_config_file.parent)
                 )
 
         for i, bodypart in enumerate(pointnames):

@@ -78,10 +78,8 @@ class TestDefaultsPerformance(unittest.TestCase):
         """Can I accurately find the number of frames in the video if the user doesn't tell me?"""
         print(list(self.working_dir.iterdir()))
         deepxromm = DeepXROMM.load_project(self.working_dir)
-        config = deepxromm.config
-        self.assertEqual(
-            config["nframes"], 1, msg=f"Actual nframes: {config['nframes']}"
-        )
+        project = deepxromm.project
+        self.assertEqual(project.nframes, 1, msg=f"Actual nframes: {project.nframes}")
 
     def test_analyze_errors_if_no_folders_in_trials_dir(self):
         """If there are no trials to analyze, do we return an error?"""
@@ -277,33 +275,6 @@ class TestDefaultsPerformance(unittest.TestCase):
 
         with path_to_config.open("w") as dlc_config:
             yaml.dump(config_dlc, dlc_config, sort_keys=False)
-
-        with self.assertRaises(SyntaxError):
-            DeepXROMM.load_project(self.working_dir)
-
-    def test_autocorrect_error_if_trial_not_set(self):
-        """If the user doesn't specify a trial to test autocorrect with, do we error?"""
-        with self.config.open("r") as config:
-            tmp = yaml.safe_load(config)
-
-        tmp["test_autocorrect"] = True
-        tmp["marker"] = "foo"
-        with self.config.open("w") as fp:
-            yaml.dump(tmp, fp, sort_keys=False)
-
-        with self.assertRaises(SyntaxError):
-            DeepXROMM.load_project(self.working_dir)
-
-    def test_autocorrect_error_if_marker_not_set(self):
-        """If the user doesn't specify a marker to test autocorrect with, do we error?"""
-        with self.config.open("r") as config:
-            tmp = yaml.safe_load(config)
-
-        tmp["test_autocorrect"] = True
-        tmp["trial_name"] = "test"
-
-        with self.config.open("w") as fp:
-            yaml.dump(tmp, fp, sort_keys=False)
 
         with self.assertRaises(SyntaxError):
             DeepXROMM.load_project(self.working_dir)

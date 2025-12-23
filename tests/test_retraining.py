@@ -39,7 +39,7 @@ def generic_nframes_not_updated_when_false(
     deepxromm_proj = DeepXROMM.load_project(working_dir)
 
     # Check that nframes matches our expectations (5 initial frames)
-    return deepxromm_proj.config["nframes"] == 5
+    return deepxromm_proj.config.nframes == 5
 
 
 def generic_test_retraining_workflow(
@@ -73,7 +73,7 @@ def generic_test_retraining_workflow(
     deepxromm_proj = DeepXROMM.load_project(working_dir)
 
     # Check that nframes matches our expectations (5 initial frames + 5 outlier frames = 10 total frames)
-    assert deepxromm_proj.config["nframes"] == 10
+    assert deepxromm_proj.config.nframes == 10
 
     # Go through the rest of the retraining workflow
     deepxromm_proj.xma_to_dlc()
@@ -95,7 +95,7 @@ class TestRetraining2D(unittest.TestCase):
         )
 
         # Give a subset of frames
-        self.deepxromm_proj.config["nframes"] = 5
+        self.deepxromm_proj.config.nframes = 5
         with open(self.working_dir / "project_config.yaml", "w") as fp:
             yaml.dump(self.deepxromm_proj.config, fp, sort_keys=False)
 
@@ -143,7 +143,7 @@ class TestRetrainingPerCam(unittest.TestCase):
         )
 
         # Give a subset of frames
-        self.deepxromm_proj.config["nframes"] = 5
+        self.deepxromm_proj.config.nframes = 5
         with open(self.working_dir / "project_config.yaml", "w") as fp:
             yaml.dump(self.deepxromm_proj.config, fp, sort_keys=False)
 
@@ -190,7 +190,7 @@ class TestRetrainingRGB(unittest.TestCase):
         )
 
         # Give a subset of frames
-        self.deepxromm_proj.config["nframes"] = 5
+        self.deepxromm_proj.config.nframes = 5
         with open(self.working_dir / "project_config.yaml", "w") as fp:
             yaml.dump(self.deepxromm_proj.config, fp, sort_keys=False)
 
