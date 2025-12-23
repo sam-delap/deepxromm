@@ -18,13 +18,13 @@ from deepxromm.logging import logger
 class Analyzer:
     """Analyzes XROMM videos using trained network."""
 
-    def __init__(self, config):
-        self.working_dir = Path(config["working_dir"])
-        self.project_config = self.working_dir / "project_config.yaml"
+    def __init__(self, project):
+        self.working_dir = project.working_dir
+        self.project_config = project.project_config_path
         self._trials_path = self.working_dir / "trials"
-        self._data_processor = XMADataProcessor(config)
-        self._config = config
-        self._dlc_config = config["path_config_file"]
+        self._data_processor = XMADataProcessor(project)
+        self._project = project
+        self._dlc_config = project.path_config_file
 
     def analyze_videos(self):
         """Analyze videos with a pre-existing network"""
@@ -35,7 +35,7 @@ class Analyzer:
             dlc = yaml.safe_load(dlc_config)
         iteration = dlc["iteration"]
 
-        mode = self._config["mode"]
+        mode = self._project.mode
         if mode in ["2D", "per_cam"]:
             self._analyze_xromm_videos(iteration)
 
@@ -48,7 +48,7 @@ class Analyzer:
                 video_path = trial_path / f"{trial}_rgb.avi"
                 destfolder = trial_path / f"it{iteration}"
                 deeplabcut.analyze_videos(
-                    self._dlc_config,
+                    str(self._dlc_config),
                     str(
                         video_path
                     ),  # DLC relies on .endswith to determine suffix, so this needs to be a string
@@ -66,7 +66,7 @@ class Analyzer:
         # analyze videos
         cameras = [1, 2]
         trials = self._data_processor.list_trials()
-        mode = self._config["mode"]
+        mode = self._project.mode
 
         for trialpath in trials:
             savepath = trialpath / f"it{iteration}"
@@ -86,7 +86,7 @@ class Analyzer:
                 # analyze video
                 if mode == "2D":
                     deeplabcut.analyze_videos(
-                        self._config["path_config_file"],
+                        str(self._project.path_config_file),
                         [
                             str(video)
                         ],  # DLC uses endswith filtering for suffixes for some reason
@@ -95,8 +95,8 @@ class Analyzer:
                     )
                 else:
                     configs = [
-                        self._config["path_config_file"],
-                        self._config["path_config_file_2"],
+                        str(self._project.path_config_file),
+                        str(self._project.path_config_file_2),
                     ]
                     deeplabcut.analyze_videos(
                         configs[camera - 1],
@@ -113,17 +113,13 @@ class Analyzer:
         similarity_score = {}
         trial_combos = combinations(self._data_processor.list_trials(), 2)
         for trial1, trial2 in trial_combos:
-            self._config["trial_1_name"] = trial1.stem
-            self._config["trial_2_name"] = trial2.stem
-            with self.project_config.open("w") as file:
-                yaml.dump(self._config, file, sort_keys=False)
-            # TODO: pass the trial names directly instead of writing into config
-            similarity_score[(trial1, trial2)] = self.analyze_video_similarity_trial()
+            similarity_score[(trial1, trial2)] = self.analyze_video_similarity_trial(
+                [trial1, trial2]
+            )
         return similarity_score
 
-    def analyze_video_similarity_trial(self):
+    def analyze_video_similarity_trial(self, trials: list[Path]):
         """Analyze the average similarity between trials using image hashing"""
-        trials = [self._config["trial_1_name"], self._config["trial_2_name"]]
         cameras = ["cam1", "cam2"]
         videos = {
             (trial, cam): cv2.VideoCapture(
@@ -134,7 +130,7 @@ class Analyzer:
         }
 
         # Compare hashes based on the camera views configuration
-        if self._config["cam1s_are_the_same_view"]:
+        if self._project.cam1s_are_the_same_view:
             cam1_diff, noc1 = self._compare_two_videos(
                 videos[(trials[0], "cam1")], videos[(trials[1], "cam1")]
             )
@@ -167,28 +163,13 @@ class Analyzer:
         trial_perms = combinations(self._data_processor.list_trials(), 2)
         logger.debug(f"Trial permutations for project: {trial_perms}")
         for trial1, trial2 in trial_perms:
-            self._config["trial_1_name"] = trial1.stem
-            self._config["trial_2_name"] = trial2.stem
-            with self.project_config.open("w") as file:
-                yaml.dump(self._config, file, sort_keys=False)
-            # TODO: pass the trial names directly instead of writing into config
             marker_similarity[(trial1, trial2)] = abs(
-                self.analyze_marker_similarity_trial()
+                self.analyze_marker_similarity_trial(trial1, trial2)
             )
         return marker_similarity
 
-    def analyze_marker_similarity_trial(self):
+    def analyze_marker_similarity_trial(self, trial1_path: Path, trial2_path: Path):
         """Analyze marker similarity for a pair of trials using the distance formula."""
-        # Find CSVs for each trial
-        trial1 = self._config["trial_1_name"]
-        trial2 = self._config["trial_2_name"]
-        trial1_path = self._trials_path / trial1
-        current_files = trial1_path.glob("*")
-        logger.debug(f"Current files in directory {trial1_path}: {current_files}")
-        trial2_path = self._trials_path / trial2
-        current_files = trial2_path.glob("*")
-        logger.debug(f"Current files in directory {trial2_path}: {current_files}")
-
         # Get a list of markers that each trial have in common
         bodyparts1_csv_path = self._data_processor.find_trial_csv(trial1_path)
         bodyparts2_csv_path = self._data_processor.find_trial_csv(trial2_path)
@@ -232,7 +213,9 @@ class Analyzer:
             distance = math.sqrt((avg_x2 - avg_x1) ** 2 + (avg_y2 - avg_y1) ** 2)
             avg_distances.append(distance)
 
-        logger.debug(f"Avg distances for trials {trial1} and {trial2}: {avg_distances}")
+        logger.debug(
+            f"Avg distances for trials {trial1_path.name} and {trial2_path.name}: {avg_distances}"
+        )
         # Calculate the mean of the distances to get an overall similarity measure
         marker_similarity = (
             sum(avg_distances) / len(avg_distances) if avg_distances else 0

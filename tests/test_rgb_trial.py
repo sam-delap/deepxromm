@@ -5,14 +5,166 @@ import unittest
 import random
 
 import pandas as pd
+import cv2
 
 from deepxromm import DeepXROMM
+from deepxromm.project import Project
 
 SAMPLE_FRAME = Path(__file__).parent / "sample_frame.jpg"
 SAMPLE_FRAME_INPUT = Path(__file__).parent / "sample_frame_input.csv"
 SAMPLE_AUTOCORRECT_OUTPUT = Path(__file__).parent / "sample_autocorrect_output.csv"
 
 DEEPXROMM_TEST_CODEC = os.environ.get("DEEPXROMM_TEST_CODEC", "avc1")
+
+
+class TestRGBMarkerCombos(unittest.TestCase):
+    """Verify that the different RGB marker combinations work"""
+
+    def setUp(self):
+        """Configure a project that has just been created"""
+        self.working_dir = Path.cwd() / "tmp"
+        self.deepxromm = DeepXROMM.create_new_project(
+            self.working_dir, mode="rgb", codec=DEEPXROMM_TEST_CODEC
+        )
+        frame = cv2.imread(str(SAMPLE_FRAME))
+
+        # Make a trial directory
+        (self.working_dir / "trainingdata/dummy").mkdir(parents=True, exist_ok=True)
+
+        # Cam 1
+        video_path_1 = self.working_dir / "trainingdata/dummy/dummy_cam1.avi"
+        out = cv2.VideoWriter(
+            str(video_path_1), cv2.VideoWriter_fourcc(*"DIVX"), 15, (1024, 512)
+        )
+        out.write(frame)
+        out.release()
+
+        # Cam 2
+        video_path_2 = self.working_dir / "trainingdata/dummy/dummy_cam2.avi"
+        out = cv2.VideoWriter(
+            str(video_path_2), cv2.VideoWriter_fourcc(*"DIVX"), 15, (1024, 512)
+        )
+        out.write(frame)
+        out.release()
+
+        # CSV
+        df = pd.DataFrame(
+            {
+                "foo_cam1_X": 0,
+                "foo_cam1_Y": 0,
+                "foo_cam2_X": 0,
+                "foo_cam2_Y": 0,
+                "bar_cam1_X": 0,
+                "bar_cam1_Y": 0,
+                "bar_cam2_X": 0,
+                "bar_cam2_Y": 0,
+                "baz_cam1_X": 0,
+                "baz_cam1_Y": 0,
+                "baz_cam2_X": 0,
+                "baz_cam2_Y": 0,
+            },
+            index=[1],
+        )
+        csv_path = self.working_dir / "trainingdata/dummy/dummy.csv"
+        df.to_csv(str(csv_path), index=False)
+        cv2.destroyAllWindows()
+
+    def test_bodyparts_add_synthetic(self):
+        """Can we add swapped markers?"""
+        tmp = Project.load_config_file(self.working_dir / "project_config.yaml")
+        tmp["mode"] = "rgb"
+        tmp["swapped_markers"] = True
+        Project.save_config_file(tmp, self.working_dir / "project_config.yaml")
+        DeepXROMM.load_project(self.working_dir)
+
+        config_obj = Project.load_config_file(self.deepxromm.project.path_config_file)
+
+        self.assertEqual(
+            config_obj["bodyparts"],
+            [
+                "foo_cam1",
+                "foo_cam2",
+                "bar_cam1",
+                "bar_cam2",
+                "baz_cam1",
+                "baz_cam2",
+                "sw_foo_cam1",
+                "sw_foo_cam2",
+                "sw_bar_cam1",
+                "sw_bar_cam2",
+                "sw_baz_cam1",
+                "sw_baz_cam2",
+            ],
+        )
+
+    def test_bodyparts_add_from_csv_in_3d(self):
+        """If the user wants to do 3D tracking, we output the desired list of bodyparts"""
+        DeepXROMM.load_project(self.working_dir)
+        config_obj = Project.load_config_file(self.deepxromm.project.path_config_file)
+        self.assertEqual(
+            config_obj["bodyparts"],
+            ["foo_cam1", "foo_cam2", "bar_cam1", "bar_cam2", "baz_cam1", "baz_cam2"],
+        )
+
+    def test_bodyparts_add_synthetic_and_crossed(self):
+        """Can we add both swapped and crossed markers?"""
+        tmp = Project.load_config_file(self.working_dir / "project_config.yaml")
+        tmp["swapped_markers"] = True
+        tmp["crossed_markers"] = True
+        Project.save_config_file(tmp, self.working_dir / "project_config.yaml")
+        DeepXROMM.load_project(self.working_dir)
+
+        config_obj = Project.load_config_file(self.deepxromm.project.path_config_file)
+
+        self.assertEqual(
+            config_obj["bodyparts"],
+            [
+                "foo_cam1",
+                "foo_cam2",
+                "bar_cam1",
+                "bar_cam2",
+                "baz_cam1",
+                "baz_cam2",
+                "sw_foo_cam1",
+                "sw_foo_cam2",
+                "sw_bar_cam1",
+                "sw_bar_cam2",
+                "sw_baz_cam1",
+                "sw_baz_cam2",
+                "cx_foo_cam1x2",
+                "cx_bar_cam1x2",
+                "cx_baz_cam1x2",
+            ],
+        )
+
+    def test_bodyparts_add_crossed(self):
+        """Can we add crossed markers?"""
+        tmp = Project.load_config_file(self.working_dir / "project_config.yaml")
+        tmp["crossed_markers"] = True
+        Project.save_config_file(tmp, self.working_dir / "project_config.yaml")
+        DeepXROMM.load_project(self.working_dir)
+
+        config_obj = Project.load_config_file(self.deepxromm.project.path_config_file)
+
+        self.assertEqual(
+            config_obj["bodyparts"],
+            [
+                "foo_cam1",
+                "foo_cam2",
+                "bar_cam1",
+                "bar_cam2",
+                "baz_cam1",
+                "baz_cam2",
+                "cx_foo_cam1x2",
+                "cx_bar_cam1x2",
+                "cx_baz_cam1x2",
+            ],
+        )
+
+    def tearDown(self):
+        """Clean up once tests are done running"""
+        if self.working_dir.exists():
+            shutil.rmtree(self.working_dir)
 
 
 class TestRGBTrialProcess(unittest.TestCase):
@@ -48,7 +200,7 @@ class TestRGBTrialProcess(unittest.TestCase):
         xmalab_first_row = xmalab_data.loc[0, :]
 
         # Load DLC data
-        dlc_config = Path(self.deepxromm.config["path_config_file"])
+        dlc_config = Path(self.deepxromm.project.path_config_file)
         labeled_data_path = dlc_config.parent / "labeled-data/MyData"
         dlc_data = pd.read_hdf(labeled_data_path / "CollectedData_NA.h5")
 
@@ -74,7 +226,7 @@ class TestRGBTrialProcess(unittest.TestCase):
         xmalab_data = pd.read_csv(self.trial_csv)
 
         # Load DLC data
-        dlc_config = Path(self.deepxromm.config["path_config_file"])
+        dlc_config = Path(self.deepxromm.project.path_config_file)
         labeled_data_path = dlc_config.parent / "labeled-data/MyData"
         dlc_data = pd.read_hdf(labeled_data_path / "CollectedData_NA.h5")
 
@@ -110,7 +262,7 @@ class TestRGBTrialProcess(unittest.TestCase):
         xmalab_data = pd.read_csv(self.trial_csv)
 
         # Load DLC data
-        dlc_config = Path(self.deepxromm.config["path_config_file"])
+        dlc_config = Path(self.deepxromm.project.path_config_file)
         labeled_data_path = dlc_config.parent / "labeled-data/MyData"
         dlc_data = pd.read_hdf(labeled_data_path / "CollectedData_NA.h5")
 

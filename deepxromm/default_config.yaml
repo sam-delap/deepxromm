@@ -7,8 +7,6 @@ nframes: 0
 maxiters: 150000
 tracking_threshold: 0.1 # Fraction of total frames included in training sample
 mode: "{mode}"
-swapped_markers: false
-crossed_markers: false
 
 # Image Processing Vars
 search_area: 15

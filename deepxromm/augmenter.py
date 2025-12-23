@@ -1,3 +1,4 @@
+from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
 import re
@@ -28,26 +29,41 @@ class ExtractionAlgorithm(Enum):
     KMEANS = "kmeans"
 
 
+@dataclass
+class OutlierExtractionParams:
+    _outlier_algorithm: str = "jump"
+    _extraction_algorithm: str = "kmeans"
+
+    @property
+    def outlier_algorithm(self):
+        return OutlierAlgorithm(self._outlier_algorithm)
+
+    @outlier_algorithm.setter
+    def outlier_algorithm(self, value):
+        self._outlier_algorithm = value
+
+    @property
+    def extraction_algorithm(self):
+        return ExtractionAlgorithm(self._extraction_algorithm)
+
+    @extraction_algorithm.setter
+    def extraction_algorithm(self, value):
+        self._extraction_algorithm = value
+
+
 class Augmenter:
     """Augments training data with DLC"""
 
-    def __init__(self, config: dict):
-        self.nframes = config["nframes"]
-        self.working_dir = Path(config["working_dir"])
-        self.mode = config["mode"]
-        if self.mode not in ["2D", "per_cam", "rgb"]:
-            raise ValueError(f"Unsupported mode: {self.mode}")
-        self.outlier_algorithm = OutlierAlgorithm(
-            config["augmenter"]["outlier_algorithm"]
-        )
-        self.extraction_algorithm = ExtractionAlgorithm(
-            config["augmenter"]["extraction_algorithm"]
-        )
-        self.path_config_file = Path(config["path_config_file"])
+    def __init__(self, project):
+        self.nframes = project.nframes
+        self.working_dir = project.working_dir
+        self.mode = project.mode
+        self.augmenter_settings = project.augmenter_settings
+        self.path_config_file = project.path_config_file
         self.path_config_file_2 = (
-            Path(config["path_config_file_2"]) if self.mode == "per_cam" else None
+            project.path_config_file_2 if project.mode == "per_cam" else None
         )
-        self._data_processor = XMADataProcessor(config)
+        self._data_processor = XMADataProcessor(project)
 
         with self.path_config_file.open("r") as fp:
             dlc_config = yaml.safe_load(fp)
@@ -56,7 +72,7 @@ class Augmenter:
     def extract_outlier_frames(self, **kwargs) -> None:
         """Extract outlier frames from DLC output and store them in 'outliers.yaml' file for the user"""
         if (
-            self.outlier_algorithm == OutlierAlgorithm.LIST
+            self.augmenter_settings.outlier_algorithm == OutlierAlgorithm.LIST
             and "frames2use" not in kwargs
         ):
             raise ValueError(
@@ -179,8 +195,8 @@ class Augmenter:
         deeplabcut.extract_outlier_frames(
             path_config_file,
             [str(cam_file)],
-            outlieralgorithm=self.outlier_algorithm.value,
-            extractionalgorithm=self.extraction_algorithm.value,
+            outlieralgorithm=self.augmenter_settings.outlier_algorithm.value,
+            extractionalgorithm=self.augmenter_settings.extraction_algorithm.value,
             destfolder=analysis_path,
             automatic=True,
             **kwargs,

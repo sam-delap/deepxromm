@@ -1,6 +1,5 @@
 import os
 from pathlib import Path
-import yaml
 import shutil
 
 from deepxromm import DeepXROMM
@@ -15,9 +14,8 @@ def set_up_project(project_dir: Path, mode: str):
     )
 
     # Adjust maxiters to 5 to ensure that training completes quickly
-    deepxromm_proj.config["maxiters"] = 5
-    with (project_dir / "project_config.yaml").open("w") as fp:
-        yaml.dump(deepxromm_proj.config, fp, sort_keys=False)
+    deepxromm_proj.project.maxiters = 5
+    deepxromm_proj.project.update_config_file()
 
     # Make vars for pathing to find files easily
     trial_dir = project_dir / "trainingdata/test"

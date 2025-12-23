@@ -1,12 +1,11 @@
 """A Complete Set of User-Friendly Tools for DeepLabCut-XMAlab marker tracking"""
 
 from pathlib import Path
-from ruamel.yaml.comments import CommentedMap
 
 from deepxromm.analyzer import Analyzer
 from deepxromm.autocorrector import Autocorrector
 from deepxromm.network import Network
-from deepxromm.project import Project
+from deepxromm.project import Project, ProjectFactory
 from deepxromm.xma_data_processor import XMADataProcessor
 from deepxromm.augmenter import Augmenter
 
@@ -14,7 +13,7 @@ from deepxromm.augmenter import Augmenter
 class DeepXROMM:
     """A Complete Set of User-Friendly Tools for DeepLabCut-XMAlab marker tracking"""
 
-    config: CommentedMap
+    project: Project
     _analyzer: Analyzer
     _autocorrector: Autocorrector
     _network: Network
@@ -28,30 +27,34 @@ class DeepXROMM:
 
     @classmethod
     def create_new_project(
-        cls, working_dir=None, experimenter="NA", mode="2D", codec="avc1"
+        cls,
+        working_dir: str | Path = Path.cwd(),
+        experimenter="NA",
+        mode="2D",
+        codec="avc1",
     ):
         """Create a new xrommtools project"""
         deepxromm = DeepXROMM.__new__(DeepXROMM)
-        deepxromm.config = Project.create_new_config(
+        deepxromm.project = ProjectFactory.create_new_config(
             working_dir, experimenter, mode, codec
         )
-        deepxromm._analyzer = Analyzer(deepxromm.config)
-        deepxromm._autocorrector = Autocorrector(deepxromm.config)
-        deepxromm._network = Network(deepxromm.config)
-        deepxromm._data_processor = XMADataProcessor(deepxromm.config)
-        deepxromm._augmenter = Augmenter(deepxromm.config)
+        deepxromm._analyzer = Analyzer(deepxromm.project)
+        deepxromm._autocorrector = Autocorrector(deepxromm.project)
+        deepxromm._network = Network(deepxromm.project)
+        deepxromm._data_processor = XMADataProcessor(deepxromm.project)
+        deepxromm._augmenter = Augmenter(deepxromm.project)
         return deepxromm
 
     @classmethod
-    def load_project(cls, working_dir=None):
+    def load_project(cls, working_dir: str | Path):
         """Create a new xrommtools project"""
         deepxromm = DeepXROMM.__new__(DeepXROMM)
-        deepxromm.config = Project.load_config(working_dir)
-        deepxromm._analyzer = Analyzer(deepxromm.config)
-        deepxromm._autocorrector = Autocorrector(deepxromm.config)
-        deepxromm._network = Network(deepxromm.config)
-        deepxromm._data_processor = XMADataProcessor(deepxromm.config)
-        deepxromm._augmenter = Augmenter(deepxromm.config)
+        deepxromm.project = ProjectFactory.load_config(working_dir)
+        deepxromm._analyzer = Analyzer(deepxromm.project)
+        deepxromm._autocorrector = Autocorrector(deepxromm.project)
+        deepxromm._network = Network(deepxromm.project)
+        deepxromm._data_processor = XMADataProcessor(deepxromm.project)
+        deepxromm._augmenter = Augmenter(deepxromm.project)
         return deepxromm
 
     def xma_to_dlc(self):
@@ -62,9 +65,9 @@ class DeepXROMM:
         """Creates a training dataset based on current project data"""
         self._network.create_training_dataset()
 
-    def train_network(self):
+    def train_network(self, **kwargs):
         """Starts training the network using data in the working directory."""
-        self._network.train()
+        self._network.train(**kwargs)
 
     def analyze_videos(self):
         """Analyze videos with a pre-existing network"""
@@ -110,9 +113,9 @@ class DeepXROMM:
         """
         return self._analyzer.analyze_video_similarity_project()
 
-    def analyze_video_similarity_trial(self):
+    def analyze_video_similarity_trial(self, **kwargs):
         """Analyze the average similarity between trials using image hashing"""
-        return self._analyzer.analyze_video_similarity_trial()
+        return self._analyzer.analyze_video_similarity_trial(**kwargs)
 
     def get_max_dissimilarity_for_trial(self, trial_path, window):
         """Calculate the dissimilarity within the trial given the frame sliding window."""

@@ -1,27 +1,76 @@
 """Performs XMAlab-style autocorrection on the trials and videos"""
 
+from dataclasses import dataclass
 import math
-from pathlib import Path
 
 import cv2
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import yaml
+from ruamel.yaml import YAML
 
 from deepxromm.xma_data_processor import XMADataProcessor
 from deepxromm.logging import logger
 
 
+@dataclass
+class AutocorrectParams:
+    """Image processor config for autocorrect"""
+
+    _search_area: int = 15
+    threshold: int = 8
+    krad: int = 17
+    gsigma: int = 10
+    img_wt: float = 3.6
+    blur_wt: float = -2.9
+    gamma: float = 0.1
+    _test_autocorrect: bool = False
+    trial_name: str = "your_trial_here"
+    cam: str = "cam1"
+    frame_num: int = 1
+    marker: str = "your_marker_here"
+
+    @property
+    def search_area(self):
+        """Search radius around the marker to search within"""
+        return self._search_area
+
+    @search_area.setter
+    def search_area(self, value: int):
+        """Sets a minimum of 10 for the search area"""
+        if value >= 10:
+            self._search_area = value
+            return
+
+        self._search_area = 10
+
+    @property
+    def test_autocorrect(self) -> bool:
+        """Whether or not to test the autocorrect setup"""
+        if not self._test_autocorrect:
+            return self._test_autocorrect
+
+        if self.trial_name == "your_trial_here":
+            raise SyntaxError("Please specify a trial to test autocorrect() with")
+        if self.marker == "your_marker_here":
+            raise SyntaxError("Please specify a marker to test autocorrect() with")
+        return self._test_autocorrect
+
+    @test_autocorrect.setter
+    def test_autocorrect(self, value):
+        self._test_autocorrect = value
+
+
 class Autocorrector:
     """Performs XMAlab-style autocorrection on the trials and videos"""
 
-    def __init__(self, config):
-        self.working_dir = Path(config["working_dir"])
+    def __init__(self, project):
+        self.project = project
+        self.autocorrect_settings = project.autocorrect_settings
+        self.working_dir = project.working_dir
         self._trials_path = self.working_dir / "trials"
-        self._data_processor = XMADataProcessor(config)
-        self._config = config
-        self._dlc_config_path = Path(config["path_config_file"])
+        self._data_processor = XMADataProcessor(project)
+        self._dlc_config_path = project.path_config_file
         self._skip_stats = {}  # Track skipped markers: {trial_name: count}
 
     def autocorrect_trials(self):
@@ -30,8 +79,9 @@ class Autocorrector:
         trials = self._data_processor.list_trials()
 
         # Establish project vars
+        yaml = YAML()
         with self._dlc_config_path.open("r") as dlc_config:
-            dlc = yaml.safe_load(dlc_config)
+            dlc = yaml.load(dlc_config)
 
         iteration = dlc["iteration"]
 
@@ -45,37 +95,46 @@ class Autocorrector:
             csv = pd.read_csv(trial_csv_location)
             out_name = iteration_folder / f"{trial_name}-AutoCorrected2DPoints.csv"
 
-            if self._config["test_autocorrect"]:
-                cams = [self._config["cam"]]
+            if self.autocorrect_settings.test_autocorrect:
+                cams = self.project.cam
             else:
                 cams = ["cam1", "cam2"]  # Assumes 2-camera setup
 
             # For each camera
             for cam in cams:
-                csv = self._autocorrect_video(cam, self._trials_path / trial_name, csv)
+                csv = self._autocorrect_video(
+                    cam, self._trials_path / trial_name, csv, self.autocorrect_settings
+                )
 
             # Print when autocorrect finishes
-            if not self._config["test_autocorrect"]:
+            if not self.autocorrect_settings.test_autocorrect:
                 print(f"Done! Saving to {out_name}")
                 csv.to_csv(out_name, index=False)
 
         # Print summary report
         self._print_skip_summary()
 
-    def _autocorrect_video(self, cam, trial_path, csv):
+    def _autocorrect_video(
+        self, cam, trial_path, csv, autocorrect_settings: AutocorrectParams
+    ):
         """Run the autocorrect function on a single video within a single trial"""
         # Find the raw video
         video = cv2.VideoCapture(self._data_processor.find_cam_file(trial_path, cam))
         if not video.isOpened():
             raise FileNotFoundError(f"Couldn't find a video at file path: {trial_path}")
 
-        if self._config["test_autocorrect"]:
-            video.set(1, self._config["frame_num"] - 1)
+        if autocorrect_settings.test_autocorrect:
+            video.set(1, self.autocorrect_settings.frame_num - 1)
             ret, frame = video.read()
             if ret is False:
                 raise IOError("Error reading video frame")
             self._autocorrect_frame(
-                trial_path, frame, cam, self._config["frame_num"], csv
+                trial_path,
+                frame,
+                cam,
+                autocorrect_settings.frame_num,
+                csv,
+                autocorrect_settings,
             )
             return csv
 
@@ -89,17 +148,28 @@ class Autocorrector:
             ret, frame = video.read()
             if ret is False:
                 raise IOError("Error reading video frame")
-            csv = self._autocorrect_frame(trial_path, frame, cam, frame_index, csv)
+            csv = self._autocorrect_frame(
+                trial_path, frame, cam, frame_index, csv, autocorrect_settings
+            )
         return csv
 
-    def _autocorrect_frame(self, trial_path, frame, cam, frame_index, csv):
+    def _autocorrect_frame(
+        self,
+        trial_path,
+        frame,
+        cam,
+        frame_index,
+        csv,
+        autocorrect_settings: AutocorrectParams,
+    ):
         """Run the autocorrect function for a single frame (no output)"""
         # For each marker in the frame
-        if self._config["test_autocorrect"]:
-            parts_unique = [self._config["marker"]]
+        if autocorrect_settings.test_autocorrect:
+            parts_unique = [autocorrect_settings.marker]
         else:
+            yaml = YAML()
             with open(self._dlc_config_path) as dlc_config:
-                dlc = yaml.safe_load(dlc_config)
+                dlc = yaml.load(dlc_config)
             iteration = dlc["iteration"]
             iteration_path = trial_path / f"it{iteration}"
             trial_csv_path = self._data_processor.find_trial_csv(
@@ -112,7 +182,7 @@ class Autocorrector:
             # Find point and offsets
             x_float = csv.loc[frame_index, f"{part}_{cam}_X"]
             y_float = csv.loc[frame_index, f"{part}_{cam}_Y"]
-            search_area_with_offset = self._config["search_area"] + 0.5
+            search_area_with_offset = autocorrect_settings.search_area + 0.5
             x_start = int(x_float - search_area_with_offset)
             y_start = int(y_float - search_area_with_offset)
             x_end = int(x_float + search_area_with_offset)
@@ -132,15 +202,15 @@ class Autocorrector:
             try:
                 subimage_filtered = self._filter_image(
                     subimage,
-                    self._config["krad"],
-                    self._config["gsigma"],
-                    self._config["img_wt"],
-                    self._config["blur_wt"],
-                    self._config["gamma"],
+                    autocorrect_settings.krad,
+                    autocorrect_settings.gsigma,
+                    autocorrect_settings.img_wt,
+                    autocorrect_settings.blur_wt,
+                    autocorrect_settings.gamma,
                 )
 
                 subimage_float = subimage_filtered.astype(np.float32)
-                radius = int(1.5 * 5 + 0.5)  # 5 might be too high
+                radius = int(1.5 * 5 + 0.5)  # Isn't this just always 8?
                 sigma = radius * math.sqrt(2 * math.log(255)) - 1
                 subimage_blurred = cv2.GaussianBlur(
                     subimage_float, (2 * radius + 1, 2 * radius + 1), sigma
@@ -157,6 +227,7 @@ class Autocorrector:
                 continue
 
             subimage_diff
+
             subimage_diff = cv2.normalize(
                 subimage_diff, None, 0, 255, cv2.NORM_MINMAX
             ).astype(np.uint8)
@@ -175,7 +246,7 @@ class Autocorrector:
             thres = (
                 0.5 * min_val
                 + 0.5 * np.mean(subimage_median_threshold)
-                + self._config["threshold"] * 0.01 * 255
+                + autocorrect_settings.threshold * 0.01 * 255
             )
             _, subimage_threshold = cv2.threshold(
                 subimage_median_threshold, thres, 255, cv2.THRESH_BINARY_INV
@@ -217,7 +288,7 @@ class Autocorrector:
                     dist = dist_tmp
 
             # Fix how this displays, because this logic does not track
-            if self._config["test_autocorrect"]:
+            if autocorrect_settings.test_autocorrect:
                 print("Raw")
                 self._show_crop(subimage, 15)
 
