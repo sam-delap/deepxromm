@@ -8,15 +8,16 @@ from pathlib import Path
 from platformdirs import user_log_dir, user_config_dir
 
 # Load default config
-config_file = Path(__file__) / "default_logging_config.yaml"
-with config_file.open("r") as fp:
+config_file = Path(__file__).parent / "default_logging_config.yaml"
+with open(config_file, "r") as fp:
     config = yaml.safe_load(fp)
 
 # Load user config (if it exists)
+user_config = {}
 config_dir = Path(user_config_dir("deepxromm"))
 user_config_file = config_dir / "logging_config.yaml"
 if user_config_file.exists():
-    with user_config_file.open("r") as fp:
+    with open(user_config_file, "r") as fp:
         user_config = yaml.safe_load(fp)
 
 # Merge 2 configs to provide defaults, without overwriting user preferences

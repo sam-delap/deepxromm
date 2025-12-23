@@ -1,9 +1,7 @@
 """Performs XMAlab-style autocorrection on the trials and videos"""
 
-import logging
 import math
 from pathlib import Path
-import os
 
 import cv2
 import matplotlib.pyplot as plt
@@ -11,14 +9,8 @@ import numpy as np
 import pandas as pd
 import yaml
 
-from .xma_data_processor import XMADataProcessor
-
-logger = logging.getLogger(__name__)
-logging.basicConfig(
-    filename="autocorrecter.log",
-    encoding="utf-8",
-    level=os.environ.get("DEEPXROMM_LOG_LEVEL", "INFO").upper(),
-)
+from deepxromm.xma_data_processor import XMADataProcessor
+from deepxromm.logging import logger
 
 
 class Autocorrector:
