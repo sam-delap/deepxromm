@@ -1,9 +1,9 @@
 import unittest
-import yaml
 import shutil
 from pathlib import Path
 
 from deepxromm import DeepXROMM
+from deepxromm.project import Project
 
 from .utils import set_up_project
 
@@ -17,13 +17,11 @@ def generic_nframes_not_updated_when_false(
     iteration_dir = working_dir / "trials/test/it0"
     # User finds config file with outlier frames, extracts the ones they want to include
     # For this test, we'll only open the merged outliers file, but ones do exist for each camera
-    with open(iteration_dir / "outliers.yaml", "r") as fp:
-        outliers = yaml.safe_load(fp)
+    outliers = Project.load_config_file(iteration_dir / "outliers.yaml")
 
     # User edits the config file so that it only has the ones they want included in it
     outliers = outliers[:5]
-    with open(iteration_dir / "outliers.yaml", "w") as fp:
-        yaml.dump(outliers, fp)
+    Project.save_config_file(outliers, iteration_dir / "outliers.yaml")
 
     # User deposits an XMAlab-formatted CSV with the word 'outliers' in it into the 'it#' folder
     # This CSV can contain much more than just the outliers they tracked
@@ -39,7 +37,7 @@ def generic_nframes_not_updated_when_false(
     deepxromm_proj = DeepXROMM.load_project(working_dir)
 
     # Check that nframes matches our expectations (5 initial frames)
-    return deepxromm_proj.config.nframes == 5
+    return deepxromm_proj.project.nframes == 5
 
 
 def generic_test_retraining_workflow(
@@ -51,13 +49,11 @@ def generic_test_retraining_workflow(
     iteration_dir = working_dir / "trials/test/it0"
 
     # User finds config file with outlier frames, extracts the ones they want to include
-    with open(iteration_dir / "outliers.yaml", "r") as fp:
-        outliers = yaml.safe_load(fp)
+    outliers = Project.load_config_file(iteration_dir / "outliers.yaml")
 
     # User edits the config file so that it only has the ones they want included in it
     outliers = outliers[:5]
-    with open(iteration_dir / "outliers.yaml", "w") as fp:
-        yaml.dump(outliers, fp)
+    Project.save_config_file(outliers, iteration_dir / "outliers.yaml")
 
     # User deposits an XMAlab-formatted CSV with the word 'outliers' in it into the 'it#' folder
     # This CSV can contain much more than just the outliers they tracked
@@ -73,7 +69,7 @@ def generic_test_retraining_workflow(
     deepxromm_proj = DeepXROMM.load_project(working_dir)
 
     # Check that nframes matches our expectations (5 initial frames + 5 outlier frames = 10 total frames)
-    assert deepxromm_proj.config.nframes == 10
+    assert deepxromm_proj.project.nframes == 10
 
     # Go through the rest of the retraining workflow
     deepxromm_proj.xma_to_dlc()
@@ -95,9 +91,8 @@ class TestRetraining2D(unittest.TestCase):
         )
 
         # Give a subset of frames
-        self.deepxromm_proj.config.nframes = 5
-        with open(self.working_dir / "project_config.yaml", "w") as fp:
-            yaml.dump(self.deepxromm_proj.config, fp, sort_keys=False)
+        self.deepxromm_proj.project.nframes = 5
+        self.deepxromm_proj.project.update_config_file()
 
         # Reload project (update nframes)
         self.deepxromm_proj = DeepXROMM.load_project(self.working_dir)
@@ -143,9 +138,8 @@ class TestRetrainingPerCam(unittest.TestCase):
         )
 
         # Give a subset of frames
-        self.deepxromm_proj.config.nframes = 5
-        with open(self.working_dir / "project_config.yaml", "w") as fp:
-            yaml.dump(self.deepxromm_proj.config, fp, sort_keys=False)
+        self.deepxromm_proj.project.nframes = 5
+        self.deepxromm_proj.project.update_config_file()
 
         # Reload project (update nframes)
         self.deepxromm_proj = DeepXROMM.load_project(self.working_dir)
@@ -190,9 +184,8 @@ class TestRetrainingRGB(unittest.TestCase):
         )
 
         # Give a subset of frames
-        self.deepxromm_proj.config.nframes = 5
-        with open(self.working_dir / "project_config.yaml", "w") as fp:
-            yaml.dump(self.deepxromm_proj.config, fp, sort_keys=False)
+        self.deepxromm_proj.project.nframes = 5
+        self.deepxromm_proj.project.update_config_file()
 
         # Reload project (update nframes)
         self.deepxromm_proj = DeepXROMM.load_project(self.working_dir)

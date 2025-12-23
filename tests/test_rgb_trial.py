@@ -5,6 +5,7 @@ import unittest
 import random
 
 import pandas as pd
+import cv2
 
 from deepxromm import DeepXROMM
 from deepxromm.project import Project
@@ -16,31 +17,57 @@ SAMPLE_AUTOCORRECT_OUTPUT = Path(__file__).parent / "sample_autocorrect_output.c
 DEEPXROMM_TEST_CODEC = os.environ.get("DEEPXROMM_TEST_CODEC", "avc1")
 
 
-class TestRGBTrialProcess(unittest.TestCase):
-    """Test function performance on an actual trial - RGB trial workflow"""
+class TestRGBMarkerCombos(unittest.TestCase):
+    """Verify that the different RGB marker combinations work"""
 
     def setUp(self):
-        """Create trial with test data"""
+        """Configure a project that has just been created"""
         self.working_dir = Path.cwd() / "tmp"
-        DeepXROMM.create_new_project(
+        self.deepxromm = DeepXROMM.create_new_project(
             self.working_dir, mode="rgb", codec=DEEPXROMM_TEST_CODEC
         )
+        frame = cv2.imread(str(SAMPLE_FRAME))
 
         # Make a trial directory
-        trial_dir = self.working_dir / "trainingdata/test"
-        trial_dir.mkdir(parents=True, exist_ok=True)
+        (self.working_dir / "trainingdata/dummy").mkdir(parents=True, exist_ok=True)
 
-        # Make vars for pathing to find files easily
-        self.trial_csv = trial_dir / "test.csv"
-        self.rgb_path = trial_dir / "test_cam1.avi"
-        self.cam2_path = trial_dir / "test_cam2.avi"
+        # Cam 1
+        video_path_1 = self.working_dir / "trainingdata/dummy/dummy_cam1.avi"
+        out = cv2.VideoWriter(
+            str(video_path_1), cv2.VideoWriter_fourcc(*"DIVX"), 15, (1024, 512)
+        )
+        out.write(frame)
+        out.release()
 
-        # Move sample frame input to trainingdata
-        shutil.copy("trial_slice.csv", str(self.trial_csv))
-        shutil.copy("trial_cam1_slice.avi", str(self.rgb_path))
-        shutil.copy("trial_cam2_slice.avi", str(self.cam2_path))
-        self.deepxromm = DeepXROMM.load_project(self.working_dir)
-        self.deepxromm.xma_to_dlc()
+        # Cam 2
+        video_path_2 = self.working_dir / "trainingdata/dummy/dummy_cam2.avi"
+        out = cv2.VideoWriter(
+            str(video_path_2), cv2.VideoWriter_fourcc(*"DIVX"), 15, (1024, 512)
+        )
+        out.write(frame)
+        out.release()
+
+        # CSV
+        df = pd.DataFrame(
+            {
+                "foo_cam1_X": 0,
+                "foo_cam1_Y": 0,
+                "foo_cam2_X": 0,
+                "foo_cam2_Y": 0,
+                "bar_cam1_X": 0,
+                "bar_cam1_Y": 0,
+                "bar_cam2_X": 0,
+                "bar_cam2_Y": 0,
+                "baz_cam1_X": 0,
+                "baz_cam1_Y": 0,
+                "baz_cam2_X": 0,
+                "baz_cam2_Y": 0,
+            },
+            index=[1],
+        )
+        csv_path = self.working_dir / "trainingdata/dummy/dummy.csv"
+        df.to_csv(str(csv_path), index=False)
+        cv2.destroyAllWindows()
 
     def test_bodyparts_add_synthetic(self):
         """Can we add swapped markers?"""
@@ -48,7 +75,7 @@ class TestRGBTrialProcess(unittest.TestCase):
         tmp["mode"] = "rgb"
         tmp["swapped_markers"] = True
         Project.save_config_file(tmp, self.working_dir / "project_config.yaml")
-        self.deepxromm.check_config_for_updates()
+        DeepXROMM.load_project(self.working_dir)
 
         config_obj = Project.load_config_file(self.deepxromm.project.path_config_file)
 
@@ -72,6 +99,7 @@ class TestRGBTrialProcess(unittest.TestCase):
 
     def test_bodyparts_add_from_csv_in_3d(self):
         """If the user wants to do 3D tracking, we output the desired list of bodyparts"""
+        DeepXROMM.load_project(self.working_dir)
         config_obj = Project.load_config_file(self.deepxromm.project.path_config_file)
         self.assertEqual(
             config_obj["bodyparts"],
@@ -83,10 +111,8 @@ class TestRGBTrialProcess(unittest.TestCase):
         tmp = Project.load_config_file(self.working_dir / "project_config.yaml")
         tmp["swapped_markers"] = True
         tmp["crossed_markers"] = True
-        Project.save_config_file(
-            tmp, self.deepxromm.working_dir / "project_config.yaml"
-        )
-        self.deepxromm.project.check_config_for_updates()
+        Project.save_config_file(tmp, self.working_dir / "project_config.yaml")
+        DeepXROMM.load_project(self.working_dir)
 
         config_obj = Project.load_config_file(self.deepxromm.project.path_config_file)
 
@@ -114,10 +140,9 @@ class TestRGBTrialProcess(unittest.TestCase):
     def test_bodyparts_add_crossed(self):
         """Can we add crossed markers?"""
         tmp = Project.load_config_file(self.working_dir / "project_config.yaml")
-        tmp["mode"] = "rgb"
         tmp["crossed_markers"] = True
         Project.save_config_file(tmp, self.working_dir / "project_config.yaml")
-        self.deepxromm.check_config_for_updates()
+        DeepXROMM.load_project(self.working_dir)
 
         config_obj = Project.load_config_file(self.deepxromm.project.path_config_file)
 
@@ -135,6 +160,38 @@ class TestRGBTrialProcess(unittest.TestCase):
                 "cx_baz_cam1x2",
             ],
         )
+
+    def tearDown(self):
+        """Clean up once tests are done running"""
+        if self.working_dir.exists():
+            shutil.rmtree(self.working_dir)
+
+
+class TestRGBTrialProcess(unittest.TestCase):
+    """Test function performance on an actual trial - RGB trial workflow"""
+
+    def setUp(self):
+        """Create trial with test data"""
+        self.working_dir = Path.cwd() / "tmp"
+        DeepXROMM.create_new_project(
+            self.working_dir, mode="rgb", codec=DEEPXROMM_TEST_CODEC
+        )
+
+        # Make a trial directory
+        trial_dir = self.working_dir / "trainingdata/test"
+        trial_dir.mkdir(parents=True, exist_ok=True)
+
+        # Make vars for pathing to find files easily
+        self.trial_csv = trial_dir / "test.csv"
+        self.rgb_path = trial_dir / "test_cam1.avi"
+        self.cam2_path = trial_dir / "test_cam2.avi"
+
+        # Move sample frame input to trainingdata
+        shutil.copy("trial_slice.csv", str(self.trial_csv))
+        shutil.copy("trial_cam1_slice.avi", str(self.rgb_path))
+        shutil.copy("trial_cam2_slice.avi", str(self.cam2_path))
+        self.deepxromm = DeepXROMM.load_project(self.working_dir)
+        self.deepxromm.xma_to_dlc()
 
     def test_first_frame_matches_in_dlc_csv(self):
         """When I run xma_to_dlc, does the DLC CSV have the same data as my original file?"""

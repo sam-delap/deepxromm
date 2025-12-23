@@ -50,8 +50,6 @@ class TestProjectCreation(unittest.TestCase):
             "maxiters",
             "tracking_threshold",
             "mode",
-            "swapped_markers",
-            "crossed_markers",
             "search_area",
             "threshold",
             "krad",
