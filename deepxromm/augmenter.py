@@ -162,7 +162,7 @@ class Augmenter:
             if matched_outlier in outliers["cam2"]
         ]
         if len(matched_outliers) == 0:
-            logger.info(
+            logger.warning(
                 "No outliers matched. Concatenating cam1 and cam2 outliers in matched outliers"
             )
             matched_outliers = outliers["cam1"] + outliers["cam2"]
