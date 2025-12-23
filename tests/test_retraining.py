@@ -8,6 +8,34 @@ from deepxromm.project import Project
 from .utils import set_up_project
 
 
+def generic_snapshot_updated_in_pose_config(deepxromm_proj: DeepXROMM, trial_csv: Path):
+    """Given a default deepxromm project, when the user merges in a dataset, then the init_weights in the pose_config.yaml should be updated"""
+    # Extract outliers
+    deepxromm_proj.extract_outlier_frames()
+    # Copy in tracked points for outliers
+    shutil.copy(
+        trial_csv,
+        str(
+            deepxromm_proj.project.working_dir / "trials/test/it0/outliers_tracking.csv"
+        ),
+    )
+    # Merge datasets
+    deepxromm_proj.merge_datasets()
+
+    # Create new labeled data
+    deepxromm_proj.xma_to_dlc()
+
+    # Create training dataset (should also update pose_config.yaml for nonzero iterations)
+    deepxromm_proj.create_training_dataset()
+
+    # Check if the config got updated
+    pose_config_path = deepxromm_proj._network._find_pose_cfg(
+        deepxromm_proj.project.path_config_file, deepxromm_proj.project.dlc_iteration
+    )
+    pose_config = Project.load_config_file(pose_config_path)
+    return "resnet_v1_50.ckpt" not in pose_config["init_weights"]
+
+
 def generic_nframes_not_updated_when_false(
     deepxromm_proj: DeepXROMM, working_dir: Path, trial_csv: Path
 ) -> Path:
@@ -100,7 +128,7 @@ class TestRetraining2D(unittest.TestCase):
         # Run through a normal workflow
         self.deepxromm_proj.xma_to_dlc()
         self.deepxromm_proj.create_training_dataset()
-        self.deepxromm_proj.train_network()
+        self.deepxromm_proj.train_network(saveiters=1)
         self.deepxromm_proj.analyze_videos()
         self.deepxromm_proj.dlc_to_xma()
 
@@ -116,9 +144,10 @@ class TestRetraining2D(unittest.TestCase):
             self.deepxromm_proj, self.working_dir, self.trial_csv
         )
 
-    # Test that nframes is not updated when user specifies 'update_nframes=False'
-    # Test that outlier collection actually adds the correct frames to a DF index in XMAlab format
-    # Test that load_project() warns after retraining is initiated
+    def test_snapshot_updated_in_pose_config(self):
+        assert generic_snapshot_updated_in_pose_config(
+            self.deepxromm_proj, self.trial_csv
+        )
 
     def tearDown(self):
         """Tear down the project"""
@@ -163,8 +192,16 @@ class TestRetrainingPerCam(unittest.TestCase):
             self.deepxromm_proj, self.working_dir, self.trial_csv
         )
 
-    # Test that outlier collection actually adds the correct frames to a DF index in XMAlab format
-    # Test that xma_to_dlc() warns if it's clear that retraining has happened for the current iteration
+    def test_snapshot_updated_in_pose_config(self):
+        assert generic_snapshot_updated_in_pose_config(
+            self.deepxromm_proj, self.trial_csv
+        )
+        pose_config_path_2 = self.deepxromm_proj._network._find_pose_cfg(
+            self.deepxromm_proj.project.path_config_file,
+            self.deepxromm_proj.project.dlc_iteration,
+        )
+        pose_config = Project.load_config_file(pose_config_path_2)
+        assert "resnet_v1_50.ckpt" not in pose_config["init_weights"]
 
     def tearDown(self):
         """Tear down the project"""
@@ -209,9 +246,10 @@ class TestRetrainingRGB(unittest.TestCase):
             self.deepxromm_proj, self.working_dir, self.trial_csv
         )
 
-    # Test that outlier collection actually adds the correct frames to a DF index in XMAlab format
-    # Test that load_project() warns after retraining is initiated before config reload
-    # Test that init_weights get updated to use the user's snapshot from their last iteration as base weights
+    def test_snapshot_updated_in_pose_config(self):
+        assert generic_snapshot_updated_in_pose_config(
+            self.deepxromm_proj, self.trial_csv
+        )
 
     def tearDown(self):
         """Tear down the project"""

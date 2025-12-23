@@ -65,9 +65,9 @@ class DeepXROMM:
         """Creates a training dataset based on current project data"""
         self._network.create_training_dataset()
 
-    def train_network(self):
+    def train_network(self, **kwargs):
         """Starts training the network using data in the working directory."""
-        self._network.train()
+        self._network.train(**kwargs)
 
     def analyze_videos(self):
         """Analyze videos with a pre-existing network"""

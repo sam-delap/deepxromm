@@ -103,6 +103,19 @@ class Project(ABC):
     def experimenter(self):
         return self._experimenter
 
+    @property
+    def dlc_iteration(self):
+        """Iteration of training for DLC project within the DeepXROMM project"""
+        dlc_config = Project.load_config_file(self.path_config_file)
+        return dlc_config["iteration"]
+
+    @dlc_iteration.setter
+    def dlc_iteration(self, value):
+        """Set iteration in the dlc config"""
+        dlc_config = Project.load_config_file(self.path_config_file)
+        dlc_config["iteration"] = value
+        Project.save_config_file(dlc_config, self.path_config_file)
+
     @staticmethod
     def load_config_file(config_file_path: Path):
         """Load a YAML file as a commented map"""
@@ -268,6 +281,12 @@ class ProjectPerCam(Project):
     def path_config_file_2(self, value):
         """Ensuring path_config_file is always returned as a path"""
         self._path_config_file_2 = value
+
+    @property
+    def iteration_2(self):
+        """Iteration of training for DLC project within the DeepXROMM project"""
+        dlc_config = Project.load_config_file(self.path_config_file)
+        return dlc_config["iteration"]
 
 
 @dataclass

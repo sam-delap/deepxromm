@@ -62,20 +62,67 @@ class Network:
 
     def create_training_dataset(self):
         """Create training dataset for data"""
+        # Assumes you want to use the most recent snapshot
         deeplabcut.create_training_dataset(str(self._project.path_config_file))
         if self._project.mode == "per_cam":
             deeplabcut.create_training_dataset(str(self._project.path_config_file_2))
 
-    def train(self):
+        if self._project.dlc_iteration == 0:
+            return
+        self._update_init_weights(
+            self._project.path_config_file, self._project.dlc_iteration
+        )
+        if self._project.mode == "per_cam":
+            self._update_init_weights(
+                self._project.path_config_file_2, self._project.dlc_iteration
+            )
+
+    def train(self, **kwargs):
         """Starts training a network"""
         deeplabcut.train_network(
-            str(self._project.path_config_file), maxiters=self._project.maxiters
+            str(self._project.path_config_file),
+            maxiters=self._project.maxiters,
+            **kwargs,
         )
 
         if self._project.mode == "per_cam":
             deeplabcut.train_network(
-                self._project.path_config_file_2, maxiters=self._project.maxiters
+                self._project.path_config_file_2,
+                maxiters=self._project.maxiters,
+                **kwargs,
             )
+
+    def _update_init_weights(self, path_config_file: Path, dlc_iteration: int):
+        """Update init weights to point at the last snapshot of the previous iteration's run for retraining workflows"""
+        previous_pose_config_path = self._find_pose_cfg(
+            path_config_file, dlc_iteration - 1
+        )
+        latest_snapshot = self._find_latest_snapshot(previous_pose_config_path.parent)
+        pose_config_path = self._find_pose_cfg(path_config_file, dlc_iteration)
+        pose_config = Project.load_config_file(pose_config_path)
+        pose_config["init_weights"] = str(latest_snapshot.parent / latest_snapshot.stem)
+        Project.save_config_file(pose_config, pose_config_path)
+
+    def _find_pose_cfg(self, path_config_file: Path, dlc_iteration: int):
+        """Find pose config file given path to DLC config"""
+        model_parent_dir = (
+            path_config_file.parent / "dlc-models" / f"iteration-{dlc_iteration}"
+        )
+        trainset_options = self._data_processor.list_trials(
+            str(model_parent_dir.relative_to(self.working_dir))
+        )
+        # I'm assuming there's only ever going to be 1 trainset/shuffle per iteration
+        assert len(trainset_options) == 1
+        trainset_folder = trainset_options[0]
+        pose_config_path = trainset_folder / "train/pose_cfg.yaml"
+        return pose_config_path
+
+    @staticmethod
+    def _find_latest_snapshot(pose_config_dir: Path):
+        """Find the latest snapshot file in the current directory"""
+        snapshots = sorted(list(pose_config_dir.glob("snapshot-*.index")))
+        logger.debug(f"Sorted snapshot set: {snapshots}")
+        return snapshots[0]
 
     def _process_cameras_2d(
         self,
