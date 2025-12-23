@@ -18,6 +18,7 @@ from ruamel.yaml.comments import CommentedMap
 from deepxromm.augmenter import OutlierExtractionParams
 from deepxromm.xma_data_processor import XMADataProcessor
 from deepxromm.logging import logger
+from deepxromm.autocorrector import AutocorrectParams
 
 # Sets the default codec for use in creating/loading project configs
 DEFAULT_CODEC = "avc1"
@@ -40,6 +41,7 @@ class Project(ABC):
     tracking_threshold: float = 0.1
     _video_codec: str = DEFAULT_CODEC
     _mode: str = ""
+    autocorrect_settings: AutocorrectParams = AutocorrectParams()
     augmenter_settings: OutlierExtractionParams = OutlierExtractionParams()
     cam1s_are_the_same_view: bool = True
 
@@ -128,13 +130,43 @@ class Project(ABC):
             )
             return
 
-        config = Project.load_config_file(self.project_config_path)
-        for key, value in config.items():
-            if key not in vars(self):
-                continue
-            my_value = getattr(self, key)
-            if my_value != value:
-                setattr(self, key, value)
+        config_data = Project.load_config_file(self.project_config_path)
+
+        # Experimental params (mode and experimenter are read-only)
+        self.task = config_data["task"]
+        self.working_dir = Path(config_data["working_dir"])
+        self.path_config_file = Path(config_data["path_config_file"])
+        self.nframes = config_data["nframes"]
+        self.maxiters = config_data["maxiters"]
+        self.tracking_threshold = config_data["tracking_threshold"]
+
+        # Autocorrect settings
+        self.autocorrect_settings.search_area = config_data["search_area"]
+        self.autocorrect_settings.threshold = config_data["threshold"]
+        self.autocorrect_settings.krad = config_data["krad"]
+        self.autocorrect_settings.gsigma = config_data["gsigma"]
+        self.autocorrect_settings.img_wt = config_data["img_wt"]
+        self.autocorrect_settings.blur_wt = config_data["blur_wt"]
+        self.autocorrect_settings.gamma = config_data["gamma"]
+
+        # Autocorrect testing params
+        self.autocorrect_settings.trial_name = config_data["trial_name"]
+        self.autocorrect_settings.cam = config_data["cam"]
+        self.autocorrect_settings.frame_num = config_data["frame_num"]
+        self.autocorrect_settings.marker = config_data["marker"]
+        self.autocorrect_settings.test_autocorrect = config_data["test_autocorrect"]
+
+        # Video similarity
+        self.cam1s_are_the_same_view = config_data["cam1s_are_the_same_view"]
+        self.video_codec = config_data["video_codec"]
+
+        # Retraining
+        self.augmenter_settings.outlier_algorithm = config_data["augmenter"][
+            "outlier_algorithm"
+        ]
+        self.augmenter_settings.extraction_algorithm = config_data["augmenter"][
+            "extraction_algorithm"
+        ]
 
     def update_config_file(self):
         """Update the config to the values of the current object"""
@@ -144,32 +176,45 @@ class Project(ABC):
             config_data = Project.load_config_file(
                 Path(__file__).parent / "default_config.yaml"
             )
-            config_data.update(
-                {
-                    "task": self.task,
-                    "experimenter": self.experimenter,
-                    "working_dir": str(self.working_dir),
-                    "path_config_file": str(self.path_config_file),
-                    "mode": self._mode,
-                    "video_codec": self.video_codec,
-                }
-            )
 
-        for key, value in vars(self).items():
-            # Normalize data to types that can appear in YAML without issue
-            if isinstance(value, Path):
-                value = str(value)
+        # Experimental params
+        config_data = _migrate_tracking_mode(config_data)
+        config_data["task"] = self.task
+        config_data["experimenter"] = self.experimenter
+        config_data["working_dir"] = str(self.working_dir)
+        config_data["path_config_file"] = str(self.path_config_file)
+        config_data["nframes"] = self.nframes
+        config_data["maxiters"] = self.maxiters
+        config_data["tracking_threshold"] = self.tracking_threshold
+        config_data["mode"] = self.mode
 
-            if isinstance(value, OutlierExtractionParams):
-                # This should eventually be handled by the extraction params themselves
-                continue
+        # Autocorrect settings
+        config_data["search_area"] = self.autocorrect_settings.search_area
+        config_data["threshold"] = self.autocorrect_settings.threshold
+        config_data["krad"] = self.autocorrect_settings.krad
+        config_data["gsigma"] = self.autocorrect_settings.gsigma
+        config_data["img_wt"] = self.autocorrect_settings.img_wt
+        config_data["blur_wt"] = self.autocorrect_settings.blur_wt
+        config_data["gamma"] = self.autocorrect_settings.gamma
 
-            if key not in config_data:
-                config_data[key] = value
-                continue
+        # Autocorrect testing params
+        config_data["trial_name"] = self.autocorrect_settings.trial_name
+        config_data["cam"] = self.autocorrect_settings.cam
+        config_data["frame_num"] = self.autocorrect_settings.frame_num
+        config_data["marker"] = self.autocorrect_settings.marker
+        config_data["test_autocorrect"] = self.autocorrect_settings.test_autocorrect
 
-            if config_data[key] != value:
-                config_data[key] = value
+        # Video similarity
+        config_data["cam1s_are_the_same_view"] = self.cam1s_are_the_same_view
+        config_data["video_codec"] = self.video_codec
+
+        # Retraining
+        config_data["augmenter"]["outlier_algorithm"] = (
+            self.augmenter_settings.outlier_algorithm.value
+        )
+        config_data["augmenter"]["extraction_algorithm"] = (
+            self.augmenter_settings.extraction_algorithm.value
+        )
 
         Project.save_config_file(config_data, self.project_config_path)
 
@@ -200,49 +245,18 @@ class ProjectPerCam(Project):
             )
             return
 
-        config = Project.load_config_file(self.project_config_path)
-        for key, value in config.items():
-            if key not in vars(self):
-                continue
-            my_value = getattr(self, key)
-            if my_value != value:
-                setattr(self, key, value)
+        super().check_config_for_updates()
+        config_data = Project.load_config_file(self.project_config_path)
+
+        self.path_config_file_2 = Path(config_data["path_config_file_2"])
 
     def update_config_file(self):
         """Update the config to the values of the current object"""
-        if self.project_config_path.exists():
-            config_data = Project.load_config_file(self.project_config_path)
-        else:
-            config_data = Project.load_config_file(
-                Path(__file__).parent / "default_config.yaml"
-            )
-            config_data.update(
-                {
-                    "task": self.task,
-                    "experimenter": self.experimenter,
-                    "working_dir": str(self.working_dir),
-                    "path_config_file": str(self.path_config_file),
-                    "mode": self._mode,
-                    "video_codec": self.video_codec,
-                }
-            )
-            config_data["path_config_file_2"] = str(self.path_config_file_2)
+        super().update_config_file()
+        config_data = Project.load_config_file(self.project_config_path)
 
-        for key, value in vars(self).items():
-            # Normalize data to types that can appear in YAML without issue
-            if isinstance(value, Path):
-                value = str(value)
-
-            if isinstance(value, OutlierExtractionParams):
-                # This should eventually be handled by the extraction params themselves
-                continue
-
-            if key not in config_data:
-                config_data[key] = value
-                continue
-
-            if config_data[key] != value:
-                config_data[key] = value
+        # Experimental params
+        config_data["path_config_file_2"] = str(self.path_config_file_2)
 
         Project.save_config_file(config_data, self.project_config_path)
 
@@ -266,6 +280,32 @@ class ProjectRGB(Project):
     def __post_init__(self):
         """After initializing, check the config and update if necessary"""
         self.check_config_for_updates()
+
+    def check_config_for_updates(self):
+        """Check the config for updates and update any values that have changed."""
+        if not self.project_config_path.exists():
+            logger.debug(
+                "Didn't find project config this time around. I'm sure this is fine..."
+            )
+            return
+
+        super().check_config_for_updates()
+        config_data = Project.load_config_file(self.project_config_path)
+
+        # Experimental params (mode and experimenter are read-only)
+        self.swapped_markers = config_data["swapped_markers"]
+        self.crossed_markers = config_data["crossed_markers"]
+
+    def update_config_file(self):
+        """Update the config to the values of the current object"""
+        super().update_config_file()
+        config_data = Project.load_config_file(self.project_config_path)
+
+        # Experimental params
+        config_data["swapped_markers"] = self.swapped_markers
+        config_data["crossed_markers"] = self.crossed_markers
+
+        Project.save_config_file(config_data, self.project_config_path)
 
 
 class ProjectFactory:
@@ -356,10 +396,8 @@ class ProjectFactory:
             working_dir = Path(working_dir)
 
         # Open the config
-        yaml = YAML()
-        config_path = working_dir / "project_config.yaml"
-        with config_path.open("r") as config_file:
-            config = yaml.load(config_file)
+        config = Project.load_config_file(working_dir / "project_config.yaml")
+        config = _migrate_tracking_mode(config)
 
         # Extract values necessary to instantiate the project
         task = config["task"]
@@ -434,9 +472,9 @@ class ProjectFactory:
             trial_csv_path, mode=project.mode
         )
 
-        yaml = YAML()
-        with project.path_config_file.open("r") as dlc_config:
-            dlc_yaml = yaml.load(dlc_config)
+        dlc_yaml = Project.load_config_file(project.path_config_file)
+        dlc_bodyparts = dlc_yaml["bodyparts"]
+        logger.debug(f"DLC bodyparts: {dlc_bodyparts}")
 
         if dlc_yaml["bodyparts"] == default_bodyparts:
             dlc_yaml["bodyparts"] = bodyparts
@@ -445,15 +483,11 @@ class ProjectFactory:
                 "XMAlab CSV marker names are different than DLC bodyparts."
             )
 
-        yaml = YAML()
-        with project.path_config_file.open("w") as dlc_config:
-            yaml.dump(dlc_yaml, dlc_config)
+        Project.save_config_file(dlc_yaml, project.path_config_file)
 
         # Check DLC bodyparts (marker names) for config 2 if needed
         if project.mode == "per_cam":
-            dlc_config_path_2 = project.path_config_file_2
-            with dlc_config_path_2.open("r") as dlc_config:
-                dlc_yaml = yaml.load(dlc_config)
+            dlc_yaml = Project.load_config_file(project.path_config_file_2)
             # Better conditional logic could definitely be had to reduce function calls here
             if dlc_yaml["bodyparts"] == default_bodyparts:
                 dlc_yaml["bodyparts"] = bodyparts
@@ -462,8 +496,9 @@ class ProjectFactory:
                     "XMAlab CSV marker names are different than DLC bodyparts."
                 )
 
-            with dlc_config_path_2.open("w") as dlc_config:
-                yaml.dump(dlc_yaml, dlc_config)
+            Project.save_config_file(dlc_yaml, project.path_config_file_2)
+
+        project.update_config_file()
 
         return project
 

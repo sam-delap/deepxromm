@@ -38,9 +38,17 @@ class OutlierExtractionParams:
     def outlier_algorithm(self):
         return OutlierAlgorithm(self._outlier_algorithm)
 
+    @outlier_algorithm.setter
+    def outlier_algorithm(self, value):
+        self._outlier_algorithm = value
+
     @property
     def extraction_algorithm(self):
         return ExtractionAlgorithm(self._extraction_algorithm)
+
+    @extraction_algorithm.setter
+    def extraction_algorithm(self, value):
+        self._extraction_algorithm = value
 
 
 class Augmenter:

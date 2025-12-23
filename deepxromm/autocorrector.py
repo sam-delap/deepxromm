@@ -2,14 +2,12 @@
 
 from dataclasses import dataclass
 import math
-from pathlib import Path
 
 import cv2
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 from ruamel.yaml import YAML
-from ruamel.yaml.comments import CommentedMap
 
 from deepxromm.xma_data_processor import XMADataProcessor
 from deepxromm.logging import logger
@@ -31,58 +29,6 @@ class AutocorrectParams:
     cam: str = "cam1"
     frame_num: int = 1
     marker: str = "your_marker_here"
-
-    @staticmethod
-    def load_config_file(config_file_path: Path):
-        """Load a YAML file as a commented map"""
-        yaml = YAML()
-        with open(config_file_path, "r") as fp:
-            config = yaml.load(fp)
-
-        return config
-
-    @staticmethod
-    def save_config_file(config_data: CommentedMap, config_file_path: Path):
-        """Load a YAML file as a commented map"""
-        yaml = YAML()
-        with open(config_file_path, "w") as fp:
-            config = yaml.dump(config_data, fp)
-
-        return config
-
-    def check_config_for_updates(self, project_config_path: Path):
-        """Check the config for updates and update any values that have changed."""
-        if not project_config_path.exists():
-            logger.debug(
-                "Didn't find project config this time around. I'm sure this is fine..."
-            )
-            return
-
-        config = AutocorrectParams.load_config_file(project_config_path)
-        for key, value in config.items():
-            if key not in vars(self):
-                continue
-            my_value = getattr(self, key)
-            if my_value != value:
-                setattr(self, key, value)
-
-    def update_config_file(self, project_config_path: Path):
-        """Update the config to the values of the current object"""
-        if project_config_path.exists():
-            config_data = AutocorrectParams.load_config_file(project_config_path)
-        else:
-            config_data = AutocorrectParams.load_config_file(
-                Path(__file__).parent / "default_config.yaml"
-            )
-
-        for key, value in vars(self).items():
-            if key not in config_data:
-                continue
-
-            if config_data[key] != value:
-                config_data[key] = value
-
-        AutocorrectParams.save_config_file(config_data, project_config_path)
 
     @property
     def search_area(self):
@@ -120,7 +66,7 @@ class Autocorrector:
 
     def __init__(self, project):
         self.project = project
-        self.autocorrect_settings = AutocorrectParams()
+        self.autocorrect_settings = project.autocorrect_settings
         self.working_dir = project.working_dir
         self._trials_path = self.working_dir / "trials"
         self._data_processor = XMADataProcessor(project)

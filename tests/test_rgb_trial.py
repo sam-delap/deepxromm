@@ -7,6 +7,7 @@ import random
 import pandas as pd
 
 from deepxromm import DeepXROMM
+from deepxromm.project import Project
 
 SAMPLE_FRAME = Path(__file__).parent / "sample_frame.jpg"
 SAMPLE_FRAME_INPUT = Path(__file__).parent / "sample_frame_input.csv"
@@ -40,6 +41,100 @@ class TestRGBTrialProcess(unittest.TestCase):
         shutil.copy("trial_cam2_slice.avi", str(self.cam2_path))
         self.deepxromm = DeepXROMM.load_project(self.working_dir)
         self.deepxromm.xma_to_dlc()
+
+    def test_bodyparts_add_synthetic(self):
+        """Can we add swapped markers?"""
+        tmp = Project.load_config_file(self.working_dir / "project_config.yaml")
+        tmp["mode"] = "rgb"
+        tmp["swapped_markers"] = True
+        Project.save_config_file(tmp, self.working_dir / "project_config.yaml")
+        self.deepxromm.check_config_for_updates()
+
+        config_obj = Project.load_config_file(self.deepxromm.project.path_config_file)
+
+        self.assertEqual(
+            config_obj["bodyparts"],
+            [
+                "foo_cam1",
+                "foo_cam2",
+                "bar_cam1",
+                "bar_cam2",
+                "baz_cam1",
+                "baz_cam2",
+                "sw_foo_cam1",
+                "sw_foo_cam2",
+                "sw_bar_cam1",
+                "sw_bar_cam2",
+                "sw_baz_cam1",
+                "sw_baz_cam2",
+            ],
+        )
+
+    def test_bodyparts_add_from_csv_in_3d(self):
+        """If the user wants to do 3D tracking, we output the desired list of bodyparts"""
+        config_obj = Project.load_config_file(self.deepxromm.project.path_config_file)
+        self.assertEqual(
+            config_obj["bodyparts"],
+            ["foo_cam1", "foo_cam2", "bar_cam1", "bar_cam2", "baz_cam1", "baz_cam2"],
+        )
+
+    def test_bodyparts_add_synthetic_and_crossed(self):
+        """Can we add both swapped and crossed markers?"""
+        tmp = Project.load_config_file(self.working_dir / "project_config.yaml")
+        tmp["swapped_markers"] = True
+        tmp["crossed_markers"] = True
+        Project.save_config_file(
+            tmp, self.deepxromm.working_dir / "project_config.yaml"
+        )
+        self.deepxromm.project.check_config_for_updates()
+
+        config_obj = Project.load_config_file(self.deepxromm.project.path_config_file)
+
+        self.assertEqual(
+            config_obj["bodyparts"],
+            [
+                "foo_cam1",
+                "foo_cam2",
+                "bar_cam1",
+                "bar_cam2",
+                "baz_cam1",
+                "baz_cam2",
+                "sw_foo_cam1",
+                "sw_foo_cam2",
+                "sw_bar_cam1",
+                "sw_bar_cam2",
+                "sw_baz_cam1",
+                "sw_baz_cam2",
+                "cx_foo_cam1x2",
+                "cx_bar_cam1x2",
+                "cx_baz_cam1x2",
+            ],
+        )
+
+    def test_bodyparts_add_crossed(self):
+        """Can we add crossed markers?"""
+        tmp = Project.load_config_file(self.working_dir / "project_config.yaml")
+        tmp["mode"] = "rgb"
+        tmp["crossed_markers"] = True
+        Project.save_config_file(tmp, self.working_dir / "project_config.yaml")
+        self.deepxromm.check_config_for_updates()
+
+        config_obj = Project.load_config_file(self.deepxromm.project.path_config_file)
+
+        self.assertEqual(
+            config_obj["bodyparts"],
+            [
+                "foo_cam1",
+                "foo_cam2",
+                "bar_cam1",
+                "bar_cam2",
+                "baz_cam1",
+                "baz_cam2",
+                "cx_foo_cam1x2",
+                "cx_bar_cam1x2",
+                "cx_baz_cam1x2",
+            ],
+        )
 
     def test_first_frame_matches_in_dlc_csv(self):
         """When I run xma_to_dlc, does the DLC CSV have the same data as my original file?"""
