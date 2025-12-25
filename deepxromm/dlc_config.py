@@ -17,6 +17,8 @@ from deepxromm.project import Project
 from deepxromm.trial import Trial
 from deepxromm.xrommtools import get_marker_names, get_marker_and_cam_names
 
+DEFAULT_BODYPARTS = ["bodypart1", "bodypart2", "bodypart3", "objectA"]
+
 
 # Abstract class
 @dataclass
@@ -176,35 +178,6 @@ class DlcConfigFactory:
         return dlc_config
 
 
-def random_code_to_incorporate_into_creation():
-    # Check DLC bodyparts (marker names)
-    default_bodyparts = ["bodypart1", "bodypart2", "bodypart3", "objectA"]
-    bodyparts = dlc_config.get_bodyparts(trial_csv)
-    dlc_yaml = load_config_file(project.path_config_file)
-    dlc_bodyparts = dlc_yaml["bodyparts"]
-    logger.debug(f"DLC bodyparts: {dlc_bodyparts}")
-
-    if dlc_yaml["bodyparts"] == default_bodyparts:
-        dlc_yaml["bodyparts"] = bodyparts
-    elif dlc_yaml["bodyparts"] != bodyparts:
-        raise SyntaxError("XMAlab CSV marker names are different than DLC bodyparts.")
-
-    save_config_file(dlc_yaml, project.path_config_file)
-
-    # Check DLC bodyparts (marker names) for config 2 if needed
-    if project.mode == "per_cam":
-        dlc_yaml = load_config_file(project.path_config_file_2)
-        # Better conditional logic could definitely be had to reduce function calls here
-        if dlc_yaml["bodyparts"] == default_bodyparts:
-            dlc_yaml["bodyparts"] = bodyparts
-        elif dlc_yaml["bodyparts"] != bodyparts:
-            raise SyntaxError(
-                "XMAlab CSV marker names are different than DLC bodyparts."
-            )
-
-        save_config_file(dlc_yaml, project.path_config_file_2)
-
-
 @dataclass
 class DlcConfig2D(DlcConfig):
     """DLC config information for 2D projects"""
@@ -213,58 +186,6 @@ class DlcConfig2D(DlcConfig):
 
     def xma_to_dlc(self, trial: Trial):
         """Convert XMA-formatted data into DeepLabCut input"""
-        config_dir = self.path_config_file.parent
-        dataset_name = self._project.dataset_name
-        newpath = config_dir / "labeled-data" / dataset_name
-        if newpath.exists():
-            contents = list(newpath.glob("*"))
-            if len(contents) > 0:
-                logger.warning(
-                    f"Directory {newpath} already contains data. "
-                    "Please use a different dataset name or clear the directory."
-                )
-                return
-        else:
-            newpath.mkdir(parents=True, exist_ok=True)
-
-        relnames = []
-        data = pd.DataFrame()
-
-        for camera in cameras:
-            logger.info(f"Extracting camera {camera} trial images and 2D points...")
-            for trialnum, trial in enumerate(trials):
-                # Find the camera video/image source
-                cam_identifier = f"cam{camera}"
-                source_path = self._data_processor.find_cam_file(trial, cam_identifier)
-
-                # Sort frames to extract for given trial
-                frames = sorted(picked_frames[trialnum])
-                trial_relnames = self._data_processor.extract_frames_from_video(
-                    source_path=source_path,
-                    frame_indices=frames,
-                    output_dir=newpath,
-                    output_name_base=trial.name,
-                    mode="2D",
-                    camera=camera,
-                    compression=0,
-                )
-                relnames.extend(trial_relnames)
-
-                # Extract 2D points for this camera
-                temp_data = self._data_processor.extract_2d_points_for_camera(
-                    dfs[trialnum], camera, frames
-                )
-
-                # Reset column names for combining data from multiple cameras
-                temp_data.columns = range(temp_data.shape[1])
-                data = pd.concat([data, temp_data])
-
-        # Create and save DLC dataset
-        self._data_processor.save_dlc_dataset(
-            data, self._project.experimenter, relnames, pointnames, newpath
-        )
-        logger.info("DLC dataset extracted from provided XMAlab trials")
-
         pass
 
 

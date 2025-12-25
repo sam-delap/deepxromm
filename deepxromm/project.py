@@ -16,6 +16,7 @@ from ruamel.yaml import YAML
 from ruamel.yaml.comments import CommentedMap
 
 from deepxromm.augmenter import OutlierExtractionParams
+from deepxromm.config_utilities import load_config_file, save_config_file
 from deepxromm.xma_data_processor import XMADataProcessor
 from deepxromm.logging import logger
 from deepxromm.autocorrector import AutocorrectParams
@@ -130,7 +131,7 @@ class Project(ABC):
             )
             return
 
-        config_data = Project.load_config_file(self.project_config_path)
+        config_data = load_config_file(self.project_config_path)
 
         # Experimental params (mode and experimenter are read-only)
         self.task = config_data["task"]
@@ -171,9 +172,9 @@ class Project(ABC):
     def update_config_file(self):
         """Update the config to the values of the current object"""
         if self.project_config_path.exists():
-            config_data = Project.load_config_file(self.project_config_path)
+            config_data = load_config_file(self.project_config_path)
         else:
-            config_data = Project.load_config_file(
+            config_data = load_config_file(
                 Path(__file__).parent / "default_config.yaml"
             )
 
@@ -216,7 +217,7 @@ class Project(ABC):
             self.augmenter_settings.extraction_algorithm.value
         )
 
-        Project.save_config_file(config_data, self.project_config_path)
+        save_config_file(config_data, self.project_config_path)
 
 
 @dataclass
@@ -246,19 +247,19 @@ class ProjectPerCam(Project):
             return
 
         super().check_config_for_updates()
-        config_data = Project.load_config_file(self.project_config_path)
+        config_data = load_config_file(self.project_config_path)
 
         self.path_config_file_2 = Path(config_data["path_config_file_2"])
 
     def update_config_file(self):
         """Update the config to the values of the current object"""
         super().update_config_file()
-        config_data = Project.load_config_file(self.project_config_path)
+        config_data = load_config_file(self.project_config_path)
 
         # Experimental params
         config_data["path_config_file_2"] = str(self.path_config_file_2)
 
-        Project.save_config_file(config_data, self.project_config_path)
+        save_config_file(config_data, self.project_config_path)
 
     @property
     def path_config_file_2(self):
@@ -290,7 +291,7 @@ class ProjectRGB(Project):
             return
 
         super().check_config_for_updates()
-        config_data = Project.load_config_file(self.project_config_path)
+        config_data = load_config_file(self.project_config_path)
 
         # Experimental params (mode and experimenter are read-only)
         self.swapped_markers = config_data["swapped_markers"]
@@ -299,13 +300,13 @@ class ProjectRGB(Project):
     def update_config_file(self):
         """Update the config to the values of the current object"""
         super().update_config_file()
-        config_data = Project.load_config_file(self.project_config_path)
+        config_data = load_config_file(self.project_config_path)
 
         # Experimental params
         config_data["swapped_markers"] = self.swapped_markers
         config_data["crossed_markers"] = self.crossed_markers
 
-        Project.save_config_file(config_data, self.project_config_path)
+        save_config_file(config_data, self.project_config_path)
 
 
 class ProjectFactory:
@@ -396,7 +397,7 @@ class ProjectFactory:
             working_dir = Path(working_dir)
 
         # Open the config
-        config = Project.load_config_file(working_dir / "project_config.yaml")
+        config = load_config_file(working_dir / "project_config.yaml")
         config = _migrate_tracking_mode(config)
 
         # Extract values necessary to instantiate the project
@@ -422,7 +423,6 @@ class ProjectFactory:
         )
 
         # Initiate data processor utility
-        # TODO: Refactor this section of XMADataProcessor into a Trial object with find_csv and find_cam_file methods
         data_processor = XMADataProcessor(project=project)
         training_trials = data_processor.list_trials("trainingdata")
         if len(training_trials) == 0:
@@ -468,11 +468,9 @@ class ProjectFactory:
 
         # Check DLC bodyparts (marker names)
         default_bodyparts = ["bodypart1", "bodypart2", "bodypart3", "objectA"]
-        bodyparts = data_processor.get_bodyparts_from_xma(
-            trial_csv_path, mode=project.mode
-        )
+        bodyparts = project.dlc_config.get_bodyparts(trial_csv_path)
 
-        dlc_yaml = Project.load_config_file(project.path_config_file)
+        dlc_yaml = load_config_file(project.path_config_file)
         dlc_bodyparts = dlc_yaml["bodyparts"]
         logger.debug(f"DLC bodyparts: {dlc_bodyparts}")
 
@@ -483,11 +481,11 @@ class ProjectFactory:
                 "XMAlab CSV marker names are different than DLC bodyparts."
             )
 
-        Project.save_config_file(dlc_yaml, project.path_config_file)
+        save_config_file(dlc_yaml, project.path_config_file)
 
         # Check DLC bodyparts (marker names) for config 2 if needed
         if project.mode == "per_cam":
-            dlc_yaml = Project.load_config_file(project.path_config_file_2)
+            dlc_yaml = load_config_file(project.path_config_file_2)
             # Better conditional logic could definitely be had to reduce function calls here
             if dlc_yaml["bodyparts"] == default_bodyparts:
                 dlc_yaml["bodyparts"] = bodyparts
@@ -496,7 +494,7 @@ class ProjectFactory:
                     "XMAlab CSV marker names are different than DLC bodyparts."
                 )
 
-            Project.save_config_file(dlc_yaml, project.path_config_file_2)
+            save_config_file(dlc_yaml, project.path_config_file_2)
 
         project.update_config_file()
 

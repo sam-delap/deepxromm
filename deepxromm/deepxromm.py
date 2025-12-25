@@ -6,7 +6,7 @@ from pathlib import Path
 
 from deepxromm.analyzer import Analyzer
 from deepxromm.autocorrector import Autocorrector
-from deepxromm.dlc_config import Network, DlcConfig
+from deepxromm.dlc_config import Network, DlcConfig, DlcConfigFactory
 from deepxromm.project import Project, ProjectFactory
 from deepxromm.xma_data_processor import XMADataProcessor
 from deepxromm.augmenter import Augmenter
@@ -38,8 +38,14 @@ class DeepXROMM:
     ):
         """Create a new deepxromm project"""
         deepxromm = DeepXROMM.__new__(DeepXROMM)
+        if isinstance(working_dir, str):
+            working_dir = Path(working_dir)
         deepxromm.project = ProjectFactory.create_new_config(
             working_dir, experimenter, mode, codec
+        )
+        task = working_dir.name
+        deepxromm.dlc_config = DlcConfigFactory.create_new_config(
+            task, mode=mode, working_dir=working_dir, experimenter=experimenter
         )
         deepxromm._analyzer = Analyzer(deepxromm.project)
         deepxromm._autocorrector = Autocorrector(deepxromm.project)
