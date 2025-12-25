@@ -8,8 +8,9 @@ import yaml
 import deeplabcut
 import pandas as pd
 
-from deepxromm.xma_data_processor import XMADataProcessor
 from deepxromm.logging import logger
+from deepxromm.trial import Trial
+from deepxromm.config_utilities import load_config_file, save_config_file
 
 
 class OutlierAlgorithm(Enum):
@@ -55,6 +56,7 @@ class Augmenter:
     """Augments training data with DLC"""
 
     def __init__(self, project):
+        self.project = project
         self.nframes = project.nframes
         self.working_dir = project.working_dir
         self.mode = project.mode
@@ -63,7 +65,6 @@ class Augmenter:
         self.path_config_file_2 = (
             project.path_config_file_2 if project.mode == "per_cam" else None
         )
-        self._data_processor = XMADataProcessor(project)
 
         with self.path_config_file.open("r") as fp:
             dlc_config = yaml.safe_load(fp)
@@ -79,7 +80,7 @@ class Augmenter:
                 "Using the 'list' outlieralgorithm with extract_frames requires specifying the 'frames2use' parameter so that DLC can extract a user-defined list of frames"
             )
 
-        for trial_path in self._data_processor.list_trials():
+        for trial_path in self.project.list_trials():
             if self.mode == "rgb":
                 self._extract_outlier_frames_rgb(trial_path, **kwargs)
             else:
@@ -87,18 +88,18 @@ class Augmenter:
 
     def merge_datasets(self, update_nframes=True, update_init_weights=True):
         """Create a refined dataset that includes existing training data and outliers"""
-        training_trials = self._data_processor.list_trials("trainingdata")
+        training_trials = self.project.list_trials("trainingdata")
         training_trial_names = [trial.name for trial in training_trials]
-        for trial_path in self._data_processor.list_trials():
+        for trial_path in self.project.list_trials():
+            trial = Trial(trial_path)
             analysis_path = trial_path / f"it{self._iteration}"
-            with open(analysis_path / "outliers.yaml", "r") as fp:
-                outliers = yaml.safe_load(fp)
+            outliers = load_config_file(analysis_path / "outliers.yaml")
 
             # Convert outliers back to 0-indexed because we're working with a DataFrame
             outliers = [outlier - 1 for outlier in outliers]
 
-            outlier_csv_path = self._data_processor.find_trial_csv(
-                analysis_path, "outliers"
+            outlier_csv_path = trial.find_trial_csv(
+                suffix=f"it{self._iteration}", identifier="outliers"
             )
 
             outlier_csv = pd.read_csv(outlier_csv_path)
@@ -117,12 +118,10 @@ class Augmenter:
             self.nframes = self.nframes + len(outlier_csv)
 
         # Update DLC iteration
-        with open(self.path_config_file, "r") as fp:
-            dlc_config = yaml.safe_load(fp)
         next_iteration = self._iteration + 1
+        dlc_config = load_config_file(self.path_config_file)
         dlc_config["iteration"] = next_iteration
-        with open(self.path_config_file, "w") as fp:
-            yaml.safe_dump(dlc_config, fp, sort_keys=False)
+        save_config_file(dlc_config, self.path_config_file)
 
         logger.info(
             f"DeepLabCut training iteration updated from {self._iteration} to {next_iteration}"
@@ -136,11 +135,9 @@ class Augmenter:
             return
 
         logger.info("Updating nframes to include newly tracked outlier data...")
-        with open(self.working_dir / "project_config.yaml", "r") as fp:
-            config = yaml.safe_load(fp)
+        config = load_config_file(self.working_dir / "project_config.yaml")
         config["nframes"] = self.nframes
-        with open(self.working_dir / "project_config.yaml", "w") as fp:
-            config = yaml.safe_dump(config, fp, sort_keys=False)
+        save_config_file(config, self.working_dir / "project_config.yaml")
 
         logger.info(
             f"nframes updated to include new outlier data. New nframes for training data: {self.nframes}"
@@ -148,20 +145,23 @@ class Augmenter:
 
     def _extract_outlier_frames_rgb(self, trial_path: Path, **kwargs):
         """Extract outlier frames for RGB projects"""
+        trial = Trial(trial_path)
+        cam_file = trial.find_cam_file(suffix=f"it{self._iteration}", identifier="rgb")
         analysis_path = trial_path / f"it{self._iteration}"
-        cam_file = self._data_processor.find_cam_file(trial_path, "rgb")
         outliers = self._get_outliers_for_camera(
             cam_file, self.path_config_file, **kwargs
         )
-        with open(analysis_path / "outliers.yaml", "w") as fp:
-            yaml.safe_dump(outliers, fp)
+        save_config_file(outliers, analysis_path / "outliers.yaml")
 
     def _extract_outlier_frames_2cam(self, trial_path: Path, **kwargs):
         """Extract outlier frames for 2-cam projects"""
+        trial = Trial(trial_path)
         analysis_path = trial_path / f"it{self._iteration}"
         outliers = {}
         for camera in ["cam1", "cam2"]:
-            cam_file = self._data_processor.find_cam_file(trial_path, camera)
+            cam_file = trial.find_cam_file(
+                suffix=f"it{self._iteration}", identifier=camera
+            )
             if camera == "cam2" and self.path_config_file_2 is not None:
                 outliers[camera] = self._get_outliers_for_camera(
                     cam_file, self.path_config_file_2, **kwargs
@@ -170,8 +170,9 @@ class Augmenter:
                 outliers[camera] = self._get_outliers_for_camera(
                     cam_file, self.path_config_file, **kwargs
                 )
-            with open(analysis_path / f"{camera}_outliers.yaml", "w") as fp:
-                yaml.safe_dump(outliers[camera], fp)
+            save_config_file(
+                outliers[camera], analysis_path / f"{camera}_outliers.yaml"
+            )
         matched_outliers = [
             matched_outlier
             for matched_outlier in outliers["cam1"]
@@ -182,8 +183,7 @@ class Augmenter:
                 "No outliers matched. Concatenating cam1 and cam2 outliers in matched outliers"
             )
             matched_outliers = outliers["cam1"] + outliers["cam2"]
-        with open(analysis_path / "outliers.yaml", "w") as fp:
-            yaml.safe_dump(matched_outliers, fp)
+        save_config_file(matched_outliers, analysis_path / "outliers.yaml")
 
     def _get_outliers_for_camera(
         self, cam_file: Path, path_config_file: Path, **kwargs
@@ -219,9 +219,8 @@ class Augmenter:
         self, training_trial_path: Path, outlier_csv: pd.DataFrame
     ):
         """Merge outlier data into existing trial CSV"""
-        current_trial_csv_path = self._data_processor.find_trial_csv(
-            training_trial_path
-        )
+        training_trial = Trial(training_trial_path)
+        current_trial_csv_path = training_trial.find_trial_csv()
         current_trial_csv = pd.read_csv(current_trial_csv_path)
         df_combined = pd.concat([current_trial_csv, outlier_csv])
         df_combined.sort_index(inplace=True)
@@ -233,14 +232,15 @@ class Augmenter:
     ):
         """Create new trial for outlier data from trial that was not part of original training data"""
         training_trial_path.mkdir()
+        trial = Trial(trial_path)
 
         # Copy data in in XMAlab format
         if self.mode == "rgb":
-            rgb_cam_file = self._data_processor.find_cam_file(trial_path, "rgb")
+            rgb_cam_file = trial.find_cam_file(identifier="rgb")
             shutil.copy(str(rgb_cam_file), str(training_trial_path / rgb_cam_file.name))
         else:
-            cam1_cam_file = self._data_processor.find_cam_file(trial_path, "cam1")
-            cam2_cam_file = self._data_processor.find_cam_file(trial_path, "cam2")
+            cam1_cam_file = trial.find_cam_file(identifier="cam1")
+            cam2_cam_file = trial.find_cam_file(identifier="cam2")
             shutil.copy(
                 str(cam1_cam_file), str(training_trial_path / cam1_cam_file.name)
             )

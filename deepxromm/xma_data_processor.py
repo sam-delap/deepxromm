@@ -14,32 +14,39 @@ import pandas as pd
 import random
 import yaml
 
-from deepxromm.xrommtools import dlc_to_xma
+from deepxromm.xrommtools import dlc_to_xma, get_marker_names, get_marker_and_cam_names
 from deepxromm.logging import logger
 from deepxromm.trial import Trial
-from deepxromm.dlc_config import DlcConfigFactory
 from deepxromm.config_utilities import load_config_file, save_config_file
+from deepxromm.dlc_config import DlcConfig
 
 
 class XMADataProcessor:
     """Converts data from XMALab into the format useful for DLC training."""
 
-    def __init__(self, project):
-        self.dlc_config = DlcConfigFactory.load_existing_config(
-            project.mode, project.path_config_file
-        )
+    def __init__(self, project, dlc_config: DlcConfig):
         self.project = project
+        self.dlc_config = dlc_config
+        self.mode = dlc_config.mode
+        self.path_config_file = dlc_config.path_config_file
+        self.working_dir = project.working_dir
+        self.nframes = project.nframes
+        self.dataset_name = project.dataset_name
+        self.experimenter = project.experimenter
+        self.video_codec = project.video_codec
+        if dlc_config.mode == "per_cam":
+            self.path_config_file_2 = dlc_config.path_config_file_2
         # TODO: Move this into project functionality, or somewhere that doesn't require referencing this way
         self._swap_markers = False
         self._cross_markers = False
-        if self.project.mode == "rgb":
-            self._swap_markers = project.swapped_markers
-            self._cross_markers = project.crossed_markers
+        if self.mode == "rgb":
+            self._swap_markers = dlc_config.swapped_markers
+            self._cross_markers = dlc_config.crossed_markers
 
     def dlc_to_xma(self):
         """Convert DLC-formatted training output into XMAlab-formatted data"""
-        mode = self.project.mode
-        trials = self.list_trials()
+        mode = self.mode
+        trials = self.project.list_trials()
 
         if mode in ["2D", "per_cam"]:
             correct_function_signature = dlc_to_xma
@@ -48,7 +55,7 @@ class XMADataProcessor:
         else:
             raise AttributeError(f"Unsupported mode: {mode}")
 
-        with self.project.path_config_file.open("r") as dlc_config:
+        with self.path_config_file.open("r") as dlc_config:
             dlc_proj = yaml.safe_load(dlc_config)
 
         iteration = int(dlc_proj["iteration"])
@@ -61,10 +68,10 @@ class XMADataProcessor:
         current_files = trial_path.glob("*")
         logger.debug(f"Current files in directory {current_files}")
         # Use the CSV from the user's training data to fetch bodyparts
-        sample_trial = Trial(self.list_trials("trainingdata")[0])
+        sample_trial = Trial(self.project.list_trials("trainingdata")[0])
         trial_csv_path = sample_trial.find_trial_csv()
-        bodyparts_xy = sample_trial.get_xma_bodyparts()
-        rgb_parts = self.dlc_config.get_dlc_bodyparts(trial_csv_path)
+        bodyparts_xy = get_marker_names(trial_csv_path)
+        rgb_parts = get_marker_and_cam_names(trial_csv_path)
 
         iteration_folder_name = f"it{iteration}"
         # Assumes that the project itself doesn't have rgbDLC in this format in it
@@ -126,19 +133,17 @@ class XMADataProcessor:
 
     def make_rgb_videos(self, suffix: str):
         """For all trials in given data path merges 2 videos into single RGB video."""
-        trials = self.list_trials(suffix=suffix)
+        trials = self.project.list_trials(suffix=suffix)
         for path_to_trial in trials:
             self._merge_rgb(path_to_trial)
 
     def xma_to_dlc_rgb(self, suffix: str, picked_frames: list[list[int]]):
         """Convert XMAlab input into RGB-ready DLC input"""
-        trials = self.list_trials(suffix=suffix)
+        trials = self.project.list_trials(suffix=suffix)
         for idx, trial_path in enumerate(trials):
             list_of_frames = picked_frames[idx]
-            substitute_data_relpath = Path("labeled-data") / self.project.dataset_name
-            substitute_data_abspath = (
-                self.project.path_config_file / substitute_data_relpath
-            )
+            substitute_data_relpath = Path("labeled-data") / self.dataset_name
+            substitute_data_abspath = self.path_config_file / substitute_data_relpath
             self._extract_matched_frames_rgb(
                 trial_path,
                 substitute_data_abspath,
@@ -159,75 +164,11 @@ class XMADataProcessor:
                 f"No video file found containing '{identifier}' in {path}"
             )
 
-    def list_trials(self, suffix: str = "trials") -> list[Path]:
-        """
-        Get list of trial directories from project working directory.
-
-        This is the ONLY method for listing trials. All trial access is validated
-        against the project's working_dir to prevent unauthorized file access.
-
-        Args:
-            suffix: Relative path from working_dir to trials folder.
-                    Examples: "trials", "trainingdata", "data/experiments"
-                    Cannot contain '..' or start with '/' for security.
-
-        Returns:
-            List of trial directory Path objects (excludes hidden folders)
-
-        Raises:
-            FileNotFoundError: If no trials found in working_dir/suffix
-            ValueError: If suffix contains path traversal attempts or absolute paths
-
-        Security:
-            Path traversal attempts (../, absolute paths) are rejected to ensure
-            all file access remains within the project working_dir.
-        """
-        # Security validation: prevent directory traversal
-        if ".." in suffix:
-            raise ValueError(
-                f"Security error: Path traversal detected in suffix '{suffix}'. "
-                "Suffix cannot contain '..' for security reasons."
-            )
-        if suffix.startswith("/"):
-            raise ValueError(
-                f"Security error: Absolute path detected in suffix '{suffix}'. "
-                "Suffix must be a relative path within working_dir."
-            )
-
-        trial_path = self.project.working_dir / suffix
-
-        # Additional security check: ensure resolved path is within working_dir
-        try:
-            resolved_trial_path = trial_path.resolve()
-            resolved_working_dir = self.project.working_dir.resolve()
-            if not str(resolved_trial_path).startswith(str(resolved_working_dir)):
-                raise ValueError(
-                    f"Security error: Path traversal detected. "
-                    f"Resolved path '{resolved_trial_path}' is outside working_dir."
-                )
-        except (OSError, RuntimeError) as e:
-            raise ValueError(f"Invalid path in suffix '{suffix}': {e}")
-
-        # Get list of trial directories (excluding hidden folders)
-        trialnames = [
-            folder
-            for folder in trial_path.glob("*")
-            if (trial_path / folder).is_dir() and not folder.name.startswith(".")
-        ]
-
-        if len(trialnames) == 0:
-            raise FileNotFoundError(
-                f"No trials found in {trial_path}. "
-                "Please ensure trial directories exist and are not hidden."
-            )
-
-        return trialnames
-
     def split_rgb(self, trial_path: Path, codec=None):
         """Takes a RGB video with different grayscale data written to the R, G, and B channels and splits it back into its component source videos."""
         # Use provided codec, otherwise fall back to config value
         if codec is None:
-            codec = self.project.video_codec
+            codec = self.video_codec
 
         trial_name = trial_path.name
         out_name = trial_name + "_split_"
@@ -403,7 +344,7 @@ class XMADataProcessor:
         """
         # Use provided codec, otherwise fall back to config value
         if codec is None:
-            codec = self.project.video_codec
+            codec = self.video_codec
 
         logger.info("Merging RGBs")
         trial_name = trial_path.name
@@ -502,11 +443,11 @@ class XMADataProcessor:
 
     def _splice_xma_to_dlc(self, trial_path: Path, list_of_frames: list[int]):
         """Takes csv of XMALab 2D XY coordinates from 2 cameras, outputs spliced hdf+csv data for DeepLabCut"""
-        dlc_path = self.project.path_config_file.parent
+        dlc_path = self.path_config_file.parent
         trial = Trial(trial_path)
-        substitute_data_abspath = dlc_path / "labeled-data" / self.project.dataset_name
+        substitute_data_abspath = dlc_path / "labeled-data" / self.dataset_name
         trial_csv_path = trial.find_trial_csv()
-        markers = trial.get_xma_bodyparts()
+        markers = get_marker_names(trial_csv_path)
 
         # Add salt to the training data, if desired
         df = pd.read_csv(trial_csv_path)
@@ -546,10 +487,10 @@ class XMADataProcessor:
                 crosses.extend([cross_name_x, cross_name_y])
             df = df.join(df_cx)
             logger.debug(crosses)
-        parts_unique_final = self.dlc_config.get_dlc_bodyparts()
+        parts_unique_final = self.dlc_config.get_bodyparts(trial_csv_path)
         logger.debug("Importing markers: ")
         logger.debug(parts_unique_final)
-        dlc_proj = load_config_file(self.dlc_config.path_config_file)
+        dlc_proj = load_config_file(self.path_config_file)
         dlc_proj["bodyparts"] = parts_unique_final
         save_config_file(dlc_proj, self.dlc_config.path_config_file)
 
@@ -571,7 +512,7 @@ class XMADataProcessor:
             )
             for index in unique_frames
         ]
-        df["scorer"] = self.project.experimenter
+        df["scorer"] = self.experimenter
         df = df.melt(id_vars=["frame_index", "scorer"])
         new = df["variable"].str.rsplit("_", n=1, expand=True)
         df["variable"], df["coords"] = new[0], new[1]
@@ -590,7 +531,7 @@ class XMADataProcessor:
         )
         newdf.index.name = None
         substitute_data_abspath.mkdir(parents=True, exist_ok=True)
-        data_name = "CollectedData_" + self.project.experimenter + ".h5"
+        data_name = "CollectedData_" + self.experimenter + ".h5"
         tracked_hdf = substitute_data_abspath / data_name
 
         newdf.to_hdf(tracked_hdf, "df_with_missing", format="table", mode="w")
@@ -607,12 +548,12 @@ class XMADataProcessor:
         Optionally, compress the output PNGs. Factor ranges from 0 (no compression) to 9 (most compression)
         """
         extracted_frames = []
-        trainingdata_path = self.project.working_dir / "trainingdata"
+        trainingdata_path = self.working_dir / "trainingdata"
         trial_name = trial_path.name
         video_path = trainingdata_path / trial_name / f"{trial_name}_rgb.avi"
-        dlc_path = self.project.path_config_file.parent
-        labeled_data_path = dlc_path / "labeled-data" / self.project.dataset_name
-        if len(indices) < int(self.project.nframes):
+        dlc_path = self.path_config_file.parent
+        labeled_data_path = dlc_path / "labeled-data" / self.dataset_name
+        if len(indices) < int(self.nframes):
             raise ValueError("nframes is bigger than number of detected frames")
         frames_from_vid = self.extract_frames_from_video(
             source_path=video_path,
@@ -904,13 +845,13 @@ class XMADataProcessor:
         temp[:] = np.nan
 
         for idx, relname in enumerate(relnames):
-            if "_cam2" in relname and self.project.mode == "per_cam":
+            if "_cam2" in relname and self.mode == "per_cam":
                 relnames[idx] = str(
-                    Path(relname).relative_to(self.project.path_config_file_2.parent)
+                    Path(relname).relative_to(self.path_config_file_2.parent)
                 )
             else:
                 relnames[idx] = str(
-                    Path(relname).relative_to(self.project.path_config_file.parent)
+                    Path(relname).relative_to(self.path_config_file.parent)
                 )
 
         for i, bodypart in enumerate(pointnames):

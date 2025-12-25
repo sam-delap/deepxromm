@@ -13,6 +13,8 @@ from PIL import Image
 from deepxromm.xma_data_processor import XMADataProcessor
 from deepxromm.logging import logger
 from deepxromm.dlc_config import DlcConfigFactory
+from deepxromm.trial import Trial
+from deepxromm.xrommtools import get_marker_and_cam_names
 
 
 class Analyzer:
@@ -30,7 +32,7 @@ class Analyzer:
 
     def analyze_videos(self):
         """Analyze videos with a pre-existing network"""
-        trials = self._data_processor.list_trials()
+        trials = self._project.list_trials()
 
         # Establish project vars
         iteration = self.dlc_config.iteration
@@ -65,10 +67,11 @@ class Analyzer:
 
         # analyze videos
         cameras = [1, 2]
-        trials = self._data_processor.list_trials()
+        trials = self._project.list_trials()
         mode = self._project.mode
 
         for trialpath in trials:
+            trial = Trial(trialpath)
             savepath = trialpath / f"it{iteration}"
             if savepath.exists():
                 temp = savepath.glob("*Predicted2DPoints.csv")
@@ -82,7 +85,7 @@ class Analyzer:
             # get video file
             for camera in cameras:
                 # Error handling handled by find_cam_file helper
-                video = self._data_processor.find_cam_file(trialpath, f"cam{camera}")
+                video = trial.find_cam_file(identifier=f"cam{camera}")
                 # analyze video
                 if mode == "2D":
                     deeplabcut.analyze_videos(
@@ -111,7 +114,7 @@ class Analyzer:
         """Analyze all videos in a project and take their average similar. This is dangerous, as it will assume that all cam1/cam2 pairs match
         or don't match!"""
         similarity_score = {}
-        trial_combos = combinations(self._data_processor.list_trials(), 2)
+        trial_combos = combinations(self._project.list_trials(), 2)
         for trial1, trial2 in trial_combos:
             similarity_score[(trial1, trial2)] = self.analyze_video_similarity_trial(
                 [trial1, trial2]
@@ -122,10 +125,10 @@ class Analyzer:
         """Analyze the average similarity between trials using image hashing"""
         cameras = ["cam1", "cam2"]
         videos = {
-            (trial, cam): cv2.VideoCapture(
-                self._data_processor.find_cam_file(self._trials_path / trial, cam)
+            (trial_path, cam): cv2.VideoCapture(
+                Trial(trial_path).find_cam_file(identifier=cam)
             )
-            for trial in trials
+            for trial_path in trials
             for cam in cameras
         }
 
@@ -160,7 +163,7 @@ class Analyzer:
         """Analyze all videos in a project and get their average rhythmicity. This assumes that all cam1/2 pairs are either the same or different!"""
         marker_similarity = {}
 
-        trial_perms = combinations(self._data_processor.list_trials(), 2)
+        trial_perms = combinations(self._project.list_trials(), 2)
         logger.debug(f"Trial permutations for project: {trial_perms}")
         for trial1, trial2 in trial_perms:
             marker_similarity[(trial1, trial2)] = abs(
@@ -171,10 +174,12 @@ class Analyzer:
     def analyze_marker_similarity_trial(self, trial1_path: Path, trial2_path: Path):
         """Analyze marker similarity for a pair of trials using the distance formula."""
         # Get a list of markers that each trial have in common
-        bodyparts1_csv_path = self._data_processor.find_trial_csv(trial1_path)
-        bodyparts2_csv_path = self._data_processor.find_trial_csv(trial2_path)
-        bodyparts1 = self.dlc_config.get_dlc_bodyparts(bodyparts1_csv_path)
-        bodyparts2 = self.dlc_config.get_dlc_bodyparts(bodyparts2_csv_path)
+        trial1 = Trial(trial1_path)
+        trial2 = Trial(trial2_path)
+        bodyparts1_csv_path = trial1.find_trial_csv()
+        bodyparts2_csv_path = trial2.find_trial_csv()
+        bodyparts1 = get_marker_and_cam_names(bodyparts1_csv_path)
+        bodyparts2 = get_marker_and_cam_names(bodyparts2_csv_path)
         markers_in_common = [marker for marker in bodyparts1 if marker in bodyparts2]
         logger.debug(f"Markers in common for similarity analysis: {markers_in_common}")
 
@@ -219,14 +224,11 @@ class Analyzer:
 
         return marker_similarity
 
-    def get_max_dissimilarity_for_trial(self, trial_path, window):
+    def get_max_dissimilarity_for_trial(self, trial_path: Path, window):
         """Calculate the dissimilarity within the trial given the frame sliding window."""
-        video1 = cv2.VideoCapture(
-            self._data_processor.find_cam_file(trial_path, "cam1")
-        )
-        video2 = cv2.VideoCapture(
-            self._data_processor.find_cam_file(trial_path, "cam2")
-        )
+        trial = Trial(trial_path)
+        video1 = cv2.VideoCapture(trial.find_cam_file(identifier="cam1"))
+        video2 = cv2.VideoCapture(trial.find_cam_file(identifier="cam2"))
 
         hashes1 = self._hash_trial_video(video1)
         hashes2 = self._hash_trial_video(video2)

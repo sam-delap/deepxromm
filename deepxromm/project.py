@@ -12,14 +12,13 @@ import cv2
 import deeplabcut
 import numpy as np
 import pandas as pd
-from ruamel.yaml import YAML
-from ruamel.yaml.comments import CommentedMap
 
 from deepxromm.augmenter import OutlierExtractionParams
 from deepxromm.config_utilities import load_config_file, save_config_file
-from deepxromm.xma_data_processor import XMADataProcessor
 from deepxromm.logging import logger
 from deepxromm.autocorrector import AutocorrectParams
+from deepxromm.dlc_config import DlcConfig, DlcConfigFactory
+from deepxromm.trial import Trial
 
 # Sets the default codec for use in creating/loading project configs
 DEFAULT_CODEC = "avc1"
@@ -30,6 +29,7 @@ class Project(ABC):
     """Parent class for project configs - can't be instantiated"""
 
     task: str
+    dlc_config: DlcConfig
     _experimenter: str
     _working_dir: Path
     _path_config_file: Path
@@ -105,23 +105,48 @@ class Project(ABC):
     def experimenter(self):
         return self._experimenter
 
-    @staticmethod
-    def load_config_file(config_file_path: Path):
-        """Load a YAML file as a commented map"""
-        yaml = YAML()
-        with open(config_file_path, "r") as fp:
-            config = yaml.load(fp)
+    def list_trials(self, suffix: str = "trials") -> list[Path]:
+        """List all trials for the project"""
+        # Security validation: prevent directory traversal
+        if ".." in suffix:
+            raise ValueError(
+                f"Security error: Path traversal detected in suffix '{suffix}'. "
+                "Suffix cannot contain '..' for security reasons."
+            )
+        if suffix.startswith("/"):
+            raise ValueError(
+                f"Security error: Absolute path detected in suffix '{suffix}'. "
+                "Suffix must be a relative path within working_dir."
+            )
 
-        return config
+        trial_path = self.working_dir / suffix
 
-    @staticmethod
-    def save_config_file(config_data: CommentedMap, config_file_path: Path):
-        """Load a YAML file as a commented map"""
-        yaml = YAML()
-        with open(config_file_path, "w") as fp:
-            config = yaml.dump(config_data, fp)
+        # Additional security check: ensure resolved path is within working_dir
+        try:
+            resolved_trial_path = trial_path.resolve()
+            resolved_working_dir = self.working_dir.resolve()
+            if not str(resolved_trial_path).startswith(str(resolved_working_dir)):
+                raise ValueError(
+                    f"Security error: Path traversal detected. "
+                    f"Resolved path '{resolved_trial_path}' is outside working_dir."
+                )
+        except (OSError, RuntimeError) as e:
+            raise ValueError(f"Invalid path in suffix '{suffix}': {e}")
 
-        return config
+        # Get list of trial directories (excluding hidden folders)
+        trialnames = [
+            folder
+            for folder in trial_path.iterdir()
+            if folder.is_dir() and not folder.name.startswith(".")
+        ]
+
+        if len(trialnames) == 0:
+            raise FileNotFoundError(
+                f"No trials found in {trial_path}. "
+                "Please ensure trial directories exist and are not hidden."
+            )
+
+        return trialnames
 
     def check_config_for_updates(self):
         """Check the config for updates and update any values that have changed."""
@@ -422,17 +447,16 @@ class ProjectFactory:
             codec,
         )
 
-        # Initiate data processor utility
-        data_processor = XMADataProcessor(project=project)
-        training_trials = data_processor.list_trials("trainingdata")
+        training_trials = project.list_trials("trainingdata")
         if len(training_trials) == 0:
             raise FileNotFoundError(
                 "Empty trials directory found. Expected trial folders within the 'trainingdata' directory"
             )
         trial_path = training_trials[0]
+        trial = Trial(trial_path)
 
         # Load trial CSV
-        trial_csv_path = data_processor.find_trial_csv(trial_path)
+        trial_csv_path = trial.find_trial_csv()
         trial_csv = pd.read_csv(trial_csv_path)
 
         # Drop untracked frames (all NaNs)
@@ -454,7 +478,7 @@ class ProjectFactory:
             )
 
         # Check the current nframes against the threshold value * the number of frames in the cam1 video
-        cam1_video_path = data_processor.find_cam_file(trial_path, "cam1")
+        cam1_video_path = trial.find_cam_file("cam1")
         video = cv2.VideoCapture(cam1_video_path)
 
         if (
@@ -512,10 +536,25 @@ class ProjectFactory:
         codec: str = DEFAULT_CODEC,
     ):
         """Instantiate new project"""
+        dummy_video_path = working_dir / "dummy.avi"
+        frame = np.zeros((480, 480, 3), dtype=np.uint8)
+        out = cv2.VideoWriter(
+            str(dummy_video_path), cv2.VideoWriter_fourcc(*codec), 15, (480, 480)
+        )
+        out.write(frame)
+        out.release()
+        dlc_config = DlcConfigFactory.create_new_config(
+            task,
+            mode=mode,
+            working_directory=working_dir,
+            experimenter=experimenter,
+            videos=[str(dummy_video_path)],
+        )
         match mode:
             case "2D":
                 project = Project2D(
                     task,
+                    dlc_config,
                     experimenter,
                     working_dir,
                     _path_config_file=path_config_file,
@@ -528,6 +567,7 @@ class ProjectFactory:
                     )
                 project = ProjectPerCam(
                     task,
+                    dlc_config,
                     experimenter,
                     working_dir,
                     _path_config_file_2=path_config_file_2,
@@ -537,6 +577,7 @@ class ProjectFactory:
             case "rgb":
                 project = ProjectRGB(
                     task,
+                    dlc_config,
                     experimenter,
                     working_dir,
                     _path_config_file=path_config_file,

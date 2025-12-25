@@ -9,8 +9,10 @@ import numpy as np
 import pandas as pd
 from ruamel.yaml import YAML
 
-from deepxromm.xma_data_processor import XMADataProcessor
 from deepxromm.logging import logger
+from deepxromm.trial import Trial
+from deepxromm.xrommtools import get_marker_names
+from deepxromm.config_utilities import load_config_file
 
 
 @dataclass
@@ -69,14 +71,13 @@ class Autocorrector:
         self.autocorrect_settings = project.autocorrect_settings
         self.working_dir = project.working_dir
         self._trials_path = self.working_dir / "trials"
-        self._data_processor = XMADataProcessor(project)
         self._dlc_config_path = project.path_config_file
         self._skip_stats = {}  # Track skipped markers: {trial_name: count}
 
     def autocorrect_trials(self):
         """Do XMAlab-style autocorrect on the tracked beads for all trials"""
         self._skip_stats = {}  # Reset for each run
-        trials = self._data_processor.list_trials()
+        trials = self.project.list_trials()
 
         # Establish project vars
         yaml = YAML()
@@ -85,15 +86,17 @@ class Autocorrector:
 
         iteration = dlc["iteration"]
 
-        for trial in trials:
+        for trial_path in trials:
             # Find the appropriate pointsfile
-            trial_name = trial.name
-            iteration_folder = trial / f"it{iteration}"
-            trial_csv_location = self._data_processor.find_trial_csv(
-                iteration_folder, "Predicted2DPoints"
+            trial = Trial(trial_path)
+            iteration_folder = trial_path / f"it{iteration}"
+            trial_csv_location = trial.find_trial_csv(
+                suffix=f"it{iteration}", identifier="Predicted2DPoints"
             )
             csv = pd.read_csv(trial_csv_location)
-            out_name = iteration_folder / f"{trial_name}-AutoCorrected2DPoints.csv"
+            out_name = (
+                iteration_folder / f"{trial.trial_name}-AutoCorrected2DPoints.csv"
+            )
 
             if self.autocorrect_settings.test_autocorrect:
                 cams = self.project.cam
@@ -103,7 +106,7 @@ class Autocorrector:
             # For each camera
             for cam in cams:
                 csv = self._autocorrect_video(
-                    cam, self._trials_path / trial_name, csv, self.autocorrect_settings
+                    cam, trial_path, csv, self.autocorrect_settings
                 )
 
             # Print when autocorrect finishes
@@ -119,7 +122,8 @@ class Autocorrector:
     ):
         """Run the autocorrect function on a single video within a single trial"""
         # Find the raw video
-        video = cv2.VideoCapture(self._data_processor.find_cam_file(trial_path, cam))
+        trial = Trial(trial_path)
+        video = cv2.VideoCapture(trial.find_cam_file(identifier=cam))
         if not video.isOpened():
             raise FileNotFoundError(f"Couldn't find a video at file path: {trial_path}")
 
@@ -164,20 +168,16 @@ class Autocorrector:
     ):
         """Run the autocorrect function for a single frame (no output)"""
         # For each marker in the frame
+        trial = Trial(trial_path)
         if autocorrect_settings.test_autocorrect:
             parts_unique = [autocorrect_settings.marker]
         else:
-            yaml = YAML()
-            with open(self._dlc_config_path) as dlc_config:
-                dlc = yaml.load(dlc_config)
+            dlc = load_config_file(self._dlc_config_path)
             iteration = dlc["iteration"]
-            iteration_path = trial_path / f"it{iteration}"
-            trial_csv_path = self._data_processor.find_trial_csv(
-                iteration_path, "Predicted2DPoints"
+            trial_csv_path = trial.find_trial_csv(
+                suffix=f"{iteration}", identifier="Predicted2DPoints"
             )
-            parts_unique = self._data_processor.get_bodyparts_from_xma(
-                trial_csv_path, mode="2D"
-            )
+            parts_unique = get_marker_names(trial_csv_path)
         for part in parts_unique:
             # Find point and offsets
             x_float = csv.loc[frame_index, f"{part}_{cam}_X"]

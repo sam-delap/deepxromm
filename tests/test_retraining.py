@@ -3,7 +3,7 @@ import shutil
 from pathlib import Path
 
 from deepxromm import DeepXROMM
-from deepxromm.project import Project
+from deepxromm.config_utilities import load_config_file, save_config_file
 
 from .utils import set_up_project
 
@@ -32,7 +32,7 @@ def generic_snapshot_updated_in_pose_config(deepxromm_proj: DeepXROMM, trial_csv
     pose_config_path = deepxromm_proj._network._find_pose_cfg(
         deepxromm_proj.project.path_config_file, deepxromm_proj.project.dlc_iteration
     )
-    pose_config = Project.load_config_file(pose_config_path)
+    pose_config = load_config_file(pose_config_path)
     return "resnet_v1_50.ckpt" not in pose_config["init_weights"]
 
 
@@ -45,11 +45,11 @@ def generic_nframes_not_updated_when_false(
     iteration_dir = working_dir / "trials/test/it0"
     # User finds config file with outlier frames, extracts the ones they want to include
     # For this test, we'll only open the merged outliers file, but ones do exist for each camera
-    outliers = Project.load_config_file(iteration_dir / "outliers.yaml")
+    outliers = load_config_file(iteration_dir / "outliers.yaml")
 
     # User edits the config file so that it only has the ones they want included in it
     outliers = outliers[:5]
-    Project.save_config_file(outliers, iteration_dir / "outliers.yaml")
+    save_config_file(outliers, iteration_dir / "outliers.yaml")
 
     # User deposits an XMAlab-formatted CSV with the word 'outliers' in it into the 'it#' folder
     # This CSV can contain much more than just the outliers they tracked
@@ -77,11 +77,11 @@ def generic_test_retraining_workflow(
     iteration_dir = working_dir / "trials/test/it0"
 
     # User finds config file with outlier frames, extracts the ones they want to include
-    outliers = Project.load_config_file(iteration_dir / "outliers.yaml")
+    outliers = load_config_file(iteration_dir / "outliers.yaml")
 
     # User edits the config file so that it only has the ones they want included in it
     outliers = outliers[:5]
-    Project.save_config_file(outliers, iteration_dir / "outliers.yaml")
+    save_config_file(outliers, iteration_dir / "outliers.yaml")
 
     # User deposits an XMAlab-formatted CSV with the word 'outliers' in it into the 'it#' folder
     # This CSV can contain much more than just the outliers they tracked
@@ -200,7 +200,7 @@ class TestRetrainingPerCam(unittest.TestCase):
             self.deepxromm_proj.project.path_config_file,
             self.deepxromm_proj.project.dlc_iteration,
         )
-        pose_config = Project.load_config_file(pose_config_path_2)
+        pose_config = load_config_file(pose_config_path_2)
         assert "resnet_v1_50.ckpt" not in pose_config["init_weights"]
 
     def tearDown(self):

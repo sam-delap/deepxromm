@@ -13,7 +13,7 @@ def load_config_file(config_file_path: Path) -> CommentedMap:
     return config
 
 
-def save_config_file(config_data: CommentedMap, config_file_path: Path) -> None:
+def save_config_file(config_data, config_file_path: Path) -> None:
     """Save a CommentedMap to a YAML file"""
     yaml = YAML()
     with open(config_file_path, "w") as fp:

@@ -8,7 +8,7 @@ import pandas as pd
 import cv2
 
 from deepxromm import DeepXROMM
-from deepxromm.project import Project
+from deepxromm.config_utilities import load_config_file, save_config_file
 
 SAMPLE_FRAME = Path(__file__).parent / "sample_frame.jpg"
 SAMPLE_FRAME_INPUT = Path(__file__).parent / "sample_frame_input.csv"
@@ -71,13 +71,13 @@ class TestRGBMarkerCombos(unittest.TestCase):
 
     def test_bodyparts_add_synthetic(self):
         """Can we add swapped markers?"""
-        tmp = Project.load_config_file(self.working_dir / "project_config.yaml")
+        tmp = load_config_file(self.working_dir / "project_config.yaml")
         tmp["mode"] = "rgb"
         tmp["swapped_markers"] = True
-        Project.save_config_file(tmp, self.working_dir / "project_config.yaml")
+        save_config_file(tmp, self.working_dir / "project_config.yaml")
         DeepXROMM.load_project(self.working_dir)
 
-        config_obj = Project.load_config_file(self.deepxromm.project.path_config_file)
+        config_obj = load_config_file(self.deepxromm.project.path_config_file)
 
         self.assertEqual(
             config_obj["bodyparts"],
@@ -100,7 +100,7 @@ class TestRGBMarkerCombos(unittest.TestCase):
     def test_bodyparts_add_from_csv_in_3d(self):
         """If the user wants to do 3D tracking, we output the desired list of bodyparts"""
         DeepXROMM.load_project(self.working_dir)
-        config_obj = Project.load_config_file(self.deepxromm.project.path_config_file)
+        config_obj = load_config_file(self.deepxromm.project.path_config_file)
         self.assertEqual(
             config_obj["bodyparts"],
             ["foo_cam1", "foo_cam2", "bar_cam1", "bar_cam2", "baz_cam1", "baz_cam2"],
@@ -108,13 +108,13 @@ class TestRGBMarkerCombos(unittest.TestCase):
 
     def test_bodyparts_add_synthetic_and_crossed(self):
         """Can we add both swapped and crossed markers?"""
-        tmp = Project.load_config_file(self.working_dir / "project_config.yaml")
+        tmp = load_config_file(self.working_dir / "project_config.yaml")
         tmp["swapped_markers"] = True
         tmp["crossed_markers"] = True
-        Project.save_config_file(tmp, self.working_dir / "project_config.yaml")
+        save_config_file(tmp, self.working_dir / "project_config.yaml")
         DeepXROMM.load_project(self.working_dir)
 
-        config_obj = Project.load_config_file(self.deepxromm.project.path_config_file)
+        config_obj = load_config_file(self.deepxromm.project.path_config_file)
 
         self.assertEqual(
             config_obj["bodyparts"],
@@ -139,12 +139,12 @@ class TestRGBMarkerCombos(unittest.TestCase):
 
     def test_bodyparts_add_crossed(self):
         """Can we add crossed markers?"""
-        tmp = Project.load_config_file(self.working_dir / "project_config.yaml")
+        tmp = load_config_file(self.working_dir / "project_config.yaml")
         tmp["crossed_markers"] = True
-        Project.save_config_file(tmp, self.working_dir / "project_config.yaml")
+        save_config_file(tmp, self.working_dir / "project_config.yaml")
         DeepXROMM.load_project(self.working_dir)
 
-        config_obj = Project.load_config_file(self.deepxromm.project.path_config_file)
+        config_obj = load_config_file(self.deepxromm.project.path_config_file)
 
         self.assertEqual(
             config_obj["bodyparts"],
