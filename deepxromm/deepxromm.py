@@ -1,10 +1,12 @@
-"""A Complete Set of User-Friendly Tools for DeepLabCut-XMAlab marker tracking"""
+"""
+Defines deepxromm's public API
+"""
 
 from pathlib import Path
 
 from deepxromm.analyzer import Analyzer
 from deepxromm.autocorrector import Autocorrector
-from deepxromm.network import Network
+from deepxromm.dlc_config import Network, DlcConfig
 from deepxromm.project import Project, ProjectFactory
 from deepxromm.xma_data_processor import XMADataProcessor
 from deepxromm.augmenter import Augmenter
@@ -14,6 +16,7 @@ class DeepXROMM:
     """A Complete Set of User-Friendly Tools for DeepLabCut-XMAlab marker tracking"""
 
     project: Project
+    dlc_config: DlcConfig
     _analyzer: Analyzer
     _autocorrector: Autocorrector
     _network: Network
@@ -33,7 +36,7 @@ class DeepXROMM:
         mode="2D",
         codec="avc1",
     ):
-        """Create a new xrommtools project"""
+        """Create a new deepxromm project"""
         deepxromm = DeepXROMM.__new__(DeepXROMM)
         deepxromm.project = ProjectFactory.create_new_config(
             working_dir, experimenter, mode, codec
@@ -89,9 +92,9 @@ class DeepXROMM:
         """Do XMAlab-style autocorrect on the tracked beads for all trials"""
         self._autocorrector.autocorrect_trials()
 
-    def get_bodyparts_from_xma(self, csv_path: str, mode: str):
+    def get_dlc_bodyparts(self):
         """Pull the names of the XMAlab markers from the 2Dpoints file"""
-        return self._data_processor.get_bodyparts_from_xma(Path(csv_path), mode)
+        return self.dlc_config.get_dlc_bodyparts()
 
     def split_rgb(self, trial_path, codec=None):
         """Takes a RGB video with different grayscale data written to the R, G,

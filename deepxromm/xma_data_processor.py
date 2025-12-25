@@ -16,12 +16,18 @@ import yaml
 
 from deepxromm.xrommtools import dlc_to_xma
 from deepxromm.logging import logger
+from deepxromm.trial import Trial
+from deepxromm.dlc_config import DlcConfigFactory
+from deepxromm.config_utilities import load_config_file, save_config_file
 
 
 class XMADataProcessor:
     """Converts data from XMALab into the format useful for DLC training."""
 
     def __init__(self, project):
+        self.dlc_config = DlcConfigFactory.load_existing_config(
+            project.mode, project.path_config_file
+        )
         self.project = project
         # TODO: Move this into project functionality, or somewhere that doesn't require referencing this way
         self._swap_markers = False
@@ -51,24 +57,23 @@ class XMADataProcessor:
 
     def _split_dlc_to_xma(self, trial_path: Path, iteration: int, save_hdf=True):
         """Takes the output from RGB deeplabcut and splits it into XMAlab-readable output"""
+        trial = Trial(trial_path)
         current_files = trial_path.glob("*")
         logger.debug(f"Current files in directory {current_files}")
         # Use the CSV from the user's training data to fetch bodyparts
-        sample_trial_path = self.list_trials("trainingdata")[0]
-        trial_csv_path = self.find_trial_csv(sample_trial_path)
-        rgb_parts = self.get_bodyparts_from_xma(trial_csv_path, mode="rgb")
+        sample_trial = Trial(self.list_trials("trainingdata")[0])
+        trial_csv_path = sample_trial.find_trial_csv()
+        bodyparts_xy = sample_trial.get_xma_bodyparts()
+        rgb_parts = self.dlc_config.get_dlc_bodyparts(trial_csv_path)
 
-        bodyparts_xy = []
-        for part in rgb_parts:
-            bodyparts_xy.append(part + "_X")
-            bodyparts_xy.append(part + "_Y")
-
-        iteration_folder = trial_path / f"it{iteration}"
-        csv_path = self.find_trial_csv(
-            iteration_folder, "rgbDLC"
-        )  # Assumes that the project itself doesn't have rgbDLC in this format in it
-        trial = trial_path.name
-        xma_csv_path = iteration_folder / f"{trial}-Predicted2DPoints.csv"
+        iteration_folder_name = f"it{iteration}"
+        # Assumes that the project itself doesn't have rgbDLC in this format in it
+        csv_path = trial.find_trial_csv(iteration_folder_name, "rgbDLC")
+        xma_csv_path = (
+            trial.trial_path
+            / iteration_folder_name
+            / f"{trial.trial_name}-Predicted2DPoints.csv"
+        )
 
         df = pd.read_csv(csv_path, skiprows=1)
         df.index = df["bodyparts"]
@@ -118,39 +123,6 @@ class XMADataProcessor:
             )
 
         return csv_path[0]
-
-    def get_bodyparts_from_xma(self, csv_path: Path, mode: str):
-        """Takes the filepath of an XMAlab CSV file and returns marker names"""
-
-        trial_csv = pd.read_csv(
-            csv_path,
-            sep=",",
-            header=0,
-            dtype="float",
-            na_values="NaN",
-        )
-        names = trial_csv.columns.values
-        if mode == "rgb":
-            parts = [name.rsplit("_", 1)[0] for name in names]
-            if self._swap_markers:
-                parts = parts + [f"sw_{part}" for part in parts]
-            if self._cross_markers:
-                parts = parts + [
-                    f"cx_{part}_cam1x2"
-                    for part in [name.rsplit("_", 2)[0] for name in names]
-                ]
-        elif mode in ["2D", "per_cam"]:
-            parts = [name.rsplit("_", 2)[0] for name in names]
-        else:
-            raise SyntaxError("Invalid value for mode parameter")
-
-        # I do it this way to maintain ordering in the list, since that's
-        # important for DeepLabCut
-        parts_unique = []
-        for part in parts:
-            if part not in parts_unique:
-                parts_unique.append(part)
-        return parts_unique
 
     def make_rgb_videos(self, suffix: str):
         """For all trials in given data path merges 2 videos into single RGB video."""
@@ -531,10 +503,10 @@ class XMADataProcessor:
     def _splice_xma_to_dlc(self, trial_path: Path, list_of_frames: list[int]):
         """Takes csv of XMALab 2D XY coordinates from 2 cameras, outputs spliced hdf+csv data for DeepLabCut"""
         dlc_path = self.project.path_config_file.parent
-        trial_name = trial_path.name
+        trial = Trial(trial_path)
         substitute_data_abspath = dlc_path / "labeled-data" / self.project.dataset_name
-        trial_csv_path = self.find_trial_csv(trial_path)
-        markers = self.get_bodyparts_from_xma(trial_csv_path, mode="2D")
+        trial_csv_path = trial.find_trial_csv()
+        markers = trial.get_xma_bodyparts()
 
         # Add salt to the training data, if desired
         df = pd.read_csv(trial_csv_path)
@@ -574,37 +546,27 @@ class XMADataProcessor:
                 crosses.extend([cross_name_x, cross_name_y])
             df = df.join(df_cx)
             logger.debug(crosses)
-        names_final = df.columns.values
-        parts_final = [name.rsplit("_", 1)[0] for name in names_final]
-        parts_unique_final = []
-        for part in parts_final:
-            if part not in parts_unique_final:
-                parts_unique_final.append(part)
+        parts_unique_final = self.dlc_config.get_dlc_bodyparts()
         logger.debug("Importing markers: ")
         logger.debug(parts_unique_final)
-        with open(self.project.path_config_file, "r") as dlc_config:
-            dlc_proj = yaml.safe_load(dlc_config)
-
+        dlc_proj = load_config_file(self.dlc_config.path_config_file)
         dlc_proj["bodyparts"] = parts_unique_final
-
-        with open(self.project.path_config_file, "w") as dlc_config:
-            yaml.dump(dlc_proj, dlc_config, sort_keys=False)
-
-        unique_frames_set = set(list_of_frames)
+        save_config_file(dlc_proj, self.dlc_config.path_config_file)
 
         # Ensure that all frames were unique originally
+        unique_frames_set = set(list_of_frames)
         assert len(list_of_frames) == len(unique_frames_set)
-
         unique_frames = sorted(unique_frames_set)
         logger.debug("Importing frames: ")
         logger.debug(unique_frames)
+
         # Cut data down to just the frames that we've picked
         df = df.loc[unique_frames, :]
         df["frame_index"] = [
             str(
                 (
                     substitute_data_abspath
-                    / f"{trial_name}_rgb_{str(index + 1).zfill(4)}.png"
+                    / f"{trial.trial_name}_rgb_{str(index + 1).zfill(4)}.png"
                 ).relative_to(dlc_path)
             )
             for index in unique_frames

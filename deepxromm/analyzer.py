@@ -9,10 +9,10 @@ import deeplabcut
 import imagehash
 import pandas as pd
 from PIL import Image
-import yaml
 
 from deepxromm.xma_data_processor import XMADataProcessor
 from deepxromm.logging import logger
+from deepxromm.dlc_config import DlcConfigFactory
 
 
 class Analyzer:
@@ -21,19 +21,19 @@ class Analyzer:
     def __init__(self, project):
         self.working_dir = project.working_dir
         self.project_config = project.project_config_path
+        self.dlc_config = DlcConfigFactory.load_existing_config(
+            project.mode, project.path_config_file
+        )
+        self._project = project
         self._trials_path = self.working_dir / "trials"
         self._data_processor = XMADataProcessor(project)
-        self._project = project
-        self._dlc_config = project.path_config_file
 
     def analyze_videos(self):
         """Analyze videos with a pre-existing network"""
         trials = self._data_processor.list_trials()
 
         # Establish project vars
-        with open(self._dlc_config) as dlc_config:
-            dlc = yaml.safe_load(dlc_config)
-        iteration = dlc["iteration"]
+        iteration = self.dlc_config.iteration
 
         mode = self._project.mode
         if mode in ["2D", "per_cam"]:
@@ -48,7 +48,7 @@ class Analyzer:
                 video_path = trial_path / f"{trial}_rgb.avi"
                 destfolder = trial_path / f"it{iteration}"
                 deeplabcut.analyze_videos(
-                    str(self._dlc_config),
+                    str(self.dlc_config.path_config_file),
                     str(
                         video_path
                     ),  # DLC relies on .endswith to determine suffix, so this needs to be a string
@@ -173,12 +173,8 @@ class Analyzer:
         # Get a list of markers that each trial have in common
         bodyparts1_csv_path = self._data_processor.find_trial_csv(trial1_path)
         bodyparts2_csv_path = self._data_processor.find_trial_csv(trial2_path)
-        bodyparts1 = self._data_processor.get_bodyparts_from_xma(
-            bodyparts1_csv_path, mode="rgb"
-        )
-        bodyparts2 = self._data_processor.get_bodyparts_from_xma(
-            bodyparts2_csv_path, mode="rgb"
-        )
+        bodyparts1 = self.dlc_config.get_dlc_bodyparts(bodyparts1_csv_path)
+        bodyparts2 = self.dlc_config.get_dlc_bodyparts(bodyparts2_csv_path)
         markers_in_common = [marker for marker in bodyparts1 if marker in bodyparts2]
         logger.debug(f"Markers in common for similarity analysis: {markers_in_common}")
 

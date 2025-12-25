@@ -93,6 +93,7 @@ class Project(ABC):
         if not _validate_codec(value):
             raise RuntimeError(f"Codec {value} is not available on this system")
         self._video_codec = value
+        self.update_config_file()
 
     # Read-only properties
     @property
@@ -102,19 +103,6 @@ class Project(ABC):
     @property
     def experimenter(self):
         return self._experimenter
-
-    @property
-    def dlc_iteration(self):
-        """Iteration of training for DLC project within the DeepXROMM project"""
-        dlc_config = Project.load_config_file(self.path_config_file)
-        return dlc_config["iteration"]
-
-    @dlc_iteration.setter
-    def dlc_iteration(self, value):
-        """Set iteration in the dlc config"""
-        dlc_config = Project.load_config_file(self.path_config_file)
-        dlc_config["iteration"] = value
-        Project.save_config_file(dlc_config, self.path_config_file)
 
     @staticmethod
     def load_config_file(config_file_path: Path):
@@ -282,12 +270,6 @@ class ProjectPerCam(Project):
         """Ensuring path_config_file is always returned as a path"""
         self._path_config_file_2 = value
 
-    @property
-    def iteration_2(self):
-        """Iteration of training for DLC project within the DeepXROMM project"""
-        dlc_config = Project.load_config_file(self.path_config_file)
-        return dlc_config["iteration"]
-
 
 @dataclass
 class ProjectRGB(Project):
@@ -309,9 +291,8 @@ class ProjectRGB(Project):
 
         super().check_config_for_updates()
         config_data = Project.load_config_file(self.project_config_path)
-        logger.debug(f"Swapped markers: {config_data['swapped_markers']}")
-        logger.debug(f"Crossed markers: {config_data['crossed_markers']}")
 
+        # Experimental params (mode and experimenter are read-only)
         self.swapped_markers = config_data["swapped_markers"]
         self.crossed_markers = config_data["crossed_markers"]
 
@@ -414,6 +395,7 @@ class ProjectFactory:
         if isinstance(working_dir, str):
             working_dir = Path(working_dir)
 
+        # Open the config
         config = Project.load_config_file(working_dir / "project_config.yaml")
         config = _migrate_tracking_mode(config)
 
