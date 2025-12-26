@@ -11,7 +11,6 @@ import pandas as pd
 from PIL import Image
 
 from deepxromm.logging import logger
-from deepxromm.dlc_config import DlcConfigFactory
 from deepxromm.trial import Trial
 from deepxromm.xrommtools import get_marker_and_cam_names
 
@@ -22,9 +21,7 @@ class Analyzer:
     def __init__(self, project):
         self.working_dir = project.working_dir
         self.project_config = project.project_config_path
-        self.dlc_config = DlcConfigFactory.load_existing_config(
-            project.mode, project.path_config_file
-        )
+        self.dlc_config = project.dlc_config
         self._project = project
         self._trials_path = self.working_dir / "trials"
 
