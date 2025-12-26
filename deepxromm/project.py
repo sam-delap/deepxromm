@@ -34,6 +34,11 @@ class Project:
     augmenter_settings: OutlierExtractionParams = OutlierExtractionParams()
     cam1s_are_the_same_view: bool = True
 
+    # Magic method modifications
+    def __post_init__(self):
+        """Check the config for updates after initializing"""
+        self.check_config_for_updates()
+
     # Read-write properties
     @property
     def working_dir(self):
@@ -249,12 +254,14 @@ class ProjectFactory:
         task = working_dir.name
 
         # Instantiate project
-        project = cls._instantiate_project(
-            mode,
+        dlc_config = DlcConfigFactory.create_new_config(
             task,
-            experimenter,
-            working_dir,
+            mode=mode,
+            working_directory=working_dir,
+            experimenter=experimenter,
+            videos=[str(dummy_video_path)],
         )
+        project = Project(task, dlc_config, experimenter, working_dir)
 
         try:
             dummy_video_path.unlink()
@@ -279,14 +286,21 @@ class ProjectFactory:
         task = config["task"]
         experimenter = config["experimenter"]
         working_dir = Path(config["working_dir"])
+        path_config_file = Path(config["path_config_file"])
         mode = config["mode"]
 
-        project = cls._instantiate_project(
-            mode,
-            task,
-            experimenter,
-            working_dir,
-        )
+        if mode == "per_cam":
+            path_config_file_2 = Path(config["path_config_file_2"])
+            dlc_config = DlcConfigFactory.load_existing_config(
+                mode=mode,
+                path_config_file=path_config_file,
+                path_config_file_2=path_config_file_2,
+            )
+        else:
+            dlc_config = DlcConfigFactory.load_existing_config(
+                mode=mode, path_config_file=path_config_file
+            )
+        project = Project(task, dlc_config, experimenter, working_dir)
 
         training_trials = project.list_trials("trainingdata")
         if len(training_trials) == 0:
@@ -362,33 +376,6 @@ class ProjectFactory:
             save_config_file(dlc_yaml, project.dlc_config.path_config_file_2)
 
         project.update_config_file()
-
-        return project
-
-    @classmethod
-    def _instantiate_project(
-        cls,
-        mode: str,
-        task: str,
-        experimenter: str,
-        working_dir: Path,
-    ):
-        """Instantiate new project"""
-        dummy_video_path = working_dir / "dummy.avi"
-        frame = np.zeros((480, 480, 3), dtype=np.uint8)
-        out = cv2.VideoWriter(
-            str(dummy_video_path), cv2.VideoWriter_fourcc(*"XVID"), 15, (480, 480)
-        )
-        out.write(frame)
-        out.release()
-        dlc_config = DlcConfigFactory.create_new_config(
-            task,
-            mode=mode,
-            working_directory=working_dir,
-            experimenter=experimenter,
-            videos=[str(dummy_video_path)],
-        )
-        project = Project(task, dlc_config, experimenter, working_dir)
 
         return project
 
