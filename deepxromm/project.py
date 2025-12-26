@@ -2,7 +2,6 @@
 This module is responsible for creating and updating deepxromm projects
 """
 
-from abc import ABC
 from collections.abc import Callable
 from dataclasses import dataclass
 import tempfile
@@ -25,7 +24,7 @@ DEFAULT_CODEC = "avc1"
 
 
 @dataclass
-class Project(ABC):
+class Project:
     """Parent class for project configs - can't be instantiated"""
 
     task: str
@@ -79,7 +78,6 @@ class Project(ABC):
         if not _validate_codec(value):
             raise RuntimeError(f"Codec {value} is not available on this system")
         self._video_codec = value
-        self.update_config_file()
 
     @property
     def experimenter(self):
@@ -240,23 +238,7 @@ class Project(ABC):
         save_config_file(config_data, self.project_config_path)
 
 
-@dataclass
-class Project2D(Project):
-    def __post_init__(self):
-        """After initializing, check the config and update if necessary"""
-        self.check_config_for_updates()
-
-
-@dataclass
-class ProjectRGB(Project):
-    def __post_init__(self):
-        """After initializing, check the config and update if necessary"""
-        self.check_config_for_updates()
-
-
 class ProjectFactory:
-    _PROJECT_MODES = ["2D", "per_cam", "rgb"]
-
     def __init__(self):
         raise NotImplementedError("Use create_new_config or load_config instead.")
 
@@ -430,27 +412,9 @@ class ProjectFactory:
             experimenter=experimenter,
             videos=[str(dummy_video_path)],
         )
-        match mode:
-            case "2D" | "per_cam":
-                project = Project2D(
-                    task,
-                    dlc_config,
-                    experimenter,
-                    working_dir,
-                    _video_codec=codec,
-                )
-            case "rgb":
-                project = ProjectRGB(
-                    task,
-                    dlc_config,
-                    experimenter,
-                    working_dir,
-                    _video_codec=codec,
-                )
-            case _:
-                raise ValueError(
-                    f"Unsupported mode {mode}. Valid modes: {cls._PROJECT_MODES}"
-                )
+        project = Project(
+            task, dlc_config, experimenter, working_dir, _video_codec=codec
+        )
 
         return project
 
