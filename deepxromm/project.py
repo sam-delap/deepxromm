@@ -33,7 +33,6 @@ class Project:
     _working_dir: Path
     _dataset_name: str = "MyData"
     nframes: int = 0
-    maxiters: int = 150000
     tracking_threshold: float = 0.1
     _video_codec: str = DEFAULT_CODEC
     autocorrect_settings: AutocorrectParams = AutocorrectParams()
@@ -140,7 +139,7 @@ class Project:
         self.task = config_data["task"]
         self.working_dir = Path(config_data["working_dir"])
         self.nframes = config_data["nframes"]
-        self.maxiters = config_data["maxiters"]
+        self.dlc_config.maxiters = config_data["maxiters"]
         self.tracking_threshold = config_data["tracking_threshold"]
 
         # DeepLabCut settings
@@ -194,7 +193,6 @@ class Project:
         config_data["working_dir"] = str(self.working_dir)
         config_data["path_config_file"] = str(self.dlc_config.path_config_file)
         config_data["nframes"] = self.nframes
-        config_data["maxiters"] = self.maxiters
         config_data["tracking_threshold"] = self.tracking_threshold
         config_data["mode"] = self.dlc_config.mode
 
