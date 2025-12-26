@@ -3,6 +3,7 @@ This module is responsible for creating and updating deepxromm projects
 """
 
 from abc import ABC
+from collections.abc import Callable
 from dataclasses import dataclass
 import tempfile
 from pathlib import Path
@@ -36,7 +37,6 @@ class Project(ABC):
     maxiters: int = 150000
     tracking_threshold: float = 0.1
     _video_codec: str = DEFAULT_CODEC
-    _mode: str = ""
     autocorrect_settings: AutocorrectParams = AutocorrectParams()
     augmenter_settings: OutlierExtractionParams = OutlierExtractionParams()
     cam1s_are_the_same_view: bool = True
@@ -80,11 +80,6 @@ class Project(ABC):
             raise RuntimeError(f"Codec {value} is not available on this system")
         self._video_codec = value
         self.update_config_file()
-
-    # Read-only properties
-    @property
-    def mode(self):
-        return self._mode
 
     @property
     def experimenter(self):
@@ -152,6 +147,9 @@ class Project(ABC):
 
         # DeepLabCut settings
         for attr in vars(self.dlc_config):
+            value = getattr(self.dlc_config, attr)
+            if isinstance(value, Callable):
+                continue
             setattr(self.dlc_config, attr, config_data[attr])
 
         # Autocorrect settings
@@ -200,11 +198,16 @@ class Project(ABC):
         config_data["nframes"] = self.nframes
         config_data["maxiters"] = self.maxiters
         config_data["tracking_threshold"] = self.tracking_threshold
-        config_data["mode"] = self.mode
+        config_data["mode"] = self.dlc_config.mode
 
         # DeepLabCut settings
         for attr in vars(self.dlc_config):
-            config_data[attr] = getattr(self.dlc_config, attr)
+            value = getattr(self.dlc_config, attr)
+            if isinstance(value, Callable):
+                continue
+            if isinstance(value, Path):
+                value = str(value)
+            config_data[attr] = value
 
         # Autocorrect settings
         config_data["search_area"] = self.autocorrect_settings.search_area
@@ -239,8 +242,6 @@ class Project(ABC):
 
 @dataclass
 class Project2D(Project):
-    _mode: str = "2D"
-
     def __post_init__(self):
         """After initializing, check the config and update if necessary"""
         self.check_config_for_updates()
@@ -248,7 +249,6 @@ class Project2D(Project):
 
 @dataclass
 class ProjectRGB(Project):
-    _mode: str = "rgb"
     swapped_markers: bool = False
     crossed_markers: bool = False
 
@@ -419,7 +419,7 @@ class ProjectFactory:
         save_config_file(dlc_yaml, project.dlc_config.path_config_file)
 
         # Check DLC bodyparts (marker names) for config 2 if needed
-        if project.mode == "per_cam":
+        if project.dlc_config.mode == "per_cam":
             dlc_yaml = load_config_file(project.dlc_config.path_config_file_2)
             # Better conditional logic could definitely be had to reduce function calls here
             if dlc_yaml["bodyparts"] == default_bodyparts:

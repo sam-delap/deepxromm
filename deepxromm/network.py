@@ -19,7 +19,7 @@ class Network:
         self.working_dir = project.working_dir
         self._trainingdata_path = self.working_dir / "trainingdata"  # Keep for RGB mode
         self._data_processor = XMADataProcessor(project, dlc_config)
-        self.mode = project.mode
+        self.mode = dlc_config.mode
         self.nframes = project.nframes
         self.dataset_name = project.dataset_name
         self.experimenter = project.experimenter

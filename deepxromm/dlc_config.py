@@ -22,7 +22,7 @@ DEFAULT_BODYPARTS = ["bodypart1", "bodypart2", "bodypart3", "objectA"]
 class DlcConfig(ABC):
     """Interacts with and stores information about the DeepLabCut project(s) within a deepxromm project"""
 
-    path_config_file: Path
+    _path_config_file: Path
     mode: str = ""
     dataset_name: str = "MyData"
     maxiters: int = 150000
@@ -54,7 +54,21 @@ class DlcConfig(ABC):
         dlc_config["iteration"] = value
         save_config_file(dlc_config, self.path_config_file)
 
+    @property
+    def path_config_file(self) -> Path:
+        """Ensure path_config_file always returns a Path"""
+        return Path(self._path_config_file)
+
+    @path_config_file.setter
+    def path_config_file(self, value: str | Path) -> None:
+        """Ensure path_config_file is always set as a Path"""
+        if isinstance(value, str):
+            value = Path(value)
+
+        self._path_config_file = value
+
     # Read-only properties
+
     # Public methods
     def get_bodyparts(self, trial_csv_path: Path):
         """Return bodyparts in the format they'll need to be in for DeepLabCut"""
@@ -124,19 +138,19 @@ class DlcConfigFactory:
         """Instantiate the correct type of DlcConfig"""
         match mode:
             case "2D":
-                dlc_config = DlcConfig2D(path_config_file=path_config_file, **kwargs)
+                dlc_config = DlcConfig2D(_path_config_file=path_config_file, **kwargs)
             case "per_cam":
                 if path_config_file_2 is None:
                     raise ValueError(
                         "Please specify a value for 2nd DLC project config. Value is currently unset"
                     )
                 dlc_config = DlcConfigPerCam(
-                    path_config_file=path_config_file,
+                    _path_config_file=path_config_file,
                     path_config_file_2=path_config_file_2,
                     **kwargs,
                 )
             case "rgb":
-                dlc_config = DlcConfigRGB(path_config_file=path_config_file, **kwargs)
+                dlc_config = DlcConfigRGB(_path_config_file=path_config_file, **kwargs)
 
         return dlc_config
 

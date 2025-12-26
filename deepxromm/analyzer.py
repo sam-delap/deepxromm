@@ -32,7 +32,7 @@ class Analyzer:
         # Establish project vars
         iteration = self.dlc_config.iteration
 
-        mode = self._project.mode
+        mode = self._project.dlc_config.mode
         if mode in ["2D", "per_cam"]:
             self._analyze_xromm_videos(iteration)
 
@@ -64,7 +64,7 @@ class Analyzer:
         # analyze videos
         cameras = [1, 2]
         trials = self._project.list_trials()
-        mode = self._project.mode
+        mode = self._project.dlc_config.mode
 
         for trialpath in trials:
             trial = Trial(trialpath)
