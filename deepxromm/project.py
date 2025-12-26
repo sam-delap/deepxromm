@@ -249,38 +249,9 @@ class Project2D(Project):
 
 @dataclass
 class ProjectRGB(Project):
-    swapped_markers: bool = False
-    crossed_markers: bool = False
-
     def __post_init__(self):
         """After initializing, check the config and update if necessary"""
         self.check_config_for_updates()
-
-    def check_config_for_updates(self):
-        """Check the config for updates and update any values that have changed."""
-        if not self.project_config_path.exists():
-            logger.debug(
-                "Didn't find project config this time around. I'm sure this is fine..."
-            )
-            return
-
-        super().check_config_for_updates()
-        config_data = load_config_file(self.project_config_path)
-
-        # Experimental params (mode and experimenter are read-only)
-        self.swapped_markers = config_data["swapped_markers"]
-        self.crossed_markers = config_data["crossed_markers"]
-
-    def update_config_file(self):
-        """Update the config to the values of the current object"""
-        super().update_config_file()
-        config_data = load_config_file(self.project_config_path)
-
-        # Experimental params
-        config_data["swapped_markers"] = self.swapped_markers
-        config_data["crossed_markers"] = self.crossed_markers
-
-        save_config_file(config_data, self.project_config_path)
 
 
 class ProjectFactory:
