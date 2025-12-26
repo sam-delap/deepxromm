@@ -4,7 +4,6 @@ This module is responsible for creating and updating deepxromm projects
 
 from collections.abc import Callable
 from dataclasses import dataclass
-import tempfile
 from pathlib import Path
 import warnings
 
@@ -19,9 +18,6 @@ from deepxromm.autocorrector import AutocorrectParams
 from deepxromm.dlc_config import DlcConfig, DlcConfigFactory
 from deepxromm.trial import Trial
 
-# Sets the default codec for use in creating/loading project configs
-DEFAULT_CODEC = "avc1"
-
 
 @dataclass
 class Project:
@@ -34,11 +30,11 @@ class Project:
     _dataset_name: str = "MyData"
     nframes: int = 0
     tracking_threshold: float = 0.1
-    _video_codec: str = DEFAULT_CODEC
     autocorrect_settings: AutocorrectParams = AutocorrectParams()
     augmenter_settings: OutlierExtractionParams = OutlierExtractionParams()
     cam1s_are_the_same_view: bool = True
 
+    # Read-write properties
     @property
     def working_dir(self):
         """Ensuring working_dir is always returned as a path"""
@@ -61,27 +57,17 @@ class Project:
     def dataset_name(self, value: str):
         self._dataset_name = value
 
-    @property
-    def video_codec(self):
-        """Video codec used to encode/decode videos using OpenCV"""
-        return self._video_codec
-
+    # Read-only properties
     @property
     def project_config_path(self):
         """Path to project_config.yaml file"""
         return Path(self.working_dir / "project_config.yaml")
 
-    @video_codec.setter
-    def video_codec(self, value: str):
-        """Validate that video codec is available on system, then set if it is"""
-        if not _validate_codec(value):
-            raise RuntimeError(f"Codec {value} is not available on this system")
-        self._video_codec = value
-
     @property
     def experimenter(self):
         return self._experimenter
 
+    # Public methods
     def list_trials(self, suffix: str = "trials") -> list[Path]:
         """List all trials for the project"""
         # Security validation: prevent directory traversal
@@ -139,7 +125,6 @@ class Project:
         self.task = config_data["task"]
         self.working_dir = Path(config_data["working_dir"])
         self.nframes = config_data["nframes"]
-        self.dlc_config.maxiters = config_data["maxiters"]
         self.tracking_threshold = config_data["tracking_threshold"]
 
         # DeepLabCut settings
@@ -167,7 +152,6 @@ class Project:
 
         # Video similarity
         self.cam1s_are_the_same_view = config_data["cam1s_are_the_same_view"]
-        self.video_codec = config_data["video_codec"]
 
         # Retraining
         self.augmenter_settings.outlier_algorithm = config_data["augmenter"][
@@ -223,7 +207,6 @@ class Project:
 
         # Video similarity
         config_data["cam1s_are_the_same_view"] = self.cam1s_are_the_same_view
-        config_data["video_codec"] = self.video_codec
 
         # Retraining
         config_data["augmenter"]["outlier_algorithm"] = (
@@ -246,7 +229,6 @@ class ProjectFactory:
         working_dir: str | Path = Path.cwd(),
         experimenter="NA",
         mode="2D",
-        codec=DEFAULT_CODEC,
     ) -> Project:
         """Creates a new config from scratch."""
         if isinstance(working_dir, str):
@@ -258,7 +240,7 @@ class ProjectFactory:
         dummy_video_path = working_dir / "dummy.avi"
         frame = np.zeros((480, 480, 3), dtype=np.uint8)
         out = cv2.VideoWriter(
-            str(dummy_video_path), cv2.VideoWriter_fourcc(*codec), 15, (480, 480)
+            str(dummy_video_path), cv2.VideoWriter_fourcc(*"XVID"), 15, (480, 480)
         )
         out.write(frame)
         out.release()
@@ -272,7 +254,6 @@ class ProjectFactory:
             task,
             experimenter,
             working_dir,
-            codec,
         )
 
         try:
@@ -299,14 +280,12 @@ class ProjectFactory:
         experimenter = config["experimenter"]
         working_dir = Path(config["working_dir"])
         mode = config["mode"]
-        codec = config["video_codec"]
 
         project = cls._instantiate_project(
             mode,
             task,
             experimenter,
             working_dir,
-            codec,
         )
 
         training_trials = project.list_trials("trainingdata")
@@ -393,13 +372,12 @@ class ProjectFactory:
         task: str,
         experimenter: str,
         working_dir: Path,
-        codec: str = DEFAULT_CODEC,
     ):
         """Instantiate new project"""
         dummy_video_path = working_dir / "dummy.avi"
         frame = np.zeros((480, 480, 3), dtype=np.uint8)
         out = cv2.VideoWriter(
-            str(dummy_video_path), cv2.VideoWriter_fourcc(*codec), 15, (480, 480)
+            str(dummy_video_path), cv2.VideoWriter_fourcc(*"XVID"), 15, (480, 480)
         )
         out.write(frame)
         out.release()
@@ -410,9 +388,7 @@ class ProjectFactory:
             experimenter=experimenter,
             videos=[str(dummy_video_path)],
         )
-        project = Project(
-            task, dlc_config, experimenter, working_dir, _video_codec=codec
-        )
+        project = Project(task, dlc_config, experimenter, working_dir)
 
         return project
 
@@ -466,83 +442,3 @@ def _migrate_tracking_mode(config: dict):
         del config["tracking_mode"]
 
     return config
-
-
-def _validate_codec(codec: str, width: int = 640, height: int = 480) -> bool:
-    """
-    Validate if a video codec is available on the current system.
-
-    Args:
-        codec: FourCC codec code (e.g., "avc1", "DIVX", "XVID")
-        width: Test video width (default 640)
-        height: Test video height (default 480)
-
-    Returns:
-        True if codec is available and functional, False otherwise
-
-    Note:
-        Special cases "uncompressed" and 0 always return True as they
-        use different encoding mechanisms.
-    """
-    # Special cases that don't use cv2.VideoWriter with fourcc
-    if codec == "uncompressed" or codec == 0:
-        return True
-
-    # Test codec by creating a temporary VideoWriter
-    with tempfile.TemporaryDirectory() as tmpdir:
-        try:
-            test_path = Path(tmpdir) / "codec_test.avi"
-            fourcc = cv2.VideoWriter_fourcc(*codec)
-            writer = cv2.VideoWriter(
-                str(test_path),
-                fourcc,
-                1.0,  # Low FPS for test
-                (width, height),
-            )
-
-            # Check if writer opened successfully
-            is_valid = writer.isOpened()
-
-            # Try writing a test frame to ensure codec actually works
-            if is_valid:
-                test_frame = np.zeros((height, width, 3), dtype=np.uint8)
-                writer.write(test_frame)
-
-            writer.release()
-            logger.debug(
-                f"Codec validation for '{codec}': {'PASSED' if is_valid else 'FAILED'}"
-            )
-            return is_valid
-
-        except Exception as e:
-            logger.error(f"Codec validation for '{codec}' failed with exception: {e}")
-            return False
-
-
-def _get_codec_error_message(failed_codec: str, operation: str) -> str:
-    """
-    Generate descriptive error message for codec validation failure.
-
-    Args:
-        failed_codec: The codec that failed validation
-        operation: Operation type ("split" or "merge")
-
-    Returns:
-        Formatted error message with suggestions
-    """
-    return f"""
-Video codec '{failed_codec}' is not available on this system for {operation}_rgb operation.
-
-Common alternative codecs to try:
-- "avc1"  : H.264 codec (best quality, not always available)
-- "DIVX"  : DivX codec (widely available)
-- "XVID"  : Xvid codec (widely available)
-- "mp4v"  : MPEG-4 codec (generally available)
-- "MJPG"  : Motion JPEG (always available, larger file sizes)
-- "uncompressed" : Raw video via ffmpeg (largest files, highest quality)
-
-To change the codec, update your project config file:
-video_codec: "DIVX"  # Change this line to one of the alternatives above
-
-Note: Codec availability depends on your OpenCV build and system codecs.
-""".strip()

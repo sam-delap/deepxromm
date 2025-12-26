@@ -14,7 +14,7 @@ def set_up_project(project_dir: Path, mode: str):
     )
 
     # Adjust maxiters to 5 to ensure that training completes quickly
-    deepxromm_proj.project.maxiters = 5
+    deepxromm_proj.project.dlc_config.maxiters = 5
     deepxromm_proj.project.update_config_file()
 
     # Make vars for pathing to find files easily

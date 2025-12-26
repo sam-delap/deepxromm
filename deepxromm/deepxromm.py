@@ -77,7 +77,9 @@ class DeepXROMM:
 
     def train_network(self, **kwargs):
         """Starts training the network using data in the working directory."""
-        self.project.dlc_config.train_network(maxiters=self.project.maxiters, **kwargs)
+        self.project.dlc_config.train_network(
+            maxiters=self.project.dlc_config.maxiters, **kwargs
+        )
 
     def analyze_videos(self, **kwargs):
         """Analyze videos with a pre-existing network"""

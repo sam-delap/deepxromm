@@ -24,7 +24,7 @@ class Network:
         self.dataset_name = project.dataset_name
         self.experimenter = project.experimenter
         self.path_config_file = dlc_config.path_config_file
-        self.maxiters = project.maxiters
+        self.maxiters = dlc_config.maxiters
         self.dlc_iteration = dlc_config.iteration
         if self.mode == "per_cam":
             self.path_config_file_2 = dlc_config.path_config_file_2
@@ -66,7 +66,7 @@ class Network:
         elif mode == "rgb":
             logger.debug("We've selected an RGB video")
             [
-                Trial(trial_path).make_rgb_video(self.project.video_codec)
+                Trial(trial_path).make_rgb_video(self.project.dlc_config.video_codec)
                 for trial_path in self.project.list_trials("trainingdata")
             ]
             self._data_processor.xma_to_dlc_rgb("trainingdata", picked_frames)

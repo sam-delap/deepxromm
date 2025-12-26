@@ -11,6 +11,7 @@ import deeplabcut
 
 from deepxromm.config_utilities import load_config_file, save_config_file
 from deepxromm.logging import logger
+from deepxromm.video_encoding import validate_codec
 from deepxromm.trial import Trial
 from deepxromm.xrommtools import get_marker_names, get_marker_and_cam_names
 
@@ -97,7 +98,7 @@ class DlcConfig(ABC):
 
     # Abstract methods
     @abstractmethod
-    def analyze_videos(self, trial: Trial, codec: str = "avc1"):
+    def analyze_videos(self, trial: Trial):
         """Analyze videos for a trial with an existing DeepLabCut network"""
 
 
@@ -191,7 +192,7 @@ class DlcConfig2D(DlcConfig):
         """Convert XMA-formatted data into DeepLabCut input"""
         pass
 
-    def analyze_videos(self, trial: Trial, codec: str = "avc1", **kwargs):
+    def analyze_videos(self, trial: Trial, **kwargs):
         """Analyze videos with an existing DeepLabCut network"""
         csv_exists = self._configure_it_folder(trial)
         if csv_exists:
@@ -227,7 +228,7 @@ class DlcConfigPerCam(DlcConfig):
         deeplabcut.train_network(self.path_config_file, **kwargs)
         deeplabcut.train_network(self.path_config_file_2, **kwargs)
 
-    def analyze_videos(self, trial: Trial, codec: str = "avc1", **kwargs):
+    def analyze_videos(self, trial: Trial, **kwargs):
         """Analyze videos with an existing DeepLabCut network"""
         csv_exists = self._configure_it_folder(trial)
         if csv_exists:
@@ -260,6 +261,9 @@ class DlcConfigPerCam(DlcConfig):
         )
 
 
+DEFAULT_CODEC = "avc1"
+
+
 @dataclass
 class DlcConfigRGB(DlcConfig):
     """DLC config information for RGB projects"""
@@ -267,15 +271,30 @@ class DlcConfigRGB(DlcConfig):
     mode: str = "rgb"
     swapped_markers: bool = False
     crossed_markers: bool = False
+    _video_codec: str = DEFAULT_CODEC
     bodyparts_func: Callable = get_marker_and_cam_names
 
+    # Read-write properties
+    @property
+    def video_codec(self):
+        """Video codec used to encode/decode videos using OpenCV"""
+        return self._video_codec
+
+    @video_codec.setter
+    def video_codec(self, value: str):
+        """Validate that video codec is available on system, then set if it is"""
+        if not validate_codec(value):
+            raise RuntimeError(f"Codec {value} is not available on this system")
+        self._video_codec = value
+
+    # Public methods
     def get_bodyparts(self, trial_csv_path: Path):
         """Return bodyparts in the format they'll need to be in for DeepLabCut"""
         return self.bodyparts_func(trial_csv_path)
 
-    def analyze_videos(self, trial: Trial, codec: str = "avc1", **kwargs):
+    def analyze_videos(self, trial: Trial, **kwargs):
         """Analyze videos for a trial with an existing DeepLabCut network"""
-        trial.make_rgb_video(codec=codec, **kwargs)
+        trial.make_rgb_video(codec=self.video_codec, **kwargs)
         current_files = trial.trial_path.glob("*")
         logger.debug(f"Current files in directory {current_files}")
         video_path = trial.trial_path / f"{trial.trial_name}_rgb.avi"

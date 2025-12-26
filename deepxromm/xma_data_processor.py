@@ -32,7 +32,6 @@ class XMADataProcessor:
         self.nframes = project.nframes
         self.dataset_name = project.dataset_name
         self.experimenter = project.experimenter
-        self.video_codec = project.video_codec
         if dlc_config.mode == "per_cam":
             self.path_config_file_2 = dlc_config.path_config_file_2
         # TODO: Move this into project functionality, or somewhere that doesn't require referencing this way
@@ -41,6 +40,7 @@ class XMADataProcessor:
         if self.mode == "rgb":
             self._swap_markers = dlc_config.swapped_markers
             self._cross_markers = dlc_config.crossed_markers
+            self.video_codec = dlc_config.video_codec
 
     def dlc_to_xma(self):
         """Convert DLC-formatted training output into XMAlab-formatted data"""
