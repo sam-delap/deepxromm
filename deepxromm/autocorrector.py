@@ -175,7 +175,7 @@ class Autocorrector:
             dlc = load_config_file(self._dlc_config_path)
             iteration = dlc["iteration"]
             trial_csv_path = trial.find_trial_csv(
-                suffix=f"{iteration}", identifier="Predicted2DPoints"
+                suffix=f"it{iteration}", identifier="Predicted2DPoints"
             )
             parts_unique = get_marker_names(trial_csv_path)
         for part in parts_unique:
