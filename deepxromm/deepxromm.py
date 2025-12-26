@@ -61,7 +61,7 @@ class DeepXROMM:
         deepxromm.project = ProjectFactory.load_config(working_dir)
         deepxromm._analyzer = Analyzer(deepxromm.project)
         deepxromm._autocorrector = Autocorrector(deepxromm.project)
-        deepxromm._network = Network(deepxromm.project)
+        deepxromm._network = Network(deepxromm.project, deepxromm.project.dlc_config)
         deepxromm._data_processor = XMADataProcessor(
             deepxromm.project, deepxromm.project.dlc_config
         )
