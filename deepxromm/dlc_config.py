@@ -2,7 +2,7 @@
 This module tracks information about the DeepLabCut project(s) nested within a deepxromm project
 """
 
-from abc import ABC, abstractmethod
+from abc import ABC
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
@@ -59,12 +59,6 @@ class DlcConfig(ABC):
     def get_bodyparts(self, trial_csv_path: Path):
         """Return bodyparts in the format they'll need to be in for DeepLabCut"""
         return self.bodyparts_func(trial_csv_path)
-
-    # Abstract methods (need to be implemented in subclasses)
-    @abstractmethod
-    def xma_to_dlc(self, trial: Trial):
-        """Convert XMA-formatted data into DeepLabCut input"""
-        pass
 
 
 # Class factory
