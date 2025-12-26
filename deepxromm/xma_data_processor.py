@@ -74,7 +74,9 @@ class XMADataProcessor:
 
         iteration_folder_name = f"it{iteration}"
         # Assumes that the project itself doesn't have rgbDLC in this format in it
-        csv_path = trial.find_trial_csv(iteration_folder_name, "rgbDLC")
+        csv_path = trial.find_trial_csv(
+            suffix=iteration_folder_name, identifier="rgbDLC"
+        )
         xma_csv_path = (
             trial.trial_path
             / iteration_folder_name

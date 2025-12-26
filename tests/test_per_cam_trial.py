@@ -47,8 +47,8 @@ class TestPerCamTrialProcess(unittest.TestCase):
 
     def test_first_frame_matches_in_dlc_csv(self):
         """When I run xma_to_dlc, does the DLC CSV have the same data as my original file?"""
-        cam1_dlc_proj = Path(self.deepxromm.project.path_config_file).parent
-        cam2_dlc_proj = Path(self.deepxromm.project.path_config_file_2).parent
+        cam1_dlc_proj = self.deepxromm.project.dlc_config.path_config_file.parent
+        cam2_dlc_proj = self.deepxromm.project.dlc_config.path_config_file_2.parent
 
         xmalab_data = pd.read_csv(self.trial_csv)
         xmalab_first_row = xmalab_data.loc[0, :]
@@ -85,8 +85,8 @@ class TestPerCamTrialProcess(unittest.TestCase):
         xmalab_data = pd.read_csv(self.trial_csv)
 
         # Load DLC data
-        cam1_dlc_proj = Path(self.deepxromm.project.path_config_file).parent
-        cam2_dlc_proj = Path(self.deepxromm.project.path_config_file_2).parent
+        cam1_dlc_proj = self.deepxromm.project.dlc_config.path_config_file.parent
+        cam2_dlc_proj = self.deepxromm.project.dlc_config.path_config_file_2.parent
 
         cam1_labeled_data_path = cam1_dlc_proj / "labeled-data/MyData_cam1"
         cam2_labeled_data_path = cam2_dlc_proj / "labeled-data/MyData_cam2"
@@ -138,8 +138,8 @@ class TestPerCamTrialProcess(unittest.TestCase):
         xmalab_data = pd.read_csv(self.trial_csv)
 
         # Load DLC data
-        cam1_dlc_proj = Path(self.deepxromm.project.path_config_file).parent
-        cam2_dlc_proj = Path(self.deepxromm.project.path_config_file_2).parent
+        cam1_dlc_proj = self.deepxromm.project.dlc_config.path_config_file.parent
+        cam2_dlc_proj = self.deepxromm.project.dlc_config.path_config_file_2.parent
 
         cam1_labeled_data_path = cam1_dlc_proj / "labeled-data/MyData_cam1"
         cam2_labeled_data_path = cam2_dlc_proj / "labeled-data/MyData_cam2"
