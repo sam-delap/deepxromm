@@ -5,7 +5,6 @@ from pathlib import Path
 
 from itertools import combinations
 import cv2
-import deeplabcut
 import imagehash
 import pandas as pd
 from PIL import Image
@@ -24,87 +23,6 @@ class Analyzer:
         self.dlc_config = project.dlc_config
         self._project = project
         self._trials_path = self.working_dir / "trials"
-
-    def analyze_videos(self, **kwargs):
-        """Analyze videos with a pre-existing network"""
-        trials = self._project.list_trials()
-
-        # Establish project vars
-        iteration = self.dlc_config.iteration
-
-        mode = self._project.dlc_config.mode
-        if mode in ["2D", "per_cam"]:
-            self._analyze_xromm_videos(iteration)
-
-        elif mode == "rgb":
-            for trial_path in trials:
-                trial = Trial(trial_path)
-                trial.make_rgb_video(codec=self._project.video_codec, **kwargs)
-                trial = trial_path.name
-                current_files = trial_path.glob("*")
-                logger.debug(f"Current files in directory {current_files}")
-                video_path = trial_path / f"{trial}_rgb.avi"
-                destfolder = trial_path / f"it{iteration}"
-                deeplabcut.analyze_videos(
-                    str(self.dlc_config.path_config_file),
-                    str(
-                        video_path
-                    ),  # DLC relies on .endswith to determine suffix, so this needs to be a string
-                    destfolder=destfolder,
-                    save_as_csv=True,
-                )
-        else:
-            raise ValueError(f"Unsupported mode: {mode}")
-
-    def _analyze_xromm_videos(self, iteration: int) -> None:
-        """Analyze all novel videos in the 'trials' folder of a deepxromm project"""
-        # assumes you have cam1 and cam2 videos as .avi in their own seperate trial folders
-        # assumes all folders w/i new_data_path are trial folders
-
-        # analyze videos
-        cameras = [1, 2]
-        trials = self._project.list_trials()
-        mode = self._project.dlc_config.mode
-
-        for trialpath in trials:
-            trial = Trial(trialpath)
-            savepath = trialpath / f"it{iteration}"
-            if savepath.exists():
-                temp = savepath.glob("*Predicted2DPoints.csv")
-                if temp:
-                    logger.warning(
-                        f"There are already predicted points in iteration {iteration} subfolders... skipping point prediction"
-                    )
-                    return
-            else:
-                savepath.mkdir(parents=True, exist_ok=True)  # make new folder
-            # get video file
-            for camera in cameras:
-                # Error handling handled by find_cam_file helper
-                video = trial.find_cam_file(identifier=f"cam{camera}")
-                # analyze video
-                if mode == "2D":
-                    deeplabcut.analyze_videos(
-                        str(self._project.dlc_config.path_config_file),
-                        [
-                            str(video)
-                        ],  # DLC uses endswith filtering for suffixes for some reason
-                        destfolder=savepath,
-                        save_as_csv=True,
-                    )
-                else:
-                    configs = [
-                        str(self._project.dlc_config.path_config_file),
-                        str(self._project.dlc_config.path_config_file_2),
-                    ]
-                    deeplabcut.analyze_videos(
-                        configs[camera - 1],
-                        [
-                            str(video)
-                        ],  # DLC uses endswith filtering for suffixes for some reason
-                        destfolder=savepath,
-                        save_as_csv=True,
-                    )
 
     def analyze_video_similarity_project(self):
         """Analyze all videos in a project and take their average similar. This is dangerous, as it will assume that all cam1/cam2 pairs match

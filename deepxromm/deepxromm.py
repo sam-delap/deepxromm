@@ -11,6 +11,7 @@ from deepxromm.network import Network
 from deepxromm.project import Project, ProjectFactory
 from deepxromm.xma_data_processor import XMADataProcessor
 from deepxromm.augmenter import Augmenter
+from deepxromm.trial import Trial
 
 
 class DeepXROMM:
@@ -78,9 +79,14 @@ class DeepXROMM:
         """Starts training the network using data in the working directory."""
         self.project.dlc_config.train_network(maxiters=self.project.maxiters, **kwargs)
 
-    def analyze_videos(self):
+    def analyze_videos(self, **kwargs):
         """Analyze videos with a pre-existing network"""
-        self._analyzer.analyze_videos()
+        trials = self.project.list_trials()
+        for trial_path in trials:
+            trial = Trial(trial_path)
+            self.project.dlc_config.analyze_videos(
+                trial, codec=self.project.video_codec, **kwargs
+            )
 
     def dlc_to_xma(self):
         """Convert DLC output from training to XMA format"""
@@ -97,10 +103,6 @@ class DeepXROMM:
     def autocorrect_trials(self):
         """Do XMAlab-style autocorrect on the tracked beads for all trials"""
         self._autocorrector.autocorrect_trials()
-
-    def get_dlc_bodyparts(self):
-        """Pull the names of the XMAlab markers from the 2Dpoints file"""
-        return self.dlc_config.get_dlc_bodyparts()
 
     def split_rgb(self, trial_path, codec=None):
         """Takes a RGB video with different grayscale data written to the R, G,

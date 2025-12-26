@@ -2,7 +2,7 @@
 This module tracks information about the DeepLabCut project(s) nested within a deepxromm project
 """
 
-from abc import ABC
+from abc import ABC, abstractmethod
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
@@ -77,6 +77,28 @@ class DlcConfig(ABC):
     def train_network(self, **kwargs) -> None:
         """Train a DeepLabCut network"""
         deeplabcut.train_network(self.path_config_file, **kwargs)
+
+    # Private methods
+    def _configure_it_folder(self, trial: Trial) -> bool:
+        """Configure it{iteration} folder for storing analysis info. Also checks for existing PredPoints CSV"""
+        it_folder_name = f"it{self.iteration}"
+        it_folder = trial.trial_path / it_folder_name
+        csv_exists = True
+        try:
+            trial.find_trial_csv(suffix=it_folder_name, identifier="Predicted2DPoints")
+        except FileNotFoundError:
+            csv_exists = False
+
+        # Ensure it_folder exists
+        it_folder.mkdir(parents=True, exist_ok=True)
+
+        # Tell the user whether or not the CSV is already there
+        return csv_exists
+
+    # Abstract methods
+    @abstractmethod
+    def analyze_videos(self, trial: Trial, codec: str = "avc1"):
+        """Analyze videos for a trial with an existing DeepLabCut network"""
 
 
 # Class factory
@@ -169,6 +191,29 @@ class DlcConfig2D(DlcConfig):
         """Convert XMA-formatted data into DeepLabCut input"""
         pass
 
+    def analyze_videos(self, trial: Trial, codec: str = "avc1", **kwargs):
+        """Analyze videos with an existing DeepLabCut network"""
+        csv_exists = self._configure_it_folder(trial)
+        if csv_exists:
+            logger.warning(
+                f"There are already predicted points in iteration {self.iteration} subfolders... skipping point prediction"
+            )
+            return
+
+        cameras = [1, 2]
+        for camera in cameras:
+            # Error handling handled by find_cam_file helper
+            video = trial.find_cam_file(identifier=f"cam{camera}")
+            deeplabcut.analyze_videos(
+                str(self.path_config_file),
+                [
+                    str(video)
+                ],  # DLC uses endswith filtering for suffixes for some reason
+                destfolder=trial.trial_path / f"it{self.iteration}",
+                save_as_csv=True,
+                **kwargs,
+            )
+
 
 @dataclass(kw_only=True)
 class DlcConfigPerCam(DlcConfig):
@@ -181,6 +226,38 @@ class DlcConfigPerCam(DlcConfig):
         """Train a DeepLabCut network"""
         deeplabcut.train_network(self.path_config_file, **kwargs)
         deeplabcut.train_network(self.path_config_file_2, **kwargs)
+
+    def analyze_videos(self, trial: Trial, codec: str = "avc1", **kwargs):
+        """Analyze videos with an existing DeepLabCut network"""
+        csv_exists = self._configure_it_folder(trial)
+        if csv_exists:
+            logger.warning(
+                f"There are already predicted points in iteration {self.iteration} subfolders... skipping point prediction"
+            )
+            return
+
+        # Error handling handled by find_cam_file helper
+        cam1_video = trial.find_cam_file(identifier="cam1")
+        deeplabcut.analyze_videos(
+            str(self.path_config_file),
+            [
+                str(cam1_video)
+            ],  # DLC uses endswith filtering for suffixes for some reason
+            destfolder=trial.trial_path / f"it{self.iteration}",
+            save_as_csv=True,
+            **kwargs,
+        )
+
+        cam2_video = trial.find_cam_file("cam2")
+        deeplabcut.analyze_videos(
+            str(self.path_config_file_2),
+            [
+                str(cam2_video)
+            ],  # DLC uses endswith filtering for suffixes for some reason
+            destfolder=trial.trial_path / f"it{self.iteration}",
+            save_as_csv=True,
+            **kwargs,
+        )
 
 
 @dataclass
@@ -195,3 +272,19 @@ class DlcConfigRGB(DlcConfig):
     def get_bodyparts(self, trial_csv_path: Path):
         """Return bodyparts in the format they'll need to be in for DeepLabCut"""
         return self.bodyparts_func(trial_csv_path)
+
+    def analyze_videos(self, trial: Trial, codec: str = "avc1", **kwargs):
+        """Analyze videos for a trial with an existing DeepLabCut network"""
+        trial.make_rgb_video(codec=codec, **kwargs)
+        current_files = trial.trial_path.glob("*")
+        logger.debug(f"Current files in directory {current_files}")
+        video_path = trial.trial_path / f"{trial.trial_name}_rgb.avi"
+        deeplabcut.analyze_videos(
+            str(self.path_config_file),
+            str(
+                video_path
+            ),  # DLC relies on .endswith to determine suffix, so this needs to be a string
+            destfolder=trial.trial_path / f"it{self.iteration}",
+            save_as_csv=True,
+            **kwargs,
+        )
