@@ -70,9 +70,13 @@ class DlcConfig(ABC):
     # Read-only properties
 
     # Public methods
-    def get_bodyparts(self, trial_csv_path: Path):
+    def get_bodyparts(self, trial_csv_path: Path) -> list[str]:
         """Return bodyparts in the format they'll need to be in for DeepLabCut"""
         return self.bodyparts_func(trial_csv_path)
+
+    def train_network(self, **kwargs) -> None:
+        """Train a DeepLabCut network"""
+        deeplabcut.train_network(self.path_config_file, **kwargs)
 
 
 # Class factory
@@ -151,8 +155,6 @@ class DlcConfigFactory:
                 )
             case "rgb":
                 dlc_config = DlcConfigRGB(_path_config_file=path_config_file, **kwargs)
-            case _:
-                raise ValueError(f"Unsupported mode. Valid modes: {cls._CONFIG_MODES}")
 
         return dlc_config
 
@@ -174,6 +176,11 @@ class DlcConfigPerCam(DlcConfig):
 
     path_config_file_2: Path
     mode: str = "per_cam"
+
+    def train_network(self, **kwargs):
+        """Train a DeepLabCut network"""
+        deeplabcut.train_network(self.path_config_file, **kwargs)
+        deeplabcut.train_network(self.path_config_file_2, **kwargs)
 
 
 @dataclass

@@ -54,7 +54,7 @@ class DeepXROMM:
 
     @classmethod
     def load_project(cls, working_dir: str | Path):
-        """Create a new deepxromm project"""
+        """Create a new xrommtools project"""
         deepxromm = DeepXROMM.__new__(DeepXROMM)
         deepxromm.project = ProjectFactory.load_config(working_dir)
         deepxromm._analyzer = Analyzer(deepxromm.project)
@@ -76,7 +76,7 @@ class DeepXROMM:
 
     def train_network(self, **kwargs):
         """Starts training the network using data in the working directory."""
-        self._network.train(**kwargs)
+        self.project.dlc_config.train_network(maxiters=self.project.maxiters, **kwargs)
 
     def analyze_videos(self):
         """Analyze videos with a pre-existing network"""

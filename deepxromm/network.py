@@ -86,21 +86,6 @@ class Network:
         if self.mode == "per_cam":
             self._update_init_weights(self.path_config_file_2, self.dlc_iteration)
 
-    def train(self, **kwargs):
-        """Starts training a network"""
-        deeplabcut.train_network(
-            str(self.path_config_file),
-            maxiters=self.maxiters,
-            **kwargs,
-        )
-
-        if self.mode == "per_cam":
-            deeplabcut.train_network(
-                self.path_config_file_2,
-                maxiters=self.maxiters,
-                **kwargs,
-            )
-
     def _update_init_weights(self, path_config_file: Path, dlc_iteration: int):
         """Update init weights to point at the last snapshot of the previous iteration's run for retraining workflows"""
         previous_pose_config_path = self._find_pose_cfg(
