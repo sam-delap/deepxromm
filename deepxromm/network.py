@@ -23,11 +23,11 @@ class Network:
         self.nframes = project.nframes
         self.dataset_name = project.dataset_name
         self.experimenter = project.experimenter
-        self.path_config_file = project.path_config_file
+        self.path_config_file = dlc_config.path_config_file
         self.maxiters = project.maxiters
         self.dlc_iteration = dlc_config.iteration
         if self.mode == "per_cam":
-            self.path_config_file_2 = project.path_config_file_2
+            self.path_config_file_2 = dlc_config.path_config_file_2
 
     def xma_to_dlc(self) -> None:
         """Convert XMAlab data to DLC format"""

@@ -61,9 +61,9 @@ class Augmenter:
         self.working_dir = project.working_dir
         self.mode = project.mode
         self.augmenter_settings = project.augmenter_settings
-        self.path_config_file = project.path_config_file
+        self.path_config_file = project.dlc_config.path_config_file
         self.path_config_file_2 = (
-            project.path_config_file_2 if project.mode == "per_cam" else None
+            project.dlc_config.path_config_file_2 if project.mode == "per_cam" else None
         )
 
         with self.path_config_file.open("r") as fp:

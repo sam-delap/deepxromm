@@ -69,8 +69,11 @@ class XMADataProcessor:
         # Use the CSV from the user's training data to fetch bodyparts
         sample_trial = Trial(self.project.list_trials("trainingdata")[0])
         trial_csv_path = sample_trial.find_trial_csv()
-        bodyparts_xy = get_marker_names(trial_csv_path)
+        trial_csv = pd.read_csv(
+            trial_csv_path, sep=",", header=0, dtype="float", na_values="NaN"
+        )
         rgb_parts = get_marker_and_cam_names(trial_csv_path)
+        bodyparts_xy = trial_csv.columns
 
         iteration_folder_name = f"it{iteration}"
         # Assumes that the project itself doesn't have rgbDLC in this format in it

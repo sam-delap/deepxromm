@@ -77,7 +77,9 @@ class TestRGBMarkerCombos(unittest.TestCase):
         save_config_file(tmp, self.working_dir / "project_config.yaml")
         DeepXROMM.load_project(self.working_dir)
 
-        config_obj = load_config_file(self.deepxromm.project.path_config_file)
+        config_obj = load_config_file(
+            self.deepxromm.project.dlc_config.path_config_file
+        )
 
         self.assertEqual(
             config_obj["bodyparts"],
@@ -100,7 +102,9 @@ class TestRGBMarkerCombos(unittest.TestCase):
     def test_bodyparts_add_from_csv_in_3d(self):
         """If the user wants to do 3D tracking, we output the desired list of bodyparts"""
         DeepXROMM.load_project(self.working_dir)
-        config_obj = load_config_file(self.deepxromm.project.path_config_file)
+        config_obj = load_config_file(
+            self.deepxromm.project.dlc_config.path_config_file
+        )
         self.assertEqual(
             config_obj["bodyparts"],
             ["foo_cam1", "foo_cam2", "bar_cam1", "bar_cam2", "baz_cam1", "baz_cam2"],
@@ -114,7 +118,9 @@ class TestRGBMarkerCombos(unittest.TestCase):
         save_config_file(tmp, self.working_dir / "project_config.yaml")
         DeepXROMM.load_project(self.working_dir)
 
-        config_obj = load_config_file(self.deepxromm.project.path_config_file)
+        config_obj = load_config_file(
+            self.deepxromm.project.dlc_config.path_config_file
+        )
 
         self.assertEqual(
             config_obj["bodyparts"],
@@ -144,7 +150,9 @@ class TestRGBMarkerCombos(unittest.TestCase):
         save_config_file(tmp, self.working_dir / "project_config.yaml")
         DeepXROMM.load_project(self.working_dir)
 
-        config_obj = load_config_file(self.deepxromm.project.path_config_file)
+        config_obj = load_config_file(
+            self.deepxromm.project.dlc_config.path_config_file
+        )
 
         self.assertEqual(
             config_obj["bodyparts"],
@@ -200,7 +208,7 @@ class TestRGBTrialProcess(unittest.TestCase):
         xmalab_first_row = xmalab_data.loc[0, :]
 
         # Load DLC data
-        dlc_config = Path(self.deepxromm.project.path_config_file)
+        dlc_config = Path(self.deepxromm.project.dlc_config.path_config_file)
         labeled_data_path = dlc_config.parent / "labeled-data/MyData"
         dlc_data = pd.read_hdf(labeled_data_path / "CollectedData_NA.h5")
 
@@ -226,7 +234,7 @@ class TestRGBTrialProcess(unittest.TestCase):
         xmalab_data = pd.read_csv(self.trial_csv)
 
         # Load DLC data
-        dlc_config = Path(self.deepxromm.project.path_config_file)
+        dlc_config = Path(self.deepxromm.project.dlc_config.path_config_file)
         labeled_data_path = dlc_config.parent / "labeled-data/MyData"
         dlc_data = pd.read_hdf(labeled_data_path / "CollectedData_NA.h5")
 
@@ -262,7 +270,7 @@ class TestRGBTrialProcess(unittest.TestCase):
         xmalab_data = pd.read_csv(self.trial_csv)
 
         # Load DLC data
-        dlc_config = Path(self.deepxromm.project.path_config_file)
+        dlc_config = Path(self.deepxromm.project.dlc_config.path_config_file)
         labeled_data_path = dlc_config.parent / "labeled-data/MyData"
         dlc_data = pd.read_hdf(labeled_data_path / "CollectedData_NA.h5")
 

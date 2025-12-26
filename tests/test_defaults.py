@@ -102,14 +102,18 @@ class TestDefaultsPerformance(unittest.TestCase):
     def test_bodyparts_add_from_csv_if_not_defined(self):
         """If the user hasn't specified the bodyparts from their trial, we can pull them from the CSV"""
         deepxromm_proj = DeepXROMM.load_project(self.working_dir)
-        config_obj = load_config_file(deepxromm_proj.project.path_config_file)
+        config_obj = load_config_file(
+            deepxromm_proj.project.dlc_config.path_config_file
+        )
         self.assertEqual(config_obj["bodyparts"], ["foo", "bar", "baz"])
 
     def test_bodyparts_error_if_different_from_csv(self):
         """If the user specifies different bodyparts than their CSV, raise an error"""
-        config_dlc = load_config_file(self.deepxromm.project.path_config_file)
+        config_dlc = load_config_file(
+            self.deepxromm.project.dlc_config.path_config_file
+        )
         config_dlc["bodyparts"] = ["foo", "bar"]
-        save_config_file(config_dlc, self.deepxromm.project.path_config_file)
+        save_config_file(config_dlc, self.deepxromm.project.dlc_config.path_config_file)
 
         with self.assertRaises(SyntaxError):
             DeepXROMM.load_project(self.working_dir)

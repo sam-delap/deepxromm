@@ -9,7 +9,6 @@ from pathlib import Path
 import warnings
 
 import cv2
-import deeplabcut
 import numpy as np
 import pandas as pd
 
@@ -32,10 +31,6 @@ class Project(ABC):
     dlc_config: DlcConfig
     _experimenter: str
     _working_dir: Path
-    _path_config_file: Path
-    _path_config_file_2: Path | None = (
-        None  # Remove once nothing acts on this param outside of per_cam stuff
-    )
     _dataset_name: str = "MyData"
     nframes: int = 0
     maxiters: int = 150000
@@ -48,23 +43,13 @@ class Project(ABC):
 
     @property
     def working_dir(self):
-        """Ensuring path_config_file is always returned as a path"""
+        """Ensuring working_dir is always returned as a path"""
         return Path(self._working_dir)
 
     @working_dir.setter
     def working_dir(self, value):
-        """Ensuring path_config_file is always returned as a path"""
+        """Set working_dir via setter/getter"""
         self._working_dir = value
-
-    @property
-    def path_config_file(self):
-        """Ensuring path_config_file is always returned as a path"""
-        return Path(self._path_config_file)
-
-    @path_config_file.setter
-    def path_config_file(self, value):
-        """Ensuring path_config_file is always returned as a path"""
-        self._path_config_file = value
 
     @property
     def dataset_name(self):
@@ -161,10 +146,13 @@ class Project(ABC):
         # Experimental params (mode and experimenter are read-only)
         self.task = config_data["task"]
         self.working_dir = Path(config_data["working_dir"])
-        self.path_config_file = Path(config_data["path_config_file"])
         self.nframes = config_data["nframes"]
         self.maxiters = config_data["maxiters"]
         self.tracking_threshold = config_data["tracking_threshold"]
+
+        # DeepLabCut settings
+        for attr in vars(self.dlc_config):
+            setattr(self.dlc_config, attr, config_data[attr])
 
         # Autocorrect settings
         self.autocorrect_settings.search_area = config_data["search_area"]
@@ -208,11 +196,15 @@ class Project(ABC):
         config_data["task"] = self.task
         config_data["experimenter"] = self.experimenter
         config_data["working_dir"] = str(self.working_dir)
-        config_data["path_config_file"] = str(self.path_config_file)
+        config_data["path_config_file"] = str(self.dlc_config.path_config_file)
         config_data["nframes"] = self.nframes
         config_data["maxiters"] = self.maxiters
         config_data["tracking_threshold"] = self.tracking_threshold
         config_data["mode"] = self.mode
+
+        # DeepLabCut settings
+        for attr in vars(self.dlc_config):
+            config_data[attr] = getattr(self.dlc_config, attr)
 
         # Autocorrect settings
         config_data["search_area"] = self.autocorrect_settings.search_area
@@ -252,49 +244,6 @@ class Project2D(Project):
     def __post_init__(self):
         """After initializing, check the config and update if necessary"""
         self.check_config_for_updates()
-
-
-@dataclass
-class ProjectPerCam(Project):
-    _path_config_file_2: Path
-    _mode: str = "per_cam"
-
-    def __post_init__(self):
-        """After initializing, check the config and update if necessary"""
-        self.check_config_for_updates()
-
-    def check_config_for_updates(self):
-        """Check the config for updates and update any values that have changed."""
-        if not self.project_config_path.exists():
-            logger.debug(
-                "Didn't find project config this time around. I'm sure this is fine..."
-            )
-            return
-
-        super().check_config_for_updates()
-        config_data = load_config_file(self.project_config_path)
-
-        self.path_config_file_2 = Path(config_data["path_config_file_2"])
-
-    def update_config_file(self):
-        """Update the config to the values of the current object"""
-        super().update_config_file()
-        config_data = load_config_file(self.project_config_path)
-
-        # Experimental params
-        config_data["path_config_file_2"] = str(self.path_config_file_2)
-
-        save_config_file(config_data, self.project_config_path)
-
-    @property
-    def path_config_file_2(self):
-        """Ensuring path_config_file is always returned as a path"""
-        return Path(self._path_config_file_2)
-
-    @path_config_file_2.setter
-    def path_config_file_2(self, value):
-        """Ensuring path_config_file is always returned as a path"""
-        self._path_config_file_2 = value
 
 
 @dataclass
@@ -365,24 +314,6 @@ class ProjectFactory:
 
         # Create a new DLC project
         task = working_dir.name
-        path_config_file = deeplabcut.create_new_project(
-            task,
-            experimenter,
-            [str(dummy_video_path)],
-            str(working_dir / ""),  # Add the trailing slash
-            copy_videos=True,
-        )
-
-        path_config_file_2 = None
-        if mode == "per_cam":
-            task_2 = f"{task}_cam2"
-            path_config_file_2 = deeplabcut.create_new_project(
-                task_2,
-                experimenter,
-                [str(dummy_video_path)],
-                str(working_dir / ""),  # Add the trailing slash
-                copy_videos=True,
-            )
 
         # Instantiate project
         project = cls._instantiate_project(
@@ -390,21 +321,8 @@ class ProjectFactory:
             task,
             experimenter,
             working_dir,
-            path_config_file,
-            path_config_file_2,
             codec,
         )
-
-        # Cleanup
-        try:
-            (Path(path_config_file).parent / "labeled-data/dummy").rmdir()
-        except FileNotFoundError:
-            pass
-
-        try:
-            (Path(path_config_file).parent / "videos/dummy.avi").unlink()
-        except FileNotFoundError:
-            pass
 
         try:
             dummy_video_path.unlink()
@@ -429,21 +347,14 @@ class ProjectFactory:
         task = config["task"]
         experimenter = config["experimenter"]
         working_dir = Path(config["working_dir"])
-        path_config_file = Path(config["path_config_file"])
         mode = config["mode"]
         codec = config["video_codec"]
-
-        path_config_file_2 = None
-        if "path_config_file_2" in config:
-            path_config_file_2 = Path(config["path_config_file_2"])
 
         project = cls._instantiate_project(
             mode,
             task,
             experimenter,
             working_dir,
-            path_config_file,
-            path_config_file_2,
             codec,
         )
 
@@ -494,7 +405,7 @@ class ProjectFactory:
         default_bodyparts = ["bodypart1", "bodypart2", "bodypart3", "objectA"]
         bodyparts = project.dlc_config.get_bodyparts(trial_csv_path)
 
-        dlc_yaml = load_config_file(project.path_config_file)
+        dlc_yaml = load_config_file(project.dlc_config.path_config_file)
         dlc_bodyparts = dlc_yaml["bodyparts"]
         logger.debug(f"DLC bodyparts: {dlc_bodyparts}")
 
@@ -505,11 +416,11 @@ class ProjectFactory:
                 "XMAlab CSV marker names are different than DLC bodyparts."
             )
 
-        save_config_file(dlc_yaml, project.path_config_file)
+        save_config_file(dlc_yaml, project.dlc_config.path_config_file)
 
         # Check DLC bodyparts (marker names) for config 2 if needed
         if project.mode == "per_cam":
-            dlc_yaml = load_config_file(project.path_config_file_2)
+            dlc_yaml = load_config_file(project.dlc_config.path_config_file_2)
             # Better conditional logic could definitely be had to reduce function calls here
             if dlc_yaml["bodyparts"] == default_bodyparts:
                 dlc_yaml["bodyparts"] = bodyparts
@@ -518,7 +429,7 @@ class ProjectFactory:
                     "XMAlab CSV marker names are different than DLC bodyparts."
                 )
 
-            save_config_file(dlc_yaml, project.path_config_file_2)
+            save_config_file(dlc_yaml, project.dlc_config.path_config_file_2)
 
         project.update_config_file()
 
@@ -531,8 +442,6 @@ class ProjectFactory:
         task: str,
         experimenter: str,
         working_dir: Path,
-        path_config_file: Path,
-        path_config_file_2: Path | None = None,
         codec: str = DEFAULT_CODEC,
     ):
         """Instantiate new project"""
@@ -551,27 +460,12 @@ class ProjectFactory:
             videos=[str(dummy_video_path)],
         )
         match mode:
-            case "2D":
+            case "2D" | "per_cam":
                 project = Project2D(
                     task,
                     dlc_config,
                     experimenter,
                     working_dir,
-                    _path_config_file=path_config_file,
-                    _video_codec=codec,
-                )
-            case "per_cam":
-                if path_config_file_2 is None:
-                    raise ValueError(
-                        "Please specify a value for 2nd DLC project config. Value is currently unset"
-                    )
-                project = ProjectPerCam(
-                    task,
-                    dlc_config,
-                    experimenter,
-                    working_dir,
-                    _path_config_file_2=path_config_file_2,
-                    _path_config_file=path_config_file,
                     _video_codec=codec,
                 )
             case "rgb":
@@ -580,7 +474,6 @@ class ProjectFactory:
                     dlc_config,
                     experimenter,
                     working_dir,
-                    _path_config_file=path_config_file,
                     _video_codec=codec,
                 )
             case _:

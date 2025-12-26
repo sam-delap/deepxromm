@@ -85,7 +85,7 @@ class Analyzer:
                 # analyze video
                 if mode == "2D":
                     deeplabcut.analyze_videos(
-                        str(self._project.path_config_file),
+                        str(self._project.dlc_config.path_config_file),
                         [
                             str(video)
                         ],  # DLC uses endswith filtering for suffixes for some reason
@@ -94,8 +94,8 @@ class Analyzer:
                     )
                 else:
                     configs = [
-                        str(self._project.path_config_file),
-                        str(self._project.path_config_file_2),
+                        str(self._project.dlc_config.path_config_file),
+                        str(self._project.dlc_config.path_config_file_2),
                     ]
                     deeplabcut.analyze_videos(
                         configs[camera - 1],

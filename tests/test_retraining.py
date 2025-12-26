@@ -30,7 +30,8 @@ def generic_snapshot_updated_in_pose_config(deepxromm_proj: DeepXROMM, trial_csv
 
     # Check if the config got updated
     pose_config_path = deepxromm_proj._network._find_pose_cfg(
-        deepxromm_proj.project.path_config_file, deepxromm_proj.project.dlc_iteration
+        deepxromm_proj.project.dlc_config.path_config_file,
+        deepxromm_proj.project.dlc_config.iteration,
     )
     pose_config = load_config_file(pose_config_path)
     return "resnet_v1_50.ckpt" not in pose_config["init_weights"]

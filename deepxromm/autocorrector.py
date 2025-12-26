@@ -71,7 +71,7 @@ class Autocorrector:
         self.autocorrect_settings = project.autocorrect_settings
         self.working_dir = project.working_dir
         self._trials_path = self.working_dir / "trials"
-        self._dlc_config_path = project.path_config_file
+        self._dlc_config_path = project.dlc_config.path_config_file
         self._skip_stats = {}  # Track skipped markers: {trial_name: count}
 
     def autocorrect_trials(self):
