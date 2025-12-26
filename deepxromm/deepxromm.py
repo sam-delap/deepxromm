@@ -7,7 +7,6 @@ from pathlib import Path
 
 from deepxromm.analyzer import Analyzer
 from deepxromm.autocorrector import Autocorrector
-from deepxromm.dlc_config import DlcConfig
 from deepxromm.network import Network
 from deepxromm.project import Project, ProjectFactory
 from deepxromm.xma_data_processor import XMADataProcessor
@@ -18,7 +17,6 @@ class DeepXROMM:
     """A Complete Set of User-Friendly Tools for DeepLabCut-XMAlab marker tracking"""
 
     project: Project
-    dlc_config: DlcConfig
     _analyzer: Analyzer
     _autocorrector: Autocorrector
     _network: Network
@@ -56,7 +54,7 @@ class DeepXROMM:
 
     @classmethod
     def load_project(cls, working_dir: str | Path):
-        """Create a new xrommtools project"""
+        """Create a new deepxromm project"""
         deepxromm = DeepXROMM.__new__(DeepXROMM)
         deepxromm.project = ProjectFactory.load_config(working_dir)
         deepxromm._analyzer = Analyzer(deepxromm.project)

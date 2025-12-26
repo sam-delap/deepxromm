@@ -151,6 +151,8 @@ class DlcConfigFactory:
                 )
             case "rgb":
                 dlc_config = DlcConfigRGB(_path_config_file=path_config_file, **kwargs)
+            case _:
+                raise ValueError(f"Unsupported mode. Valid modes: {cls._CONFIG_MODES}")
 
         return dlc_config
 
