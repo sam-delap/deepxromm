@@ -155,7 +155,7 @@ class Trial:
         if identifier is not None:
             files = list(path_to_search.glob(f"*{identifier}*{file_extension}"))
         else:
-            files = list(path_to_search.glob(f"*.{file_extension}"))
+            files = list(path_to_search.glob(f"*{file_extension}"))
 
         logger.debug(files)
         if len(files) == 0:

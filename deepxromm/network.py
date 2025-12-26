@@ -5,6 +5,7 @@ import pandas as pd
 
 from deepxromm.config_utilities import load_config_file, save_config_file
 from deepxromm.xma_data_processor import XMADataProcessor
+from deepxromm.dlc_config import DlcConfig
 from deepxromm.logging import logger
 from deepxromm.project import Project
 from deepxromm.trial import Trial
@@ -13,18 +14,18 @@ from deepxromm.trial import Trial
 class Network:
     """Trains an XROMM labeling network using DLC."""
 
-    def __init__(self, project: Project):
+    def __init__(self, project: Project, dlc_config: DlcConfig):
         self.project = project
         self.working_dir = project.working_dir
         self._trainingdata_path = self.working_dir / "trainingdata"  # Keep for RGB mode
-        self._data_processor = XMADataProcessor(project)
+        self._data_processor = XMADataProcessor(project, dlc_config)
         self.mode = project.mode
         self.nframes = project.nframes
         self.dataset_name = project.dataset_name
         self.experimenter = project.experimenter
         self.path_config_file = project.path_config_file
         self.maxiters = project.maxiters
-        self.dlc_iteration = project.dlc_iteration
+        self.dlc_iteration = dlc_config.iteration
         if self.mode == "per_cam":
             self.path_config_file_2 = project.path_config_file_2
 
