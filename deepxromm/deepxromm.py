@@ -42,7 +42,7 @@ class DeepXROMM:
         if isinstance(working_dir, str):
             working_dir = Path(working_dir)
         deepxromm.project = ProjectFactory.create_new_config(
-            working_dir, experimenter, mode, codec
+            working_dir, experimenter, mode
         )
         deepxromm._analyzer = Analyzer(deepxromm.project)
         deepxromm._autocorrector = Autocorrector(deepxromm.project)

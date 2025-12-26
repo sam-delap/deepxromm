@@ -9,9 +9,7 @@ DEEPXROMM_TEST_CODEC = os.environ.get("DEEPXROMM_TEST_CODEC", "avc1")
 
 def set_up_project(project_dir: Path, mode: str):
     """Helper function to set up a project at a given path with a given mode"""
-    deepxromm_proj = DeepXROMM.create_new_project(
-        project_dir, mode=mode, codec=DEEPXROMM_TEST_CODEC
-    )
+    deepxromm_proj = DeepXROMM.create_new_project(project_dir, mode=mode)
 
     # Adjust maxiters to 5 to ensure that training completes quickly
     deepxromm_proj.project.dlc_config.maxiters = 5
