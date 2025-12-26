@@ -64,7 +64,10 @@ class Network:
 
         elif mode == "rgb":
             logger.debug("We've selected an RGB video")
-            self._data_processor.make_rgb_videos("trainingdata")
+            [
+                Trial(trial_path).make_rgb_video(self.project.video_codec)
+                for trial_path in self.project.list_trials("trainingdata")
+            ]
             self._data_processor.xma_to_dlc_rgb("trainingdata", picked_frames)
         else:
             raise AttributeError(f"Unsupportede mode: {mode}")

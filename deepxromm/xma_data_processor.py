@@ -6,7 +6,6 @@ from pathlib import Path
 
 from subprocess import Popen, PIPE
 
-import blend_modes
 import cv2
 from PIL import Image
 import numpy as np
@@ -130,12 +129,6 @@ class XMADataProcessor:
             )
 
         return csv_path[0]
-
-    def make_rgb_videos(self, suffix: str):
-        """For all trials in given data path merges 2 videos into single RGB video."""
-        trials = self.project.list_trials(suffix=suffix)
-        for path_to_trial in trials:
-            self._merge_rgb(path_to_trial)
 
     def xma_to_dlc_rgb(self, suffix: str, picked_frames: list[list[int]]):
         """Convert XMAlab input into RGB-ready DLC input"""
@@ -333,113 +326,6 @@ class XMADataProcessor:
         logger.info(
             f"Blue channel grayscale video created at {trial_path}/{out_name}blue.avi!"
         )
-
-    def _merge_rgb(self, trial_path: Path, codec=None, mode="difference"):
-        """
-        Takes the path to a trial subfolder and exports a single new video with
-        cam1 video written to the red channel and cam2 video written to the
-        green channel. The blue channel is, depending on the value of config
-        "mode", either the difference blend between A and B, the multiply
-        blend, or just a black frame.
-        """
-        # Use provided codec, otherwise fall back to config value
-        if codec is None:
-            codec = self.video_codec
-
-        logger.info("Merging RGBs")
-        trial_name = trial_path.name
-        rgb_video_path = trial_path / f"{trial_name}_rgb.avi"
-        if rgb_video_path.exists():
-            logger.warning("RGB video already created. Skipping.")
-            return
-        cam1_video_path = self.find_cam_file(trial_path, "cam1")
-        cam1_video = cv2.VideoCapture(cam1_video_path)
-
-        cam2_video_path = self.find_cam_file(trial_path, "cam2")
-        cam2_video = cv2.VideoCapture(cam2_video_path)
-
-        frame_width = int(cam1_video.get(3))
-        frame_height = int(cam1_video.get(4))
-        frame_rate = round(cam1_video.get(5), 2)
-
-        # Note: "uncompressed" codec is not supported for merge_rgb
-        # If needed in the future, implement ffmpeg pipeline like in split_rgb
-        if codec == "uncompressed":
-            raise RuntimeError(
-                "The 'uncompressed' codec is not currently supported for merge_rgb operation. "
-                "Please use a compressed codec like 'avc1', 'DIVX', 'XVID', 'mp4v', or 'MJPG'."
-            )
-
-        if codec == 0:
-            fourcc = 0
-        else:
-            fourcc = cv2.VideoWriter_fourcc(*codec)
-        out = cv2.VideoWriter(
-            f"{trial_path}/{trial_name}_rgb.avi",
-            fourcc,
-            frame_rate,
-            (frame_width, frame_height),
-        )
-
-        # Verify VideoWriter opened successfully
-        if not out.isOpened():
-            raise RuntimeError(
-                f"Failed to create RGB video writer with codec '{codec}'"
-            )
-
-        i = 1
-        while cam1_video.isOpened():
-            if i == 1 or i % 50 == 0:
-                logger.info(f"Current Frame: {i}")
-            ret_cam1, frame_cam1 = cam1_video.read()
-            _, frame_cam2 = cam2_video.read()
-            if ret_cam1:
-                frame_cam1 = cv2.cvtColor(frame_cam1, cv2.COLOR_BGR2BGRA, 4).astype(
-                    np.float32
-                )
-                frame_cam2 = cv2.cvtColor(frame_cam2, cv2.COLOR_BGR2BGRA, 4).astype(
-                    np.float32
-                )
-                frame_cam1 = cv2.normalize(
-                    frame_cam1, None, 0, 255, norm_type=cv2.NORM_MINMAX
-                )
-                frame_cam2 = cv2.normalize(
-                    frame_cam2, None, 0, 255, norm_type=cv2.NORM_MINMAX
-                )
-                if mode == "difference":
-                    extra_channel = blend_modes.difference(frame_cam1, frame_cam2, 1)
-                elif mode == "multiply":
-                    extra_channel = blend_modes.multiply(frame_cam1, frame_cam2, 1)
-                else:
-                    extra_channel = np.zeros((frame_width, frame_height, 3), np.uint8)
-                    extra_channel = cv2.cvtColor(
-                        extra_channel, cv2.COLOR_BGR2BGRA, 4
-                    ).astype(np.float32)
-                frame_cam1 = cv2.cvtColor(frame_cam1, cv2.COLOR_BGRA2BGR).astype(
-                    np.uint8
-                )
-                frame_cam2 = cv2.cvtColor(frame_cam2, cv2.COLOR_BGRA2BGR).astype(
-                    np.uint8
-                )
-                extra_channel = cv2.cvtColor(extra_channel, cv2.COLOR_BGRA2BGR).astype(
-                    np.uint8
-                )
-                frame_cam1 = cv2.cvtColor(frame_cam1, cv2.COLOR_BGR2GRAY)
-                frame_cam2 = cv2.cvtColor(frame_cam2, cv2.COLOR_BGR2GRAY)
-                extra_channel = cv2.cvtColor(extra_channel, cv2.COLOR_BGR2GRAY)
-                merged = cv2.merge((extra_channel, frame_cam2, frame_cam1))
-                out.write(merged)
-                if cv2.waitKey(1) & 0xFF == ord("q"):
-                    break
-            else:
-                break
-
-            i = i + 1
-        cam1_video.release()
-        cam2_video.release()
-        out.release()
-        cv2.destroyAllWindows()
-        logger.info(f"Merged RGB video created at {trial_path}/{trial_name}_rgb.avi!")
 
     def _splice_xma_to_dlc(self, trial_path: Path, list_of_frames: list[int]):
         """Takes csv of XMALab 2D XY coordinates from 2 cameras, outputs spliced hdf+csv data for DeepLabCut"""

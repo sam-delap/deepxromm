@@ -10,7 +10,6 @@ import imagehash
 import pandas as pd
 from PIL import Image
 
-from deepxromm.xma_data_processor import XMADataProcessor
 from deepxromm.logging import logger
 from deepxromm.dlc_config import DlcConfigFactory
 from deepxromm.trial import Trial
@@ -28,9 +27,8 @@ class Analyzer:
         )
         self._project = project
         self._trials_path = self.working_dir / "trials"
-        self._data_processor = XMADataProcessor(project)
 
-    def analyze_videos(self):
+    def analyze_videos(self, **kwargs):
         """Analyze videos with a pre-existing network"""
         trials = self._project.list_trials()
 
@@ -42,8 +40,9 @@ class Analyzer:
             self._analyze_xromm_videos(iteration)
 
         elif mode == "rgb":
-            self._data_processor.make_rgb_videos("trials")
             for trial_path in trials:
+                trial = Trial(trial_path)
+                trial.make_rgb_video(codec=self._project.video_codec, **kwargs)
                 trial = trial_path.name
                 current_files = trial_path.glob("*")
                 logger.debug(f"Current files in directory {current_files}")
