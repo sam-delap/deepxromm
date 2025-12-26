@@ -18,7 +18,7 @@ DEFAULT_BODYPARTS = ["bodypart1", "bodypart2", "bodypart3", "objectA"]
 
 
 # Abstract class
-@dataclass
+@dataclass(kw_only=True)
 class DlcConfig(ABC):
     """Interacts with and stores information about the DeepLabCut project(s) within a deepxromm project"""
 
@@ -141,7 +141,7 @@ class DlcConfigFactory:
         return dlc_config
 
 
-@dataclass
+@dataclass(kw_only=True)
 class DlcConfig2D(DlcConfig):
     """DLC config information for 2D projects"""
 
@@ -152,21 +152,12 @@ class DlcConfig2D(DlcConfig):
         pass
 
 
+@dataclass(kw_only=True)
 class DlcConfigPerCam(DlcConfig):
     """DLC config information for per_cam projects"""
 
-    @property
-    def path_config_file_2(self):
-        return self.path_config_file_2
-
-    @path_config_file_2.setter
-    def path_config_file_2(self, value):
-        self.path_config_file_2 = Path(value)
-
-    @property
-    def mode(self):
-        """Mode of the DLC config"""
-        return "per_cam"
+    path_config_file_2: Path
+    mode: str = "per_cam"
 
 
 @dataclass
