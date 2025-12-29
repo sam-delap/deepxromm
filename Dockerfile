@@ -14,10 +14,9 @@ RUN apt-get update && \
 
 RUN curl -LsSf https://astral.sh/uv/install.sh | env UV_INSTALL_DIR="/bin/" sh
 
-RUN mkdir /venv
-COPY .python-version pyproject.toml uv.lock /venv/
-WORKDIR /venv
+WORKDIR /tmp/venv/
 
-RUN uv sync
+RUN --mount=type=bind,source=./,target=/tmp/venv,rw \
+    uv sync
 
 ENTRYPOINT ["/bin/bash"]
