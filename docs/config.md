@@ -59,7 +59,39 @@
 > **Note:** This setting does NOT affect trial-level analysis methods (`analyze_video_similarity_trial()`, `analyze_marker_similarity_trial()`), which always compare cam1 vs cam2 within a single trial.
 
 **Cross-reference:** See [Advanced Analysis Methods](usage.md#advanced-analysis-methods) in the usage guide for detailed information about video and marker similarity analysis.
-`
+
+## Augmenter Settings
+
+Controls how DeepXROMM identifies and extracts outlier frames during the retraining workflow. These settings are nested under the `augmenter` key in `project_config.yaml`.
+```yaml
+# How the settings will appear in your project_config.yaml
+augmenter:
+    outlier_algorithm: jump
+    extraction_algorithm: kmeans
+```
+
+**augmenter.outlier_algorithm**: Algorithm used to detect outlier frames. **Default:** `jump`
+
+**Available algorithms:**
+
+- `jump` - Detects frames with sudden jumps in predicted marker positions (recommended for most cases)
+- `fitting` - Identifies frames that don't fit the expected trajectory model
+- `uncertain` - Selects frames where the network has low confidence predictions
+- `list` - Use a manually specified list of frames (requires passing `frames2use` parameter to `extract_outlier_frames()`)
+
+**augmenter.extraction_algorithm**: Algorithm used to select which outlier frames to extract. **Default:** `kmeans`
+
+**Available algorithms:**
+
+- `kmeans` - Uses k-means clustering to select diverse representative frames from outliers
+- `uniform` - Extracts frames uniformly distributed across the video
+
+**When these settings are used:**
+
+- `extract_outlier_frames()` - Uses both settings to identify and extract problematic frames from analyzed trials
+
+**Cross-reference:** See [Retraining the Model](usage.md#retraining-the-model) in the usage guide for the complete retraining workflow.
+
 ## Image Processing
 **search_area**: The area, in pixels, around which autocorrect() will search for a marker. The minimum is 10, the default is 15.  
 **threshold**: Grayscale value for image thresholding. Pixels with a value above this number are turned black, while pixels with a value below this number are turned <span style="color:white;background-color:black;">white</span>. The default is 8 (grayscale values range from 0=black to 255=white).  
