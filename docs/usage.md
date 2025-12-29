@@ -189,6 +189,95 @@ You'll need a Python environment that is capable of displaying images, like a [J
 
 ![XMAlab import settings](XMA_import_settings.png){: .center}
 
+## Retraining the Model
+
+Sometimes initial training isn't sufficient for the model to generalize to new data. When predictions are poor on novel trials, you can retrain by extracting problematic frames (outliers), tracking them in XMAlab, and incorporating them into a refined training dataset.
+
+### Workflow Overview
+
+The retraining workflow follows these steps:
+
+1. **Extract outlier frames** from analyzed trials
+2. **Track the outlier frames** in XMAlab and export as CSV
+3. **Merge the new data** with your existing training dataset
+4. **Retrain** the network with the augmented dataset
+
+### Step 1: Extract Outlier Frames
+
+After analyzing your trials, identify frames where the network performed poorly:
+
+```python
+deepxromm.extract_outlier_frames()
+```
+
+This creates `outliers.yaml` files in each trial's iteration directory (e.g., `trials/trial_name/it0/outliers.yaml`) containing frame numbers identified as outliers.
+
+**Advanced usage:** You can pass additional parameters to customize DeepLabCut's outlier detection. These are passed directly to DeepLabCut's underlying function. See the [DeepLabCut extract_outlier_frames documentation](https://deeplabcut.github.io/DeepLabCut/docs/standardDeepLabCut_UserGuide.html#refine-labels-extract-outlier-frames) for available parameters.
+
+**Configuration:** Outlier detection behavior is controlled by settings in `project_config.yaml`. See [Augmenter Settings](config.md#augmenter-settings) for details.
+
+### Step 2: Track Outlier Frames in XMAlab
+
+1. Review the frame numbers listed in `outliers.yaml`
+2. (Optional) Edit `outliers.yaml` to include only the frames you want to track. To do this programmatically:
+   ```python
+   from deepxromm.project import Project
+   
+   # Load and edit outliers
+   outliers = Project.load_config_file('trials/trial_name/it0/outliers.yaml')
+   outliers = outliers[:5]  # Keep only first 5 frames
+   Project.save_config_file(outliers, 'trials/trial_name/it0/outliers.yaml')
+   ```
+3. Track those frames in XMAlab for your trial
+4. Export the tracked data as CSV with the same settings from [Exporting your data from XMAlab](#exporting-your-data-from-xmalab-in-a-usable-format)
+5. Save the CSV as `*outliers*.csv` in the iteration directory:
+   - Example: `trials/trial_name/it0/trial_name_outliers_tracking.csv`
+
+> **Note:** As long as the CSV contains the word 'outliers', all lowercase, deepxromm will detect it and use it to add new data to the training dataset
+> **Note:** The CSV can contain more frames than just the outliers—DeepXROMM will extract only the frames listed in `outliers.yaml`.
+
+### Step 3: Merge Datasets
+
+Incorporate the newly tracked outlier data into your training dataset:
+
+```python
+deepxromm.merge_datasets()
+```
+
+This will:
+
+- Merge outlier data with existing training data
+- Increment the DeepLabCut iteration number
+- Update `nframes` in your config to include the new frames
+- Copy trial videos to `trainingdata/` if they weren't already there
+
+**Parameters:**
+
+- `update_nframes` (bool, default=True): Automatically update the `nframes` config value
+- `update_init_weights` (bool, default=True): Update initial weights to reference a previous training bout for transfer learning
+
+After merging, **reload your project** to apply the updated configuration:
+
+```python
+deepxromm = DeepXROMM.load_project(working_dir)
+```
+
+### Step 4: Continue Training Pipeline
+
+With the augmented dataset, continue through the standard training workflow:
+
+```python
+deepxromm.xma_to_dlc()
+deepxromm.create_training_dataset()
+deepxromm.train_network()
+deepxromm.analyze_videos()
+deepxromm.dlc_to_xma()
+```
+
+The network will now train on both your original frames and the newly tracked outliers, improving performance on challenging cases.
+
+**Cross-reference:** For configuration of outlier detection algorithms, see [Augmenter Settings](config.md#augmenter-settings).
+
 ## Choosing regions with high variation
 
 One thing that has been previously shown to help with neural network performance is variation of movement.
