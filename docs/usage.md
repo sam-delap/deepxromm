@@ -189,6 +189,19 @@ You'll need a Python environment that is capable of displaying images, like a [J
 
 ![XMAlab import settings](XMA_import_settings.png){: .center}
 
+## Retraining the model
+
+Sometimes, one bout of training is not enough to get a model to generalize. In these cases, you
+may want to configure a re-training bout, where you extract some outliers from your previous data
+and feed them into a new training dataset. deepxromm accomplishes this using the `extract_outlier_frames`
+and `merge_datasets` functions. See the code samples below for more on what they do
+
+```python
+# Assumes you've already initialized a deepxromm project
+
+deepxromm.extract_outlier_fr
+```
+
 ## Choosing regions with high variation
 
 One thing that has been previously shown to help with neural network performance is variation of movement.
