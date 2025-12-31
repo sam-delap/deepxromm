@@ -6,11 +6,11 @@ import logging.config
 import yaml
 from pathlib import Path
 from platformdirs import user_log_dir, user_config_dir
+from deepxromm.config_utilities import load_config_file
 
 # Load default config
 config_file = Path(__file__).parent / "default_logging_config.yaml"
-with open(config_file, "r") as fp:
-    config = yaml.safe_load(fp)
+config = load_config_file(config_file)
 
 # Load user config (if it exists)
 user_config = {}
