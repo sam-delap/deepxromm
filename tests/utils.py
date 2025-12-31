@@ -11,6 +11,10 @@ def set_up_project(project_dir: Path, mode: str):
     """Helper function to set up a project at a given path with a given mode"""
     deepxromm_proj = DeepXROMM.create_new_project(project_dir, mode=mode)
 
+    # Is implementation-dependent... ideally I'd have a better way to check if this needs to be modified
+    if "_video_codec" in vars(deepxromm_proj.project.dlc_config):
+        deepxromm_proj.project.dlc_config.video_codec = DEEPXROMM_TEST_CODEC
+
     # Adjust maxiters to 5 to ensure that training completes quickly
     deepxromm_proj.project.dlc_config.maxiters = 5
     deepxromm_proj.project.update_config_file()

@@ -173,7 +173,7 @@ class DlcConfigFactory:
                     )
                 dlc_config = DlcConfigPerCam(
                     _path_config_file=path_config_file,
-                    path_config_file_2=path_config_file_2,
+                    _path_config_file_2=path_config_file_2,
                     **kwargs,
                 )
             case "rgb":
@@ -220,8 +220,21 @@ class DlcConfig2D(DlcConfig):
 class DlcConfigPerCam(DlcConfig):
     """DLC config information for per_cam projects"""
 
-    path_config_file_2: Path
+    _path_config_file_2: Path | str
     mode: str = "per_cam"
+
+    @property
+    def path_config_file_2(self) -> Path:
+        """Ensure path_config_file always returns a Path"""
+        return Path(self._path_config_file)
+
+    @path_config_file_2.setter
+    def path_config_file_2(self, value: str | Path) -> None:
+        """Ensure path_config_file is always set as a Path"""
+        if isinstance(value, str):
+            value = Path(value)
+
+        self._path_config_file_2 = value
 
     def train_network(self, **kwargs):
         """Train a DeepLabCut network"""

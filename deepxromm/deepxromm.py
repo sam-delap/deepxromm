@@ -86,9 +86,7 @@ class DeepXROMM:
         trials = self.project.list_trials()
         for trial_path in trials:
             trial = Trial(trial_path)
-            self.project.dlc_config.analyze_videos(
-                trial, codec=self.project.video_codec, **kwargs
-            )
+            self.project.dlc_config.analyze_videos(trial, **kwargs)
 
     def dlc_to_xma(self):
         """Convert DLC output from training to XMA format"""
@@ -139,10 +137,10 @@ class DeepXROMM:
         that all cam1/2 pairs are either the same or different!"""
         return self._analyzer.analyze_marker_similarity_project()
 
-    def analyze_marker_similarity_trial(self):
+    def analyze_marker_similarity_trial(self, trial1_path: Path, trial2_path: Path):
         """Analyze marker similarity for a pair of trials. Returns the mean difference for
         paired marker positions (X - X, Y - Y for each marker)"""
-        return self._analyzer.analyze_marker_similarity_trial()
+        return self._analyzer.analyze_marker_similarity_trial(trial1_path, trial2_path)
 
     @staticmethod
     def train_many_projects(parent_dir):

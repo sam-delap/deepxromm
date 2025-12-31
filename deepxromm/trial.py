@@ -152,6 +152,8 @@ class Trial:
         else:
             path_to_search = self.trial_path / suffix
 
+        all_files = list(path_to_search.glob("*"))
+        logger.debug(all_files)
         if identifier is not None:
             files = list(path_to_search.glob(f"*{identifier}*{file_extension}"))
         else:

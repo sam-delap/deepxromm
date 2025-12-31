@@ -135,7 +135,14 @@ class Project:
         # DeepLabCut settings
         for attr in vars(self.dlc_config):
             value = getattr(self.dlc_config, attr)
+            # Skip function calls, we don't want to expose these to the user
             if isinstance(value, Callable):
+                continue
+            # Convert private attrs (usually implemented w/ getter and setter) to public
+            if attr.startswith("_"):
+                attr = attr[1:]
+            # Skip keys that are not in config_data
+            if attr not in config_data:
                 continue
             setattr(self.dlc_config, attr, config_data[attr])
 
@@ -187,6 +194,9 @@ class Project:
 
         # DeepLabCut settings
         for attr in vars(self.dlc_config):
+            # Convert private attrs (usually implemented w/ getter and setter) to public
+            if attr.startswith("_"):
+                attr = attr[1:]
             value = getattr(self.dlc_config, attr)
             if isinstance(value, Callable):
                 continue
