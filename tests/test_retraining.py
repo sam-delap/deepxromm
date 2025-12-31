@@ -22,6 +22,16 @@ def generic_snapshot_updated_in_pose_config(deepxromm_proj: DeepXROMM, trial_csv
     # Merge datasets
     deepxromm_proj.merge_datasets()
 
+    # Reload project (update DLC iteration)
+    deepxromm_proj = DeepXROMM.load_project(deepxromm_proj.project.working_dir)
+
+    # Remove old labeled data
+    shutil.rmtree(
+        deepxromm_proj.project.dlc_config.path_config_file.parent
+        / "labeled-data"
+        / deepxromm_proj.project.dataset_name
+    )
+
     # Create new labeled data
     deepxromm_proj.xma_to_dlc()
 

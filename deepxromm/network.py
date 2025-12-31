@@ -109,6 +109,9 @@ class Network:
         assert len(trainset_options) == 1
         trainset_folder = trainset_options[0]
         pose_config_path = trainset_folder / "train/pose_cfg.yaml"
+        logger.debug(
+            f"Found pose_cfg {str(pose_config_path)} for dlc iteration {dlc_iteration}"
+        )
         return pose_config_path
 
     @staticmethod
