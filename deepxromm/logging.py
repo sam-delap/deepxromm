@@ -3,7 +3,6 @@ Logging module for implementing global logging in deepxromm
 """
 
 import logging.config
-import yaml
 from pathlib import Path
 from platformdirs import user_log_dir, user_config_dir
 from deepxromm.config_utilities import load_config_file
@@ -17,8 +16,7 @@ user_config = {}
 config_dir = Path(user_config_dir("deepxromm"))
 user_config_file = config_dir / "logging_config.yaml"
 if user_config_file.exists():
-    with open(user_config_file, "r") as fp:
-        user_config = yaml.safe_load(fp)
+    user_config = load_config_file(user_config_file)
 
 # Merge 2 configs to provide defaults, without overwriting user preferences
 config = config | user_config
