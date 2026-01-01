@@ -99,78 +99,67 @@ class Autocorrector:
             )
 
             if self.autocorrect_settings.test_autocorrect:
-                cams = self.project.cam
+                cams = [self.autocorrect_settings.cam]
             else:
                 cams = ["cam1", "cam2"]  # Assumes 2-camera setup
 
             # For each camera
             for cam in cams:
-                csv = self._autocorrect_video(
-                    cam, trial_path, csv, self.autocorrect_settings
-                )
+                csv = self._autocorrect_video(cam, trial, csv)
 
             # Print when autocorrect finishes
             if not self.autocorrect_settings.test_autocorrect:
-                print(f"Done! Saving to {out_name}")
+                logger.info(f"Done! Saving to {out_name}")
                 csv.to_csv(out_name, index=False)
 
         # Print summary report
         self._print_skip_summary()
 
-    def _autocorrect_video(
-        self, cam, trial_path, csv, autocorrect_settings: AutocorrectParams
-    ):
+    def _autocorrect_video(self, cam: str, trial: Trial, csv: pd.DataFrame):
         """Run the autocorrect function on a single video within a single trial"""
         # Find the raw video
-        trial = Trial(trial_path)
         video = cv2.VideoCapture(trial.find_cam_file(identifier=cam))
         if not video.isOpened():
-            raise FileNotFoundError(f"Couldn't find a video at file path: {trial_path}")
+            raise FileNotFoundError(
+                f"Couldn't find a video at file path: {trial.trial_path}"
+            )
 
-        if autocorrect_settings.test_autocorrect:
+        if self.autocorrect_settings.test_autocorrect:
             video.set(1, self.autocorrect_settings.frame_num - 1)
             ret, frame = video.read()
             if ret is False:
                 raise IOError("Error reading video frame")
             self._autocorrect_frame(
-                trial_path,
-                frame,
-                cam,
-                autocorrect_settings.frame_num,
-                csv,
-                autocorrect_settings,
+                trial, frame, cam, self.autocorrect_settings.frame_num, csv
             )
             return csv
 
         # For each frame of video
-        print(f"Total frames in video: {video.get(cv2.CAP_PROP_FRAME_COUNT)}")
+        logger.debug(f"Total frames in video: {video.get(cv2.CAP_PROP_FRAME_COUNT)}")
 
         for frame_index in range(int(video.get(cv2.CAP_PROP_FRAME_COUNT))):
             # Load frame
             if frame_index % 50 == 0:
-                print(f"Current Frame: {frame_index + 1}")
+                logger.info(f"Current Frame: {frame_index + 1}")
             ret, frame = video.read()
             if ret is False:
                 raise IOError("Error reading video frame")
-            csv = self._autocorrect_frame(
-                trial_path, frame, cam, frame_index, csv, autocorrect_settings
-            )
+            csv = self._autocorrect_frame(trial, frame, cam, frame_index, csv)
         return csv
 
     def _autocorrect_frame(
         self,
-        trial_path,
+        trial: Trial,
         frame,
         cam,
         frame_index,
         csv,
-        autocorrect_settings: AutocorrectParams,
-    ):
-        """Run the autocorrect function for a single frame (no output)"""
+    ) -> pd.DataFrame:
+        """Run the autocorrect function for a single frame"""
         # For each marker in the frame
-        trial = Trial(trial_path)
-        if autocorrect_settings.test_autocorrect:
-            parts_unique = [autocorrect_settings.marker]
+        if self.autocorrect_settings.test_autocorrect:
+            parts_unique = [self.autocorrect_settings.marker]
+            logger.warning(f"Testing autocorrect with part: {parts_unique}")
         else:
             dlc = load_config_file(self._dlc_config_path)
             iteration = dlc["iteration"]
@@ -178,11 +167,12 @@ class Autocorrector:
                 suffix=f"it{iteration}", identifier="Predicted2DPoints"
             )
             parts_unique = get_marker_names(trial_csv_path)
+            logger.warning(f"Correcting image for parts: {parts_unique}")
         for part in parts_unique:
             # Find point and offsets
             x_float = csv.loc[frame_index, f"{part}_{cam}_X"]
             y_float = csv.loc[frame_index, f"{part}_{cam}_Y"]
-            search_area_with_offset = autocorrect_settings.search_area + 0.5
+            search_area_with_offset = self.autocorrect_settings.search_area + 0.5
             x_start = int(x_float - search_area_with_offset)
             y_start = int(y_float - search_area_with_offset)
             x_end = int(x_float + search_area_with_offset)
@@ -196,17 +186,17 @@ class Autocorrector:
                     f"Empty subimage for marker '{part}' at ({x_float:.1f}, {y_float:.1f}) "
                     f"in frame {frame_index + 1} on {cam}. Skipping autocorrect."
                 )
-                self._increment_skip_count(trial_path.name)
+                self._increment_skip_count(trial.trial_name)
                 continue
 
             try:
                 subimage_filtered = self._filter_image(
                     subimage,
-                    autocorrect_settings.krad,
-                    autocorrect_settings.gsigma,
-                    autocorrect_settings.img_wt,
-                    autocorrect_settings.blur_wt,
-                    autocorrect_settings.gamma,
+                    self.autocorrect_settings.krad,
+                    self.autocorrect_settings.gsigma,
+                    self.autocorrect_settings.img_wt,
+                    self.autocorrect_settings.blur_wt,
+                    self.autocorrect_settings.gamma,
                 )
 
                 subimage_float = subimage_filtered.astype(np.float32)
@@ -223,7 +213,7 @@ class Autocorrector:
                     f"on {cam} at ({x_float:.1f}, {y_float:.1f}) (main blur) "
                     f"[subimage: {subimage.shape}]: {str(e)}"
                 )
-                self._increment_skip_count(trial_path.name)
+                self._increment_skip_count(trial.trial_name)
                 continue
 
             subimage_diff
@@ -246,7 +236,7 @@ class Autocorrector:
             thres = (
                 0.5 * min_val
                 + 0.5 * np.mean(subimage_median_threshold)
-                + autocorrect_settings.threshold * 0.01 * 255
+                + self.autocorrect_settings.threshold * 0.01 * 255
             )
             _, subimage_threshold = cv2.threshold(
                 subimage_median_threshold, thres, 255, cv2.THRESH_BINARY_INV
@@ -260,7 +250,7 @@ class Autocorrector:
                     f"Skipping autocorrect for marker '{part}' in frame {frame_index} "
                     f"on {cam} at ({x_float:.1f}, {y_float:.1f}) (threshold blur): {str(e)}"
                 )
-                self._increment_skip_count(trial_path.name)
+                self._increment_skip_count(trial.trial_name)
                 continue
 
             # Find contours
@@ -288,7 +278,7 @@ class Autocorrector:
                     dist = dist_tmp
 
             # Fix how this displays, because this logic does not track
-            if autocorrect_settings.test_autocorrect:
+            if self.autocorrect_settings.test_autocorrect:
                 print("Raw")
                 self._show_crop(subimage, 15)
 
@@ -328,7 +318,7 @@ class Autocorrector:
                 csv.loc[frame_index, part + "_" + cam + "_X"] = detected_center[0]
                 csv.loc[frame_index, part + "_" + cam + "_Y"] = detected_center[1]
             else:
-                print(
+                logger.debug(
                     f"Couldn't find better contour for {part} in {cam} video at {frame_index + 1} frame"
                 )
         return csv
@@ -403,12 +393,12 @@ class Autocorrector:
         if total_skipped == 0:
             return  # Silent when no issues
 
-        print("\n=== Autocorrect Summary ===")
-        print(f"Total markers skipped: {total_skipped}")
+        logger.info("\n=== Autocorrect Summary ===")
+        logger.info(f"Total markers skipped: {total_skipped}")
 
         if len(self._skip_stats) > 0:
-            print("Breakdown by trial:")
+            logger.debug("Breakdown by trial:")
             for trial_name, count in self._skip_stats.items():
-                print(f"  - {trial_name}: {count} marker(s) skipped")
+                logger.debug(f"  - {trial_name}: {count} marker(s) skipped")
 
-        print("Check autocorrecter.log for details")
+        logger.info("Check XDG_STATE_DIR/deepxromm/deepxromm.log for details")

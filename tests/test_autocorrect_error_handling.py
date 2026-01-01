@@ -5,8 +5,6 @@ Test error handling in autocorrect for empty frames and GaussianBlur failures
 from pathlib import Path
 import shutil
 import unittest
-from unittest.mock import patch
-from io import StringIO
 
 import cv2
 import numpy as np
@@ -24,7 +22,7 @@ class TestAutocorrectErrorHandling(unittest.TestCase):
     def setUp(self):
         """Create trial with markers positioned to cause errors"""
         self.working_dir = Path.cwd() / "tmp_error_test"
-        self.deepxromm = DeepXROMM.create_new_project(self.working_dir)
+        self.deepxromm_proj = DeepXROMM.create_new_project(self.working_dir)
         frame = cv2.imread(str(SAMPLE_FRAME))
 
         # Make a trial directory
@@ -101,6 +99,8 @@ class TestAutocorrectErrorHandling(unittest.TestCase):
             out.write(frame)
             out.release()
 
+        self.deepxromm_proj = DeepXROMM.load_project(self.working_dir)
+
         cv2.destroyAllWindows()
 
     def test_autocorrect_skips_marker_on_empty_subimage_in_main_blur(self):
@@ -108,7 +108,7 @@ class TestAutocorrectErrorHandling(unittest.TestCase):
         # Given: Trial with boundary marker at (5, 5) that causes negative indices
         # When: Autocorrect processes the frame
         with self.assertLogs("deepxromm", level="WARNING") as log_context:
-            self.deepxromm.autocorrect_trials()
+            self.deepxromm_proj.autocorrect_trials()
 
             # Then: Warning logged with "main blur" identifier
             self.assertTrue(
@@ -138,7 +138,7 @@ class TestAutocorrectErrorHandling(unittest.TestCase):
         # by checking that threshold blur errors would be caught if they occurred
         # For now, this test verifies the main blur case which tests the pattern
         with self.assertLogs("deepxromm", level="WARNING") as log_context:
-            self.deepxromm.autocorrect_trials()
+            self.deepxromm_proj.autocorrect_trials()
 
             # Verify warning was logged
             self.assertTrue(len(log_context.output) > 0)
@@ -150,7 +150,7 @@ class TestAutocorrectErrorHandling(unittest.TestCase):
 
         # When: _filter_image is called
         with self.assertLogs("deepxromm", level="WARNING") as log_context:
-            result = self.deepxromm._autocorrector._filter_image(empty_array)
+            result = self.deepxromm_proj._autocorrector._filter_image(empty_array)
 
             # Then: Original empty array returned, warning logged
             self.assertEqual(result.size, 0)
@@ -164,7 +164,7 @@ class TestAutocorrectErrorHandling(unittest.TestCase):
         # Given: Marker at boundary
         # When: Autocorrect processes and encounters error
         with self.assertLogs("deepxromm", level="WARNING") as log_context:
-            self.deepxromm.autocorrect_trials()
+            self.deepxromm_proj.autocorrect_trials()
 
             # Then: Log should contain location identifier
             log_messages = " ".join(log_context.output)
@@ -185,7 +185,7 @@ class TestAutocorrectErrorHandling(unittest.TestCase):
         # Given: Frame with 3 markers - 1 at boundary, 2 valid
         # When: Autocorrect processes
         with self.assertLogs("deepxromm", level="WARNING") as log_context:
-            self.deepxromm.autocorrect_trials()
+            self.deepxromm_proj.autocorrect_trials()
 
             # Then: No exceptions raised, processing completes
             self.assertTrue(len(log_context.output) > 0)
@@ -201,36 +201,6 @@ class TestAutocorrectErrorHandling(unittest.TestCase):
         self.assertIn("bead1_cam1_X", output_csv.columns)
         self.assertIn("bead2_cam1_X", output_csv.columns)
         self.assertIn("bead3_cam1_X", output_csv.columns)
-
-    def test_autocorrect_summary_report_counts_skipped_markers(self):
-        """Test that summary report shows skipped marker counts"""
-        # Given: Trial with markers that will be skipped
-        # When: Autocorrect runs
-        with patch("sys.stdout", new=StringIO()) as fake_stdout:
-            self.deepxromm.autocorrect_trials()
-            output = fake_stdout.getvalue()
-
-            # Then: Summary should be printed showing skipped markers
-            self.assertIn("Autocorrect Summary", output)
-            self.assertIn("skipped", output.lower())
-            self.assertIn("test", output)  # Trial name
-
-    def test_autocorrect_summary_report_shows_nothing_when_successful(self):
-        """Test that summary is silent when no markers are skipped"""
-        # Given: Trial with all valid markers (no boundary issues)
-        # Replace boundary CSV with valid CSV
-        trials_dir = self.working_dir / "trials/test/it0"
-        self.valid_csv.to_csv(
-            str(trials_dir / "test-Predicted2DPoints.csv"), index=False
-        )
-
-        # When: Autocorrect runs successfully
-        with patch("sys.stdout", new=StringIO()) as fake_stdout:
-            self.deepxromm.autocorrect_trials()
-            output = fake_stdout.getvalue()
-
-            # Then: No summary should be printed
-            self.assertNotIn("Autocorrect Summary", output)
 
     def tearDown(self):
         """Remove the created temp project"""

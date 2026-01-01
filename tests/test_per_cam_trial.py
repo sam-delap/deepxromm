@@ -10,7 +10,7 @@ import random
 
 import pandas as pd
 
-from deepxromm import DeepXROMM
+from .utils import set_up_project, copy_mock_dlc_data_2cam
 
 SAMPLE_FRAME = Path(__file__).parent / "sample_frame.jpg"
 SAMPLE_FRAME_INPUT = Path(__file__).parent / "sample_frame_input.csv"
@@ -25,22 +25,7 @@ class TestPerCamTrialProcess(unittest.TestCase):
     def setUp(self):
         """Create trial with test data"""
         self.working_dir = Path.cwd() / "tmp"
-        self.deepxromm = DeepXROMM.create_new_project(self.working_dir, mode="per_cam")
-
-        # Make a trial directory
-        trial_dir = self.working_dir / "trainingdata/test"
-        trial_dir.mkdir(parents=True, exist_ok=True)
-
-        # Make vars for pathing to find files easily
-        self.trial_csv = trial_dir / "test.csv"
-        self.cam1_path = trial_dir / "test_cam1.avi"
-        self.cam2_path = trial_dir / "test_cam2.avi"
-
-        # Copy sample CSV data (use existing sample file)
-        shutil.copy("trial_slice.csv", str(self.trial_csv))
-        shutil.copy("trial_cam1_slice.avi", str(self.cam1_path))
-        shutil.copy("trial_cam2_slice.avi", str(self.cam2_path))
-        self.deepxromm = DeepXROMM.load_project(self.working_dir)
+        self.trial_csv, self.deepxromm = set_up_project(self.working_dir, "per_cam")
         self.deepxromm.xma_to_dlc()
 
     def test_first_frame_matches_in_dlc_csv(self):
@@ -193,61 +178,16 @@ class TestPerCamTrialProcess(unittest.TestCase):
         shutil.rmtree(project_path)
 
 
-def set_up_project(working_dir: Path):
-    """Per cam method to set up a project that already has xma_to_dlc and dlc_to_xma run on it"""
-    DeepXROMM.create_new_project(working_dir, mode="per_cam")
-
-    # Copy trial slice data
-    trial_dir = working_dir / "trainingdata/test"
-    trial_dir.mkdir(parents=True, exist_ok=True)
-    trial_csv = trial_dir / "test.csv"
-    cam1_path = trial_dir / "test_cam1.avi"
-    cam2_path = trial_dir / "test_cam2.avi"
-
-    shutil.copy("trial_slice.csv", str(trial_csv))
-    shutil.copy("trial_cam1_slice.avi", str(cam1_path))
-    shutil.copy("trial_cam2_slice.avi", str(cam2_path))
-
-    # Run xma_to_dlc to create training dataset
-    deepxromm = DeepXROMM.load_project(working_dir)
-    deepxromm.xma_to_dlc()
-
-    # Copy in mock DLC data
-    cam1_df = pd.read_hdf("trial_cam1dlc.h5")
-    cam2_df = pd.read_hdf("trial_cam2dlc.h5")
-    output_dir = working_dir / "trials/test/it0"
-    output_dir.mkdir(parents=True, exist_ok=True)
-    mock_cam1_h5 = (
-        output_dir / "test_cam1DLC_resnet50_test_projectDec1shuffle1_100000.h5"
-    )
-    mock_cam2_h5 = (
-        output_dir / "test_cam2DLC_resnet50_test_projectDec1shuffle1_100000.h5"
-    )
-    mock_cam1_csv = (
-        output_dir / "test_cam1DLC_resnet50_test_projectDec1shuffle1_100000.csv"
-    )
-    mock_cam2_csv = (
-        output_dir / "test_cam2DLC_resnet50_test_projectDec1shuffle1_100000.csv"
-    )
-    cam1_df.to_hdf(mock_cam1_h5, key="df_with_missing", mode="w")
-    cam2_df.to_hdf(mock_cam2_h5, key="df_with_missing", mode="w")
-    cam1_df.to_csv(mock_cam1_csv, na_rep="NaN")
-    cam2_df.to_csv(mock_cam2_csv, na_rep="NaN")
-
-    # Run DLC to XMA
-    deepxromm.dlc_to_xma()
-    return mock_cam1_h5, mock_cam2_h5, deepxromm
-
-
 class TestDlcToXma2D(unittest.TestCase):
     """Test dlc_to_xma function in per_cam mode with round-trip verification"""
 
     def setUp(self):
         """Create 2D project and generate mock DLC analysis output"""
         self.working_dir = Path.cwd() / "tmp"
-        self.mock_cam1_h5, self.mock_cam2_h5, self.deepxromm = set_up_project(
-            self.working_dir
-        )
+        _, self.deepxromm = set_up_project(self.working_dir, "per_cam")
+        self.deepxromm.xma_to_dlc()
+        self.mock_cam1_h5, self.mock_cam2_h5 = copy_mock_dlc_data_2cam(self.working_dir)
+        self.deepxromm.dlc_to_xma()
 
     def test_dlc_to_xma_creates_xmalab_format_files(self):
         """
@@ -407,9 +347,10 @@ class TestAutocorrectPerCam(unittest.TestCase):
     def setUp(self):
         """Create per_cam project and generate mock DLC analysis output"""
         self.working_dir = Path.cwd() / "tmp"
-        self.mock_cam1_h5, self.mock_cam2_h5, self.deepxromm = set_up_project(
-            self.working_dir
-        )
+        _, self.deepxromm = set_up_project(self.working_dir, "per_cam")
+        self.deepxromm.xma_to_dlc()
+        self.mock_cam1_h5, self.mock_cam2_h5 = copy_mock_dlc_data_2cam(self.working_dir)
+        self.deepxromm.dlc_to_xma()
 
     def run_autocorrect(self):
         """Run autocorrect using the provided deepxromm project"""

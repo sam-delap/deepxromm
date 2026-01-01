@@ -3,7 +3,7 @@ This module is responsible for creating and updating deepxromm projects
 """
 
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 import warnings
 
@@ -30,8 +30,10 @@ class Project:
     _dataset_name: str = "MyData"
     nframes: int = 0
     tracking_threshold: float = 0.1
-    autocorrect_settings: AutocorrectParams = AutocorrectParams()
-    augmenter_settings: OutlierExtractionParams = OutlierExtractionParams()
+    autocorrect_settings: AutocorrectParams = field(default_factory=AutocorrectParams)
+    augmenter_settings: OutlierExtractionParams = field(
+        default_factory=OutlierExtractionParams
+    )
     cam1s_are_the_same_view: bool = True
 
     # Magic method modifications

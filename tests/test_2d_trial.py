@@ -5,7 +5,7 @@ import random
 
 import pandas as pd
 
-from .utils import set_up_project
+from .utils import set_up_project, copy_mock_dlc_data_2cam
 
 SAMPLE_FRAME = Path(__file__).parent / "sample_frame.jpg"
 SAMPLE_FRAME_INPUT = Path(__file__).parent / "sample_frame_input.csv"
@@ -165,7 +165,7 @@ class TestDlcToXma2D(unittest.TestCase):
         self.working_dir = Path.cwd() / "tmp"
         _, self.deepxromm = set_up_project(self.working_dir, "2D")
         self.deepxromm.xma_to_dlc()
-        self.mock_cam1_h5, self.mock_cam2_h5 = _copy_mock_dlc_data(self.working_dir)
+        self.mock_cam1_h5, self.mock_cam2_h5 = copy_mock_dlc_data_2cam(self.working_dir)
         self.deepxromm.dlc_to_xma()
 
     def test_dlc_to_xma_creates_xmalab_format_files(self):
@@ -329,7 +329,7 @@ class TestAutocorrect2D(unittest.TestCase):
         self.working_dir = Path.cwd() / "tmp"
         _, self.deepxromm = set_up_project(self.working_dir, "2D")
         self.deepxromm.xma_to_dlc()
-        self.mock_cam1_h5, self.mock_cam2_h5 = _copy_mock_dlc_data(self.working_dir)
+        self.mock_cam1_h5, self.mock_cam2_h5 = copy_mock_dlc_data_2cam(self.working_dir)
 
     def run_autocorrect(self):
         """Run autocorrect using the provided deepxromm project"""
@@ -339,28 +339,3 @@ class TestAutocorrect2D(unittest.TestCase):
         """Remove the created temp project"""
         if self.working_dir.exists():
             shutil.rmtree(self.working_dir)
-
-
-def _copy_mock_dlc_data(project_dir: Path) -> tuple[Path, Path]:
-    cam1_df = pd.read_hdf("trial_cam1dlc.h5")
-    cam2_df = pd.read_hdf("trial_cam2dlc.h5")
-    output_dir = project_dir / "trials/test/it0"
-    output_dir.mkdir(parents=True, exist_ok=True)
-    mock_cam1_h5 = (
-        output_dir / "test_cam1DLC_resnet50_test_projectDec1shuffle1_100000.h5"
-    )
-    mock_cam2_h5 = (
-        output_dir / "test_cam2DLC_resnet50_test_projectDec1shuffle1_100000.h5"
-    )
-    mock_cam1_csv = (
-        output_dir / "test_cam1DLC_resnet50_test_projectDec1shuffle1_100000.csv"
-    )
-    mock_cam2_csv = (
-        output_dir / "test_cam2DLC_resnet50_test_projectDec1shuffle1_100000.csv"
-    )
-    cam1_df.to_hdf(mock_cam1_h5, key="df_with_missing", mode="w")
-    cam2_df.to_hdf(mock_cam2_h5, key="df_with_missing", mode="w")
-    cam1_df.to_csv(mock_cam1_csv, na_rep="NaN")
-    cam2_df.to_csv(mock_cam2_csv, na_rep="NaN")
-
-    return mock_cam1_h5, mock_cam2_h5
