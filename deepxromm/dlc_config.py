@@ -317,7 +317,9 @@ class DlcConfigRGB(DlcConfig):
     # Public methods
     def get_bodyparts(self, trial_csv_path: Path):
         """Return bodyparts in the format they'll need to be in for DeepLabCut"""
-        return self.bodyparts_func(trial_csv_path)
+        return self.bodyparts_func(
+            trial_csv_path, self.swapped_markers, self.crossed_markers
+        )
 
     def analyze_videos(self, trial: Trial, **kwargs):
         """Analyze videos for a trial with an existing DeepLabCut network"""
