@@ -135,7 +135,24 @@ This is to ensure that both new contributors and seasoned maintainers alike have
 anything in the repository.
 
 The tests will run automatically whenever you open a pull request, but you can also
-run them manually for local testing by running:
+run them manually for local testing.
+
+### Running the full test suite
+
+Before committing any changes, **always run the full test suite** to ensure your changes don't break existing functionality:
+
 ```bash
-uv run tests/test_deepxromm.py
+DEEPXROMM_TEST_CODEC="XVID" uv run pytest --cov --cov-branch --cov-report=xml
 ```
+
+The `DEEPXROMM_TEST_CODEC` environment variable tells the test suite which video codec to use for testing. `XVID` is recommended for broad compatibility.
+
+### Running individual tests (for debugging only)
+
+If you need to debug a specific test, you can run it individually:
+
+```bash
+DEEPXROMM_TEST_CODEC="XVID" uv run pytest tests/test_specific_file.py::TestClassName::test_method_name
+```
+
+> **⚠️ Important:** Individual test execution is for debugging only. Always run the full test suite before committing to ensure all tests pass.

@@ -14,6 +14,39 @@ from pathlib import Path
 import pandas as pd
 
 
+def get_marker_names(csv_path: Path) -> list[str]:
+    """Get marker name information from XMA-formatted CSV"""
+    trial_csv = pd.read_csv(csv_path, sep=",", header=0, dtype="float", na_values="NaN")
+    names = trial_csv.columns.values
+    parts = [name.rsplit("_", 2)[0] for name in names]
+    return _get_ordered_list_of_markers(parts)
+
+
+def get_marker_and_cam_names(
+    csv_path: Path, swapped_markers: bool = False, crossed_markers: bool = False
+) -> list[str]:
+    """Get marker name and camera information from XMA-formatted CSV (useful for RGB input and marker analysis)"""
+    trial_csv = pd.read_csv(csv_path, sep=",", header=0, dtype="float", na_values="NaN")
+    names = trial_csv.columns.values
+    parts = [name.rsplit("_", 1)[0] for name in names]
+    if swapped_markers:
+        parts = parts + [f"sw_{part}" for part in parts]
+    if crossed_markers:
+        parts = parts + [
+            f"cx_{part}_cam1x2" for part in [name.rsplit("_", 2)[0] for name in names]
+        ]
+    return _get_ordered_list_of_markers(parts)
+
+
+def _get_ordered_list_of_markers(parts: list[str]) -> list[str]:
+    """Returns a list with strict ordering of points to put into bodyparts for DeepLabCut"""
+    parts_unique = []
+    for part in parts:
+        if part not in parts_unique:
+            parts_unique.append(part)
+    return parts_unique
+
+
 def dlc_to_xma(trial: Path, iteration: int):
     # get filenames and read analyzed data
     trialname = trial.name

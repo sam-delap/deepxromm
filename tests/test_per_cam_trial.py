@@ -25,9 +25,7 @@ class TestPerCamTrialProcess(unittest.TestCase):
     def setUp(self):
         """Create trial with test data"""
         self.working_dir = Path.cwd() / "tmp"
-        self.deepxromm = DeepXROMM.create_new_project(
-            self.working_dir, mode="per_cam", codec=DEEPXROMM_TEST_CODEC
-        )
+        self.deepxromm = DeepXROMM.create_new_project(self.working_dir, mode="per_cam")
 
         # Make a trial directory
         trial_dir = self.working_dir / "trainingdata/test"
@@ -47,8 +45,8 @@ class TestPerCamTrialProcess(unittest.TestCase):
 
     def test_first_frame_matches_in_dlc_csv(self):
         """When I run xma_to_dlc, does the DLC CSV have the same data as my original file?"""
-        cam1_dlc_proj = Path(self.deepxromm.project.path_config_file).parent
-        cam2_dlc_proj = Path(self.deepxromm.project.path_config_file_2).parent
+        cam1_dlc_proj = self.deepxromm.project.dlc_config.path_config_file.parent
+        cam2_dlc_proj = self.deepxromm.project.dlc_config.path_config_file_2.parent
 
         xmalab_data = pd.read_csv(self.trial_csv)
         xmalab_first_row = xmalab_data.loc[0, :]
@@ -85,8 +83,8 @@ class TestPerCamTrialProcess(unittest.TestCase):
         xmalab_data = pd.read_csv(self.trial_csv)
 
         # Load DLC data
-        cam1_dlc_proj = Path(self.deepxromm.project.path_config_file).parent
-        cam2_dlc_proj = Path(self.deepxromm.project.path_config_file_2).parent
+        cam1_dlc_proj = self.deepxromm.project.dlc_config.path_config_file.parent
+        cam2_dlc_proj = self.deepxromm.project.dlc_config.path_config_file_2.parent
 
         cam1_labeled_data_path = cam1_dlc_proj / "labeled-data/MyData_cam1"
         cam2_labeled_data_path = cam2_dlc_proj / "labeled-data/MyData_cam2"
@@ -138,8 +136,8 @@ class TestPerCamTrialProcess(unittest.TestCase):
         xmalab_data = pd.read_csv(self.trial_csv)
 
         # Load DLC data
-        cam1_dlc_proj = Path(self.deepxromm.project.path_config_file).parent
-        cam2_dlc_proj = Path(self.deepxromm.project.path_config_file_2).parent
+        cam1_dlc_proj = self.deepxromm.project.dlc_config.path_config_file.parent
+        cam2_dlc_proj = self.deepxromm.project.dlc_config.path_config_file_2.parent
 
         cam1_labeled_data_path = cam1_dlc_proj / "labeled-data/MyData_cam1"
         cam2_labeled_data_path = cam2_dlc_proj / "labeled-data/MyData_cam2"
@@ -197,9 +195,7 @@ class TestPerCamTrialProcess(unittest.TestCase):
 
 def set_up_project(working_dir: Path):
     """Per cam method to set up a project that already has xma_to_dlc and dlc_to_xma run on it"""
-    DeepXROMM.create_new_project(
-        working_dir, mode="per_cam", codec=DEEPXROMM_TEST_CODEC
-    )
+    DeepXROMM.create_new_project(working_dir, mode="per_cam")
 
     # Copy trial slice data
     trial_dir = working_dir / "trainingdata/test"

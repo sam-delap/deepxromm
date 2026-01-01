@@ -1,6 +1,9 @@
-"""A Complete Set of User-Friendly Tools for DeepLabCut-XMAlab marker tracking"""
+"""
+Defines deepxromm's public API
+"""
 
 from pathlib import Path
+
 
 from deepxromm.analyzer import Analyzer
 from deepxromm.autocorrector import Autocorrector
@@ -8,6 +11,7 @@ from deepxromm.network import Network
 from deepxromm.project import Project, ProjectFactory
 from deepxromm.xma_data_processor import XMADataProcessor
 from deepxromm.augmenter import Augmenter
+from deepxromm.trial import Trial
 
 
 class DeepXROMM:
@@ -31,17 +35,20 @@ class DeepXROMM:
         working_dir: str | Path = Path.cwd(),
         experimenter="NA",
         mode="2D",
-        codec="avc1",
     ):
-        """Create a new xrommtools project"""
+        """Create a new deepxromm project"""
         deepxromm = DeepXROMM.__new__(DeepXROMM)
+        if isinstance(working_dir, str):
+            working_dir = Path(working_dir)
         deepxromm.project = ProjectFactory.create_new_config(
-            working_dir, experimenter, mode, codec
+            working_dir, experimenter, mode
         )
         deepxromm._analyzer = Analyzer(deepxromm.project)
         deepxromm._autocorrector = Autocorrector(deepxromm.project)
-        deepxromm._network = Network(deepxromm.project)
-        deepxromm._data_processor = XMADataProcessor(deepxromm.project)
+        deepxromm._network = Network(deepxromm.project, deepxromm.project.dlc_config)
+        deepxromm._data_processor = XMADataProcessor(
+            deepxromm.project, deepxromm.project.dlc_config
+        )
         deepxromm._augmenter = Augmenter(deepxromm.project)
         return deepxromm
 
@@ -52,8 +59,10 @@ class DeepXROMM:
         deepxromm.project = ProjectFactory.load_config(working_dir)
         deepxromm._analyzer = Analyzer(deepxromm.project)
         deepxromm._autocorrector = Autocorrector(deepxromm.project)
-        deepxromm._network = Network(deepxromm.project)
-        deepxromm._data_processor = XMADataProcessor(deepxromm.project)
+        deepxromm._network = Network(deepxromm.project, deepxromm.project.dlc_config)
+        deepxromm._data_processor = XMADataProcessor(
+            deepxromm.project, deepxromm.project.dlc_config
+        )
         deepxromm._augmenter = Augmenter(deepxromm.project)
         return deepxromm
 
@@ -67,11 +76,16 @@ class DeepXROMM:
 
     def train_network(self, **kwargs):
         """Starts training the network using data in the working directory."""
-        self._network.train(**kwargs)
+        self.project.dlc_config.train_network(
+            maxiters=self.project.dlc_config.maxiters, **kwargs
+        )
 
-    def analyze_videos(self):
+    def analyze_videos(self, **kwargs):
         """Analyze videos with a pre-existing network"""
-        self._analyzer.analyze_videos()
+        trials = self.project.list_trials()
+        for trial_path in trials:
+            trial = Trial(trial_path)
+            self.project.dlc_config.analyze_videos(trial, **kwargs)
 
     def dlc_to_xma(self):
         """Convert DLC output from training to XMA format"""
@@ -88,10 +102,6 @@ class DeepXROMM:
     def autocorrect_trials(self):
         """Do XMAlab-style autocorrect on the tracked beads for all trials"""
         self._autocorrector.autocorrect_trials()
-
-    def get_bodyparts_from_xma(self, csv_path: str, mode: str):
-        """Pull the names of the XMAlab markers from the 2Dpoints file"""
-        return self._data_processor.get_bodyparts_from_xma(Path(csv_path), mode)
 
     def split_rgb(self, trial_path, codec=None):
         """Takes a RGB video with different grayscale data written to the R, G,
@@ -126,10 +136,10 @@ class DeepXROMM:
         that all cam1/2 pairs are either the same or different!"""
         return self._analyzer.analyze_marker_similarity_project()
 
-    def analyze_marker_similarity_trial(self):
+    def analyze_marker_similarity_trial(self, trial1_path: Path, trial2_path: Path):
         """Analyze marker similarity for a pair of trials. Returns the mean difference for
         paired marker positions (X - X, Y - Y for each marker)"""
-        return self._analyzer.analyze_marker_similarity_trial()
+        return self._analyzer.analyze_marker_similarity_trial(trial1_path, trial2_path)
 
     @staticmethod
     def train_many_projects(parent_dir):

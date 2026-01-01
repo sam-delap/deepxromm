@@ -2,7 +2,6 @@
 Verify that default behaviors of deepxromm remains the same
 """
 
-import os
 from pathlib import Path
 import shutil
 import unittest
@@ -11,13 +10,11 @@ import cv2
 import pandas as pd
 
 from deepxromm import DeepXROMM
-from deepxromm.project import Project
+from deepxromm.config_utilities import load_config_file, save_config_file
 
 SAMPLE_FRAME = Path(__file__).parent / "sample_frame.jpg"
 SAMPLE_FRAME_INPUT = Path(__file__).parent / "sample_frame_input.csv"
 SAMPLE_AUTOCORRECT_OUTPUT = Path(__file__).parent / "sample_autocorrect_output.csv"
-
-DEEPXROMM_TEST_CODEC = os.environ.get("DEEPXROMM_TEST_CODEC", "avc1")
 
 
 class TestDefaultsPerformance(unittest.TestCase):
@@ -26,9 +23,7 @@ class TestDefaultsPerformance(unittest.TestCase):
     def setUp(self):
         """Create a sample project where the user only inputs XMAlab data"""
         self.working_dir = Path.cwd() / "tmp"
-        self.deepxromm = DeepXROMM.create_new_project(
-            self.working_dir, codec=DEEPXROMM_TEST_CODEC
-        )
+        self.deepxromm = DeepXROMM.create_new_project(self.working_dir)
         frame = cv2.imread(str(SAMPLE_FRAME))
 
         # Make a trial directory
@@ -102,27 +97,27 @@ class TestDefaultsPerformance(unittest.TestCase):
     def test_bodyparts_add_from_csv_if_not_defined(self):
         """If the user hasn't specified the bodyparts from their trial, we can pull them from the CSV"""
         deepxromm_proj = DeepXROMM.load_project(self.working_dir)
-        config_obj = Project.load_config_file(deepxromm_proj.project.path_config_file)
+        config_obj = load_config_file(
+            deepxromm_proj.project.dlc_config.path_config_file
+        )
         self.assertEqual(config_obj["bodyparts"], ["foo", "bar", "baz"])
 
     def test_bodyparts_error_if_different_from_csv(self):
         """If the user specifies different bodyparts than their CSV, raise an error"""
-        config_dlc = Project.load_config_file(self.deepxromm.project.path_config_file)
+        config_dlc = load_config_file(
+            self.deepxromm.project.dlc_config.path_config_file
+        )
         config_dlc["bodyparts"] = ["foo", "bar"]
-        Project.save_config_file(config_dlc, self.deepxromm.project.path_config_file)
+        save_config_file(config_dlc, self.deepxromm.project.dlc_config.path_config_file)
 
         with self.assertRaises(SyntaxError):
             DeepXROMM.load_project(self.working_dir)
 
     def test_config_update_does_not_sort_keys(self):
         """When we update the config, does the data remain sorted according to how it is in default_config?"""
-        current_config = Project.load_config_file(
-            self.working_dir / "project_config.yaml"
-        )
+        current_config = load_config_file(self.working_dir / "project_config.yaml")
         self.deepxromm.project.update_config_file()
-        updated_config = Project.load_config_file(
-            self.working_dir / "project_config.yaml"
-        )
+        updated_config = load_config_file(self.working_dir / "project_config.yaml")
 
         for current_key, updated_key in zip(
             current_config.keys(), updated_config.keys()
@@ -133,17 +128,17 @@ class TestDefaultsPerformance(unittest.TestCase):
     def test_migration_from_tracking_mode_to_mode(self):
         """Does loading a config with deprecated 'tracking_mode' auto-migrate to 'mode'?"""
         # Modify config to use deprecated key
-        tmp = Project.load_config_file(self.working_dir / "project_config.yaml")
+        tmp = load_config_file(self.working_dir / "project_config.yaml")
         del tmp["mode"]  # Remove new key if it exists
         tmp["tracking_mode"] = "2D"  # Use deprecated key
-        Project.save_config_file(tmp, self.working_dir / "project_config.yaml")
+        save_config_file(tmp, self.working_dir / "project_config.yaml")
 
         # Load project (should trigger migration)
         with self.assertWarns(DeprecationWarning):
             DeepXROMM.load_project(self.working_dir)
 
         # Verify config was migrated and saved
-        migrated = Project.load_config_file(self.working_dir / "project_config.yaml")
+        migrated = load_config_file(self.working_dir / "project_config.yaml")
 
         self.assertIn("mode", migrated)
         self.assertNotIn("tracking_mode", migrated)
@@ -152,10 +147,10 @@ class TestDefaultsPerformance(unittest.TestCase):
     def test_conflicting_mode_values_raises_error(self):
         """Does having both 'mode' and 'tracking_mode' with different values raise ValueError?"""
         # Create config with conflicting values
-        tmp = Project.load_config_file(self.working_dir / "project_config.yaml")
+        tmp = load_config_file(self.working_dir / "project_config.yaml")
         tmp["mode"] = "2D"
         tmp["tracking_mode"] = "rgb"  # Different value
-        Project.save_config_file(tmp, self.working_dir / "project_config.yaml")
+        save_config_file(tmp, self.working_dir / "project_config.yaml")
 
         # Verify error is raised
         with self.assertRaises(ValueError) as context:
@@ -169,17 +164,17 @@ class TestDefaultsPerformance(unittest.TestCase):
     def test_duplicate_mode_values_migrates_successfully(self):
         """Does having both keys with same value migrate successfully?"""
         # Create config with duplicate but matching values
-        tmp = Project.load_config_file(self.working_dir / "project_config.yaml")
+        tmp = load_config_file(self.working_dir / "project_config.yaml")
         tmp["mode"] = "2D"
         tmp["tracking_mode"] = "2D"  # Same value
-        Project.save_config_file(tmp, self.working_dir / "project_config.yaml")
+        save_config_file(tmp, self.working_dir / "project_config.yaml")
 
         # Load project (should trigger migration with warning)
         with self.assertWarns(DeprecationWarning):
             DeepXROMM.load_project(self.working_dir)
 
         # Verify only 'mode' remains
-        migrated = Project.load_config_file(self.working_dir / "project_config.yaml")
+        migrated = load_config_file(self.working_dir / "project_config.yaml")
 
         self.assertIn("mode", migrated)
         self.assertNotIn("tracking_mode", migrated)

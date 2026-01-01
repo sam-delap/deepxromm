@@ -2,68 +2,53 @@
 This module is responsible for creating and updating deepxromm projects
 """
 
-from abc import ABC
+from collections.abc import Callable
 from dataclasses import dataclass
-import tempfile
 from pathlib import Path
 import warnings
 
 import cv2
-import deeplabcut
 import numpy as np
 import pandas as pd
-from ruamel.yaml import YAML
-from ruamel.yaml.comments import CommentedMap
 
 from deepxromm.augmenter import OutlierExtractionParams
-from deepxromm.xma_data_processor import XMADataProcessor
+from deepxromm.config_utilities import load_config_file, save_config_file
 from deepxromm.logging import logger
 from deepxromm.autocorrector import AutocorrectParams
-
-# Sets the default codec for use in creating/loading project configs
-DEFAULT_CODEC = "avc1"
+from deepxromm.dlc_config import DlcConfig, DlcConfigFactory
+from deepxromm.trial import Trial
 
 
 @dataclass
-class Project(ABC):
+class Project:
     """Parent class for project configs - can't be instantiated"""
 
     task: str
+    dlc_config: DlcConfig
     _experimenter: str
     _working_dir: Path
-    _path_config_file: Path
-    _path_config_file_2: Path | None = (
-        None  # Remove once nothing acts on this param outside of per_cam stuff
-    )
     _dataset_name: str = "MyData"
     nframes: int = 0
-    maxiters: int = 150000
     tracking_threshold: float = 0.1
-    _video_codec: str = DEFAULT_CODEC
-    _mode: str = ""
     autocorrect_settings: AutocorrectParams = AutocorrectParams()
     augmenter_settings: OutlierExtractionParams = OutlierExtractionParams()
     cam1s_are_the_same_view: bool = True
 
+    # Magic method modifications
+    def __post_init__(self):
+        """Check the config for updates after initializing"""
+        self.check_config_for_updates()
+
+    # Read-write properties
     @property
     def working_dir(self):
-        """Ensuring path_config_file is always returned as a path"""
+        """Ensuring working_dir is always returned as a path"""
         return Path(self._working_dir)
 
     @working_dir.setter
     def working_dir(self, value):
-        """Ensuring path_config_file is always returned as a path"""
+        """Set working_dir via setter/getter"""
         self._working_dir = value
-
-    @property
-    def path_config_file(self):
-        """Ensuring path_config_file is always returned as a path"""
-        return Path(self._path_config_file)
-
-    @path_config_file.setter
-    def path_config_file(self, value):
-        """Ensuring path_config_file is always returned as a path"""
-        self._path_config_file = value
 
     @property
     def dataset_name(self):
@@ -77,62 +62,59 @@ class Project(ABC):
     def dataset_name(self, value: str):
         self._dataset_name = value
 
-    @property
-    def video_codec(self):
-        """Video codec used to encode/decode videos using OpenCV"""
-        return self._video_codec
-
+    # Read-only properties
     @property
     def project_config_path(self):
         """Path to project_config.yaml file"""
         return Path(self.working_dir / "project_config.yaml")
 
-    @video_codec.setter
-    def video_codec(self, value: str):
-        """Validate that video codec is available on system, then set if it is"""
-        if not _validate_codec(value):
-            raise RuntimeError(f"Codec {value} is not available on this system")
-        self._video_codec = value
-
-    # Read-only properties
-    @property
-    def mode(self):
-        return self._mode
-
     @property
     def experimenter(self):
         return self._experimenter
 
-    @property
-    def dlc_iteration(self):
-        """Iteration of training for DLC project within the DeepXROMM project"""
-        dlc_config = Project.load_config_file(self.path_config_file)
-        return dlc_config["iteration"]
+    # Public methods
+    def list_trials(self, suffix: str = "trials") -> list[Path]:
+        """List all trials for the project"""
+        # Security validation: prevent directory traversal
+        if ".." in suffix:
+            raise ValueError(
+                f"Security error: Path traversal detected in suffix '{suffix}'. "
+                "Suffix cannot contain '..' for security reasons."
+            )
+        if suffix.startswith("/"):
+            raise ValueError(
+                f"Security error: Absolute path detected in suffix '{suffix}'. "
+                "Suffix must be a relative path within working_dir."
+            )
 
-    @dlc_iteration.setter
-    def dlc_iteration(self, value):
-        """Set iteration in the dlc config"""
-        dlc_config = Project.load_config_file(self.path_config_file)
-        dlc_config["iteration"] = value
-        Project.save_config_file(dlc_config, self.path_config_file)
+        trial_path = self.working_dir / suffix
 
-    @staticmethod
-    def load_config_file(config_file_path: Path):
-        """Load a YAML file as a commented map"""
-        yaml = YAML()
-        with open(config_file_path, "r") as fp:
-            config = yaml.load(fp)
+        # Additional security check: ensure resolved path is within working_dir
+        try:
+            resolved_trial_path = trial_path.resolve()
+            resolved_working_dir = self.working_dir.resolve()
+            if not str(resolved_trial_path).startswith(str(resolved_working_dir)):
+                raise ValueError(
+                    f"Security error: Path traversal detected. "
+                    f"Resolved path '{resolved_trial_path}' is outside working_dir."
+                )
+        except (OSError, RuntimeError) as e:
+            raise ValueError(f"Invalid path in suffix '{suffix}': {e}")
 
-        return config
+        # Get list of trial directories (excluding hidden folders)
+        trialnames = [
+            folder
+            for folder in trial_path.iterdir()
+            if folder.is_dir() and not folder.name.startswith(".")
+        ]
 
-    @staticmethod
-    def save_config_file(config_data: CommentedMap, config_file_path: Path):
-        """Load a YAML file as a commented map"""
-        yaml = YAML()
-        with open(config_file_path, "w") as fp:
-            config = yaml.dump(config_data, fp)
+        if len(trialnames) == 0:
+            raise FileNotFoundError(
+                f"No trials found in {trial_path}. "
+                "Please ensure trial directories exist and are not hidden."
+            )
 
-        return config
+        return trialnames
 
     def check_config_for_updates(self):
         """Check the config for updates and update any values that have changed."""
@@ -142,15 +124,27 @@ class Project(ABC):
             )
             return
 
-        config_data = Project.load_config_file(self.project_config_path)
+        config_data = load_config_file(self.project_config_path)
 
         # Experimental params (mode and experimenter are read-only)
         self.task = config_data["task"]
         self.working_dir = Path(config_data["working_dir"])
-        self.path_config_file = Path(config_data["path_config_file"])
         self.nframes = config_data["nframes"]
-        self.maxiters = config_data["maxiters"]
         self.tracking_threshold = config_data["tracking_threshold"]
+
+        # DeepLabCut settings
+        for attr in vars(self.dlc_config):
+            value = getattr(self.dlc_config, attr)
+            # Skip function calls, we don't want to expose these to the user
+            if isinstance(value, Callable):
+                continue
+            # Convert private attrs (usually implemented w/ getter and setter) to public
+            if attr.startswith("_"):
+                attr = attr[1:]
+            # Skip keys that are not in config_data
+            if attr not in config_data:
+                continue
+            setattr(self.dlc_config, attr, config_data[attr])
 
         # Autocorrect settings
         self.autocorrect_settings.search_area = config_data["search_area"]
@@ -170,7 +164,6 @@ class Project(ABC):
 
         # Video similarity
         self.cam1s_are_the_same_view = config_data["cam1s_are_the_same_view"]
-        self.video_codec = config_data["video_codec"]
 
         # Retraining
         self.augmenter_settings.outlier_algorithm = config_data["augmenter"][
@@ -183,9 +176,9 @@ class Project(ABC):
     def update_config_file(self):
         """Update the config to the values of the current object"""
         if self.project_config_path.exists():
-            config_data = Project.load_config_file(self.project_config_path)
+            config_data = load_config_file(self.project_config_path)
         else:
-            config_data = Project.load_config_file(
+            config_data = load_config_file(
                 Path(__file__).parent / "default_config.yaml"
             )
 
@@ -194,11 +187,22 @@ class Project(ABC):
         config_data["task"] = self.task
         config_data["experimenter"] = self.experimenter
         config_data["working_dir"] = str(self.working_dir)
-        config_data["path_config_file"] = str(self.path_config_file)
+        config_data["path_config_file"] = str(self.dlc_config.path_config_file)
         config_data["nframes"] = self.nframes
-        config_data["maxiters"] = self.maxiters
         config_data["tracking_threshold"] = self.tracking_threshold
-        config_data["mode"] = self.mode
+        config_data["mode"] = self.dlc_config.mode
+
+        # DeepLabCut settings
+        for attr in vars(self.dlc_config):
+            # Convert private attrs (usually implemented w/ getter and setter) to public
+            if attr.startswith("_"):
+                attr = attr[1:]
+            value = getattr(self.dlc_config, attr)
+            if isinstance(value, Callable):
+                continue
+            if isinstance(value, Path):
+                value = str(value)
+            config_data[attr] = value
 
         # Autocorrect settings
         config_data["search_area"] = self.autocorrect_settings.search_area
@@ -218,7 +222,6 @@ class Project(ABC):
 
         # Video similarity
         config_data["cam1s_are_the_same_view"] = self.cam1s_are_the_same_view
-        config_data["video_codec"] = self.video_codec
 
         # Retraining
         config_data["augmenter"]["outlier_algorithm"] = (
@@ -228,108 +231,10 @@ class Project(ABC):
             self.augmenter_settings.extraction_algorithm.value
         )
 
-        Project.save_config_file(config_data, self.project_config_path)
-
-
-@dataclass
-class Project2D(Project):
-    _mode: str = "2D"
-
-    def __post_init__(self):
-        """After initializing, check the config and update if necessary"""
-        self.check_config_for_updates()
-
-
-@dataclass
-class ProjectPerCam(Project):
-    _path_config_file_2: Path
-    _mode: str = "per_cam"
-
-    def __post_init__(self):
-        """After initializing, check the config and update if necessary"""
-        self.check_config_for_updates()
-
-    def check_config_for_updates(self):
-        """Check the config for updates and update any values that have changed."""
-        if not self.project_config_path.exists():
-            logger.debug(
-                "Didn't find project config this time around. I'm sure this is fine..."
-            )
-            return
-
-        super().check_config_for_updates()
-        config_data = Project.load_config_file(self.project_config_path)
-
-        self.path_config_file_2 = Path(config_data["path_config_file_2"])
-
-    def update_config_file(self):
-        """Update the config to the values of the current object"""
-        super().update_config_file()
-        config_data = Project.load_config_file(self.project_config_path)
-
-        # Experimental params
-        config_data["path_config_file_2"] = str(self.path_config_file_2)
-
-        Project.save_config_file(config_data, self.project_config_path)
-
-    @property
-    def path_config_file_2(self):
-        """Ensuring path_config_file is always returned as a path"""
-        return Path(self._path_config_file_2)
-
-    @path_config_file_2.setter
-    def path_config_file_2(self, value):
-        """Ensuring path_config_file is always returned as a path"""
-        self._path_config_file_2 = value
-
-    @property
-    def iteration_2(self):
-        """Iteration of training for DLC project within the DeepXROMM project"""
-        dlc_config = Project.load_config_file(self.path_config_file)
-        return dlc_config["iteration"]
-
-
-@dataclass
-class ProjectRGB(Project):
-    _mode: str = "rgb"
-    swapped_markers: bool = False
-    crossed_markers: bool = False
-
-    def __post_init__(self):
-        """After initializing, check the config and update if necessary"""
-        self.check_config_for_updates()
-
-    def check_config_for_updates(self):
-        """Check the config for updates and update any values that have changed."""
-        if not self.project_config_path.exists():
-            logger.debug(
-                "Didn't find project config this time around. I'm sure this is fine..."
-            )
-            return
-
-        super().check_config_for_updates()
-        config_data = Project.load_config_file(self.project_config_path)
-        logger.debug(f"Swapped markers: {config_data['swapped_markers']}")
-        logger.debug(f"Crossed markers: {config_data['crossed_markers']}")
-
-        self.swapped_markers = config_data["swapped_markers"]
-        self.crossed_markers = config_data["crossed_markers"]
-
-    def update_config_file(self):
-        """Update the config to the values of the current object"""
-        super().update_config_file()
-        config_data = Project.load_config_file(self.project_config_path)
-
-        # Experimental params
-        config_data["swapped_markers"] = self.swapped_markers
-        config_data["crossed_markers"] = self.crossed_markers
-
-        Project.save_config_file(config_data, self.project_config_path)
+        save_config_file(config_data, self.project_config_path)
 
 
 class ProjectFactory:
-    _PROJECT_MODES = ["2D", "per_cam", "rgb"]
-
     def __init__(self):
         raise NotImplementedError("Use create_new_config or load_config instead.")
 
@@ -339,7 +244,6 @@ class ProjectFactory:
         working_dir: str | Path = Path.cwd(),
         experimenter="NA",
         mode="2D",
-        codec=DEFAULT_CODEC,
     ) -> Project:
         """Creates a new config from scratch."""
         if isinstance(working_dir, str):
@@ -351,53 +255,23 @@ class ProjectFactory:
         dummy_video_path = working_dir / "dummy.avi"
         frame = np.zeros((480, 480, 3), dtype=np.uint8)
         out = cv2.VideoWriter(
-            str(dummy_video_path), cv2.VideoWriter_fourcc(*codec), 15, (480, 480)
+            str(dummy_video_path), cv2.VideoWriter_fourcc(*"XVID"), 15, (480, 480)
         )
         out.write(frame)
         out.release()
 
         # Create a new DLC project
         task = working_dir.name
-        path_config_file = deeplabcut.create_new_project(
-            task,
-            experimenter,
-            [str(dummy_video_path)],
-            str(working_dir / ""),  # Add the trailing slash
-            copy_videos=True,
-        )
-
-        path_config_file_2 = None
-        if mode == "per_cam":
-            task_2 = f"{task}_cam2"
-            path_config_file_2 = deeplabcut.create_new_project(
-                task_2,
-                experimenter,
-                [str(dummy_video_path)],
-                str(working_dir / ""),  # Add the trailing slash
-                copy_videos=True,
-            )
 
         # Instantiate project
-        project = cls._instantiate_project(
-            mode,
+        dlc_config = DlcConfigFactory.create_new_config(
             task,
-            experimenter,
-            working_dir,
-            path_config_file,
-            path_config_file_2,
-            codec,
+            mode=mode,
+            working_directory=working_dir,
+            experimenter=experimenter,
+            videos=[str(dummy_video_path)],
         )
-
-        # Cleanup
-        try:
-            (Path(path_config_file).parent / "labeled-data/dummy").rmdir()
-        except FileNotFoundError:
-            pass
-
-        try:
-            (Path(path_config_file).parent / "videos/dummy.avi").unlink()
-        except FileNotFoundError:
-            pass
+        project = Project(task, dlc_config, experimenter, working_dir)
 
         try:
             dummy_video_path.unlink()
@@ -414,7 +288,8 @@ class ProjectFactory:
         if isinstance(working_dir, str):
             working_dir = Path(working_dir)
 
-        config = Project.load_config_file(working_dir / "project_config.yaml")
+        # Open the config
+        config = load_config_file(working_dir / "project_config.yaml")
         config = _migrate_tracking_mode(config)
 
         # Extract values necessary to instantiate the project
@@ -423,34 +298,30 @@ class ProjectFactory:
         working_dir = Path(config["working_dir"])
         path_config_file = Path(config["path_config_file"])
         mode = config["mode"]
-        codec = config["video_codec"]
 
-        path_config_file_2 = None
-        if "path_config_file_2" in config:
+        if mode == "per_cam":
             path_config_file_2 = Path(config["path_config_file_2"])
+            dlc_config = DlcConfigFactory.load_existing_config(
+                mode=mode,
+                path_config_file=path_config_file,
+                path_config_file_2=path_config_file_2,
+            )
+        else:
+            dlc_config = DlcConfigFactory.load_existing_config(
+                mode=mode, path_config_file=path_config_file
+            )
+        project = Project(task, dlc_config, experimenter, working_dir)
 
-        project = cls._instantiate_project(
-            mode,
-            task,
-            experimenter,
-            working_dir,
-            path_config_file,
-            path_config_file_2,
-            codec,
-        )
-
-        # Initiate data processor utility
-        # TODO: Refactor this section of XMADataProcessor into a Trial object with find_csv and find_cam_file methods
-        data_processor = XMADataProcessor(project=project)
-        training_trials = data_processor.list_trials("trainingdata")
+        training_trials = project.list_trials("trainingdata")
         if len(training_trials) == 0:
             raise FileNotFoundError(
                 "Empty trials directory found. Expected trial folders within the 'trainingdata' directory"
             )
         trial_path = training_trials[0]
+        trial = Trial(trial_path)
 
         # Load trial CSV
-        trial_csv_path = data_processor.find_trial_csv(trial_path)
+        trial_csv_path = trial.find_trial_csv()
         trial_csv = pd.read_csv(trial_csv_path)
 
         # Drop untracked frames (all NaNs)
@@ -472,7 +343,7 @@ class ProjectFactory:
             )
 
         # Check the current nframes against the threshold value * the number of frames in the cam1 video
-        cam1_video_path = data_processor.find_cam_file(trial_path, "cam1")
+        cam1_video_path = trial.find_cam_file("cam1")
         video = cv2.VideoCapture(cam1_video_path)
 
         if (
@@ -486,11 +357,9 @@ class ProjectFactory:
 
         # Check DLC bodyparts (marker names)
         default_bodyparts = ["bodypart1", "bodypart2", "bodypart3", "objectA"]
-        bodyparts = data_processor.get_bodyparts_from_xma(
-            trial_csv_path, mode=project.mode
-        )
+        bodyparts = project.dlc_config.get_bodyparts(trial_csv_path)
 
-        dlc_yaml = Project.load_config_file(project.path_config_file)
+        dlc_yaml = load_config_file(project.dlc_config.path_config_file)
         dlc_bodyparts = dlc_yaml["bodyparts"]
         logger.debug(f"DLC bodyparts: {dlc_bodyparts}")
 
@@ -501,11 +370,11 @@ class ProjectFactory:
                 "XMAlab CSV marker names are different than DLC bodyparts."
             )
 
-        Project.save_config_file(dlc_yaml, project.path_config_file)
+        save_config_file(dlc_yaml, project.dlc_config.path_config_file)
 
         # Check DLC bodyparts (marker names) for config 2 if needed
-        if project.mode == "per_cam":
-            dlc_yaml = Project.load_config_file(project.path_config_file_2)
+        if project.dlc_config.mode == "per_cam":
+            dlc_yaml = load_config_file(project.dlc_config.path_config_file_2)
             # Better conditional logic could definitely be had to reduce function calls here
             if dlc_yaml["bodyparts"] == default_bodyparts:
                 dlc_yaml["bodyparts"] = bodyparts
@@ -514,58 +383,9 @@ class ProjectFactory:
                     "XMAlab CSV marker names are different than DLC bodyparts."
                 )
 
-            Project.save_config_file(dlc_yaml, project.path_config_file_2)
+            save_config_file(dlc_yaml, project.dlc_config.path_config_file_2)
 
         project.update_config_file()
-
-        return project
-
-    @classmethod
-    def _instantiate_project(
-        cls,
-        mode: str,
-        task: str,
-        experimenter: str,
-        working_dir: Path,
-        path_config_file: Path,
-        path_config_file_2: Path | None = None,
-        codec: str = DEFAULT_CODEC,
-    ):
-        """Instantiate new project"""
-        match mode:
-            case "2D":
-                project = Project2D(
-                    task,
-                    experimenter,
-                    working_dir,
-                    _path_config_file=path_config_file,
-                    _video_codec=codec,
-                )
-            case "per_cam":
-                if path_config_file_2 is None:
-                    raise ValueError(
-                        "Please specify a value for 2nd DLC project config. Value is currently unset"
-                    )
-                project = ProjectPerCam(
-                    task,
-                    experimenter,
-                    working_dir,
-                    _path_config_file_2=path_config_file_2,
-                    _path_config_file=path_config_file,
-                    _video_codec=codec,
-                )
-            case "rgb":
-                project = ProjectRGB(
-                    task,
-                    experimenter,
-                    working_dir,
-                    _path_config_file=path_config_file,
-                    _video_codec=codec,
-                )
-            case _:
-                raise ValueError(
-                    f"Unsupported mode {mode}. Valid modes: {cls._PROJECT_MODES}"
-                )
 
         return project
 
@@ -619,83 +439,3 @@ def _migrate_tracking_mode(config: dict):
         del config["tracking_mode"]
 
     return config
-
-
-def _validate_codec(codec: str, width: int = 640, height: int = 480) -> bool:
-    """
-    Validate if a video codec is available on the current system.
-
-    Args:
-        codec: FourCC codec code (e.g., "avc1", "DIVX", "XVID")
-        width: Test video width (default 640)
-        height: Test video height (default 480)
-
-    Returns:
-        True if codec is available and functional, False otherwise
-
-    Note:
-        Special cases "uncompressed" and 0 always return True as they
-        use different encoding mechanisms.
-    """
-    # Special cases that don't use cv2.VideoWriter with fourcc
-    if codec == "uncompressed" or codec == 0:
-        return True
-
-    # Test codec by creating a temporary VideoWriter
-    with tempfile.TemporaryDirectory() as tmpdir:
-        try:
-            test_path = Path(tmpdir) / "codec_test.avi"
-            fourcc = cv2.VideoWriter_fourcc(*codec)
-            writer = cv2.VideoWriter(
-                str(test_path),
-                fourcc,
-                1.0,  # Low FPS for test
-                (width, height),
-            )
-
-            # Check if writer opened successfully
-            is_valid = writer.isOpened()
-
-            # Try writing a test frame to ensure codec actually works
-            if is_valid:
-                test_frame = np.zeros((height, width, 3), dtype=np.uint8)
-                writer.write(test_frame)
-
-            writer.release()
-            logger.debug(
-                f"Codec validation for '{codec}': {'PASSED' if is_valid else 'FAILED'}"
-            )
-            return is_valid
-
-        except Exception as e:
-            logger.error(f"Codec validation for '{codec}' failed with exception: {e}")
-            return False
-
-
-def _get_codec_error_message(failed_codec: str, operation: str) -> str:
-    """
-    Generate descriptive error message for codec validation failure.
-
-    Args:
-        failed_codec: The codec that failed validation
-        operation: Operation type ("split" or "merge")
-
-    Returns:
-        Formatted error message with suggestions
-    """
-    return f"""
-Video codec '{failed_codec}' is not available on this system for {operation}_rgb operation.
-
-Common alternative codecs to try:
-- "avc1"  : H.264 codec (best quality, not always available)
-- "DIVX"  : DivX codec (widely available)
-- "XVID"  : Xvid codec (widely available)
-- "mp4v"  : MPEG-4 codec (generally available)
-- "MJPG"  : Motion JPEG (always available, larger file sizes)
-- "uncompressed" : Raw video via ffmpeg (largest files, highest quality)
-
-To change the codec, update your project config file:
-video_codec: "DIVX"  # Change this line to one of the alternatives above
-
-Note: Codec availability depends on your OpenCV build and system codecs.
-""".strip()

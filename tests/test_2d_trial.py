@@ -1,4 +1,3 @@
-import os
 from pathlib import Path
 import shutil
 import unittest
@@ -6,59 +5,11 @@ import random
 
 import pandas as pd
 
-from deepxromm import DeepXROMM
+from .utils import set_up_project
 
 SAMPLE_FRAME = Path(__file__).parent / "sample_frame.jpg"
 SAMPLE_FRAME_INPUT = Path(__file__).parent / "sample_frame_input.csv"
 SAMPLE_AUTOCORRECT_OUTPUT = Path(__file__).parent / "sample_autocorrect_output.csv"
-
-DEEPXROMM_TEST_CODEC = os.environ.get("DEEPXROMM_TEST_CODEC", "avc1")
-
-
-def set_up_project(working_dir: Path):
-    """2D mode reference method for configuring a 2D trial with XMA and DLC formatted data pre-loaded"""
-    DeepXROMM.create_new_project(working_dir, mode="2D", codec=DEEPXROMM_TEST_CODEC)
-
-    # Copy trial slice data
-    trial_dir = working_dir / "trainingdata/test"
-    trial_dir.mkdir(parents=True, exist_ok=True)
-    trial_csv = trial_dir / "test.csv"
-    cam1_path = trial_dir / "test_cam1.avi"
-    cam2_path = trial_dir / "test_cam2.avi"
-
-    shutil.copy("trial_slice.csv", str(trial_csv))
-    shutil.copy("trial_cam1_slice.avi", str(cam1_path))
-    shutil.copy("trial_cam2_slice.avi", str(cam2_path))
-
-    # Run xma_to_dlc to create training dataset
-    deepxromm = DeepXROMM.load_project(working_dir)
-    deepxromm.xma_to_dlc()
-
-    # Copy in mock DLC data
-    cam1_df = pd.read_hdf("trial_cam1dlc.h5")
-    cam2_df = pd.read_hdf("trial_cam2dlc.h5")
-    output_dir = working_dir / "trials/test/it0"
-    output_dir.mkdir(parents=True, exist_ok=True)
-    mock_cam1_h5 = (
-        output_dir / "test_cam1DLC_resnet50_test_projectDec1shuffle1_100000.h5"
-    )
-    mock_cam2_h5 = (
-        output_dir / "test_cam2DLC_resnet50_test_projectDec1shuffle1_100000.h5"
-    )
-    mock_cam1_csv = (
-        output_dir / "test_cam1DLC_resnet50_test_projectDec1shuffle1_100000.csv"
-    )
-    mock_cam2_csv = (
-        output_dir / "test_cam2DLC_resnet50_test_projectDec1shuffle1_100000.csv"
-    )
-    cam1_df.to_hdf(mock_cam1_h5, key="df_with_missing", mode="w")
-    cam2_df.to_hdf(mock_cam2_h5, key="df_with_missing", mode="w")
-    cam1_df.to_csv(mock_cam1_csv, na_rep="NaN")
-    cam2_df.to_csv(mock_cam2_csv, na_rep="NaN")
-
-    # Run DLC to XMA
-    deepxromm.dlc_to_xma()
-    return mock_cam1_h5, mock_cam2_h5, deepxromm
 
 
 class Test2DTrialProcess(unittest.TestCase):
@@ -67,23 +18,7 @@ class Test2DTrialProcess(unittest.TestCase):
     def setUp(self):
         """Create trial with test data"""
         self.working_dir = Path.cwd() / "tmp"
-        DeepXROMM.create_new_project(self.working_dir, codec=DEEPXROMM_TEST_CODEC)
-
-        # Make a trial directory
-        trial_dir = self.working_dir / "trainingdata/test"
-        trial_dir.mkdir(parents=True, exist_ok=True)
-
-        # Make vars for pathing to find files easily
-        self.trial_csv = trial_dir / "test.csv"
-        self.cam1_path = trial_dir / "test_cam1.avi"
-        self.cam2_path = trial_dir / "test_cam2.avi"
-
-        # Copy sample CSV data (use existing sample file)
-        shutil.copy("trial_slice.csv", str(self.trial_csv))
-        shutil.copy("trial_cam1_slice.avi", str(self.cam1_path))
-        shutil.copy("trial_cam2_slice.avi", str(self.cam2_path))
-
-        self.deepxromm = DeepXROMM.load_project(self.working_dir)
+        self.trial_csv, self.deepxromm = set_up_project(self.working_dir, "2D")
         self.deepxromm.xma_to_dlc()
 
     def test_first_frame_matches_in_dlc_csv(self):
@@ -91,7 +26,7 @@ class Test2DTrialProcess(unittest.TestCase):
         xmalab_data = pd.read_csv(self.trial_csv)
         xmalab_first_row = xmalab_data.loc[0, :]
 
-        dlc_config = Path(self.deepxromm.project.path_config_file)
+        dlc_config = self.deepxromm.project.dlc_config.path_config_file
         labeled_data_path = dlc_config.parent / "labeled-data/MyData"
         dlc_data = pd.read_hdf(labeled_data_path / "CollectedData_NA.h5")
         cam1_img_path = str(
@@ -122,7 +57,7 @@ class Test2DTrialProcess(unittest.TestCase):
         xmalab_data = pd.read_csv(self.trial_csv)
 
         # Load DLC data
-        dlc_config = Path(self.deepxromm.project.path_config_file)
+        dlc_config = self.deepxromm.project.dlc_config.path_config_file
         labeled_data_path = dlc_config.parent / "labeled-data/MyData"
         dlc_data = pd.read_hdf(labeled_data_path / "CollectedData_NA.h5")
 
@@ -170,7 +105,7 @@ class Test2DTrialProcess(unittest.TestCase):
         xmalab_data = pd.read_csv(self.trial_csv)
 
         # Load DLC data
-        dlc_config = Path(self.deepxromm.project.path_config_file)
+        dlc_config = self.deepxromm.project.dlc_config.path_config_file
         labeled_data_path = dlc_config.parent / "labeled-data/MyData"
         dlc_data = pd.read_hdf(labeled_data_path / "CollectedData_NA.h5")
 
@@ -228,9 +163,10 @@ class TestDlcToXma2D(unittest.TestCase):
     def setUp(self):
         """Create 2D project and generate mock DLC analysis output"""
         self.working_dir = Path.cwd() / "tmp"
-        self.mock_cam1_h5, self.mock_cam2_h5, self.deepxromm = set_up_project(
-            self.working_dir
-        )
+        _, self.deepxromm = set_up_project(self.working_dir, "2D")
+        self.deepxromm.xma_to_dlc()
+        self.mock_cam1_h5, self.mock_cam2_h5 = _copy_mock_dlc_data(self.working_dir)
+        self.deepxromm.dlc_to_xma()
 
     def test_dlc_to_xma_creates_xmalab_format_files(self):
         """
@@ -390,9 +326,10 @@ class TestAutocorrect2D(unittest.TestCase):
     def setUp(self):
         """Create 2D project and generate mock DLC analysis output"""
         self.working_dir = Path.cwd() / "tmp"
-        self.mock_cam1_h5, self.mock_cam2_h5, self.deepxromm = set_up_project(
-            self.working_dir
-        )
+        self.working_dir = Path.cwd() / "tmp"
+        _, self.deepxromm = set_up_project(self.working_dir, "2D")
+        self.deepxromm.xma_to_dlc()
+        self.mock_cam1_h5, self.mock_cam2_h5 = _copy_mock_dlc_data(self.working_dir)
 
     def run_autocorrect(self):
         """Run autocorrect using the provided deepxromm project"""
@@ -402,3 +339,28 @@ class TestAutocorrect2D(unittest.TestCase):
         """Remove the created temp project"""
         if self.working_dir.exists():
             shutil.rmtree(self.working_dir)
+
+
+def _copy_mock_dlc_data(project_dir: Path) -> tuple[Path, Path]:
+    cam1_df = pd.read_hdf("trial_cam1dlc.h5")
+    cam2_df = pd.read_hdf("trial_cam2dlc.h5")
+    output_dir = project_dir / "trials/test/it0"
+    output_dir.mkdir(parents=True, exist_ok=True)
+    mock_cam1_h5 = (
+        output_dir / "test_cam1DLC_resnet50_test_projectDec1shuffle1_100000.h5"
+    )
+    mock_cam2_h5 = (
+        output_dir / "test_cam2DLC_resnet50_test_projectDec1shuffle1_100000.h5"
+    )
+    mock_cam1_csv = (
+        output_dir / "test_cam1DLC_resnet50_test_projectDec1shuffle1_100000.csv"
+    )
+    mock_cam2_csv = (
+        output_dir / "test_cam2DLC_resnet50_test_projectDec1shuffle1_100000.csv"
+    )
+    cam1_df.to_hdf(mock_cam1_h5, key="df_with_missing", mode="w")
+    cam2_df.to_hdf(mock_cam2_h5, key="df_with_missing", mode="w")
+    cam1_df.to_csv(mock_cam1_csv, na_rep="NaN")
+    cam2_df.to_csv(mock_cam2_csv, na_rep="NaN")
+
+    return mock_cam1_h5, mock_cam2_h5

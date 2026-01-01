@@ -2,7 +2,6 @@
 Unit tests for deepxromm project creation
 """
 
-import os
 from pathlib import Path
 import shutil
 import unittest
@@ -15,8 +14,6 @@ SAMPLE_FRAME = Path(__file__).parent / "sample_frame.jpg"
 SAMPLE_FRAME_INPUT = Path(__file__).parent / "sample_frame_input.csv"
 SAMPLE_AUTOCORRECT_OUTPUT = Path(__file__).parent / "sample_autocorrect_output.csv"
 
-DEEPXROMM_TEST_CODEC = os.environ.get("DEEPXROMM_TEST_CODEC", "avc1")
-
 
 class TestProjectCreation(unittest.TestCase):
     """Tests behaviors related to XMA-DLC project creation"""
@@ -26,7 +23,7 @@ class TestProjectCreation(unittest.TestCase):
         """Create a sample project"""
         super(TestProjectCreation, cls).setUpClass()
         cls.project_dir = Path.cwd() / "tmp"
-        DeepXROMM.create_new_project(cls.project_dir, codec=DEEPXROMM_TEST_CODEC)
+        DeepXROMM.create_new_project(cls.project_dir)
 
     def test_project_creates_correct_folders(self):
         """Do we have all of the correct folders?"""

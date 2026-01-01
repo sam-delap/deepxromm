@@ -5,14 +5,13 @@ from pathlib import Path
 
 from itertools import combinations
 import cv2
-import deeplabcut
 import imagehash
 import pandas as pd
 from PIL import Image
-import yaml
 
-from deepxromm.xma_data_processor import XMADataProcessor
 from deepxromm.logging import logger
+from deepxromm.trial import Trial
+from deepxromm.xrommtools import get_marker_and_cam_names
 
 
 class Analyzer:
@@ -21,97 +20,15 @@ class Analyzer:
     def __init__(self, project):
         self.working_dir = project.working_dir
         self.project_config = project.project_config_path
-        self._trials_path = self.working_dir / "trials"
-        self._data_processor = XMADataProcessor(project)
+        self.dlc_config = project.dlc_config
         self._project = project
-        self._dlc_config = project.path_config_file
-
-    def analyze_videos(self):
-        """Analyze videos with a pre-existing network"""
-        trials = self._data_processor.list_trials()
-
-        # Establish project vars
-        with open(self._dlc_config) as dlc_config:
-            dlc = yaml.safe_load(dlc_config)
-        iteration = dlc["iteration"]
-
-        mode = self._project.mode
-        if mode in ["2D", "per_cam"]:
-            self._analyze_xromm_videos(iteration)
-
-        elif mode == "rgb":
-            self._data_processor.make_rgb_videos("trials")
-            for trial_path in trials:
-                trial = trial_path.name
-                current_files = trial_path.glob("*")
-                logger.debug(f"Current files in directory {current_files}")
-                video_path = trial_path / f"{trial}_rgb.avi"
-                destfolder = trial_path / f"it{iteration}"
-                deeplabcut.analyze_videos(
-                    str(self._dlc_config),
-                    str(
-                        video_path
-                    ),  # DLC relies on .endswith to determine suffix, so this needs to be a string
-                    destfolder=destfolder,
-                    save_as_csv=True,
-                )
-        else:
-            raise ValueError(f"Unsupported mode: {mode}")
-
-    def _analyze_xromm_videos(self, iteration: int) -> None:
-        """Analyze all novel videos in the 'trials' folder of a deepxromm project"""
-        # assumes you have cam1 and cam2 videos as .avi in their own seperate trial folders
-        # assumes all folders w/i new_data_path are trial folders
-
-        # analyze videos
-        cameras = [1, 2]
-        trials = self._data_processor.list_trials()
-        mode = self._project.mode
-
-        for trialpath in trials:
-            savepath = trialpath / f"it{iteration}"
-            if savepath.exists():
-                temp = savepath.glob("*Predicted2DPoints.csv")
-                if temp:
-                    logger.warning(
-                        f"There are already predicted points in iteration {iteration} subfolders... skipping point prediction"
-                    )
-                    return
-            else:
-                savepath.mkdir(parents=True, exist_ok=True)  # make new folder
-            # get video file
-            for camera in cameras:
-                # Error handling handled by find_cam_file helper
-                video = self._data_processor.find_cam_file(trialpath, f"cam{camera}")
-                # analyze video
-                if mode == "2D":
-                    deeplabcut.analyze_videos(
-                        str(self._project.path_config_file),
-                        [
-                            str(video)
-                        ],  # DLC uses endswith filtering for suffixes for some reason
-                        destfolder=savepath,
-                        save_as_csv=True,
-                    )
-                else:
-                    configs = [
-                        str(self._project.path_config_file),
-                        str(self._project.path_config_file_2),
-                    ]
-                    deeplabcut.analyze_videos(
-                        configs[camera - 1],
-                        [
-                            str(video)
-                        ],  # DLC uses endswith filtering for suffixes for some reason
-                        destfolder=savepath,
-                        save_as_csv=True,
-                    )
+        self._trials_path = self.working_dir / "trials"
 
     def analyze_video_similarity_project(self):
         """Analyze all videos in a project and take their average similar. This is dangerous, as it will assume that all cam1/cam2 pairs match
         or don't match!"""
         similarity_score = {}
-        trial_combos = combinations(self._data_processor.list_trials(), 2)
+        trial_combos = combinations(self._project.list_trials(), 2)
         for trial1, trial2 in trial_combos:
             similarity_score[(trial1, trial2)] = self.analyze_video_similarity_trial(
                 [trial1, trial2]
@@ -122,10 +39,10 @@ class Analyzer:
         """Analyze the average similarity between trials using image hashing"""
         cameras = ["cam1", "cam2"]
         videos = {
-            (trial, cam): cv2.VideoCapture(
-                self._data_processor.find_cam_file(self._trials_path / trial, cam)
+            (trial_path, cam): cv2.VideoCapture(
+                Trial(trial_path).find_cam_file(identifier=cam)
             )
-            for trial in trials
+            for trial_path in trials
             for cam in cameras
         }
 
@@ -160,7 +77,7 @@ class Analyzer:
         """Analyze all videos in a project and get their average rhythmicity. This assumes that all cam1/2 pairs are either the same or different!"""
         marker_similarity = {}
 
-        trial_perms = combinations(self._data_processor.list_trials(), 2)
+        trial_perms = combinations(self._project.list_trials(), 2)
         logger.debug(f"Trial permutations for project: {trial_perms}")
         for trial1, trial2 in trial_perms:
             marker_similarity[(trial1, trial2)] = abs(
@@ -171,14 +88,12 @@ class Analyzer:
     def analyze_marker_similarity_trial(self, trial1_path: Path, trial2_path: Path):
         """Analyze marker similarity for a pair of trials using the distance formula."""
         # Get a list of markers that each trial have in common
-        bodyparts1_csv_path = self._data_processor.find_trial_csv(trial1_path)
-        bodyparts2_csv_path = self._data_processor.find_trial_csv(trial2_path)
-        bodyparts1 = self._data_processor.get_bodyparts_from_xma(
-            bodyparts1_csv_path, mode="rgb"
-        )
-        bodyparts2 = self._data_processor.get_bodyparts_from_xma(
-            bodyparts2_csv_path, mode="rgb"
-        )
+        trial1 = Trial(trial1_path)
+        trial2 = Trial(trial2_path)
+        bodyparts1_csv_path = trial1.find_trial_csv()
+        bodyparts2_csv_path = trial2.find_trial_csv()
+        bodyparts1 = get_marker_and_cam_names(bodyparts1_csv_path)
+        bodyparts2 = get_marker_and_cam_names(bodyparts2_csv_path)
         markers_in_common = [marker for marker in bodyparts1 if marker in bodyparts2]
         logger.debug(f"Markers in common for similarity analysis: {markers_in_common}")
 
@@ -223,14 +138,11 @@ class Analyzer:
 
         return marker_similarity
 
-    def get_max_dissimilarity_for_trial(self, trial_path, window):
+    def get_max_dissimilarity_for_trial(self, trial_path: Path, window):
         """Calculate the dissimilarity within the trial given the frame sliding window."""
-        video1 = cv2.VideoCapture(
-            self._data_processor.find_cam_file(trial_path, "cam1")
-        )
-        video2 = cv2.VideoCapture(
-            self._data_processor.find_cam_file(trial_path, "cam2")
-        )
+        trial = Trial(trial_path)
+        video1 = cv2.VideoCapture(trial.find_cam_file(identifier="cam1"))
+        video2 = cv2.VideoCapture(trial.find_cam_file(identifier="cam2"))
 
         hashes1 = self._hash_trial_video(video1)
         hashes2 = self._hash_trial_video(video2)

@@ -1,4 +1,4 @@
-FROM nvidia/cuda:11.8.0-base-ubuntu22.04
+FROM nvidia/cuda:11.8.0-cudnn8-devel-ubuntu22.04
 
 SHELL ["/bin/bash", "-euo", "pipefail", "-c"]
 
@@ -8,15 +8,21 @@ RUN apt-get update && \
     curl \
     git \
     libgl1 \
-    libglib2.0-0 && \
+    libglib2.0-0 \
+    python3 && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
+# Install uv
 RUN curl -LsSf https://astral.sh/uv/install.sh | env UV_INSTALL_DIR="/bin/" sh
 
-WORKDIR /tmp/venv/
+ENV UV_SYSTEM_PYTHON=1
+ENV UV_LINK_MODE=copy
 
-RUN --mount=type=bind,source=./,target=/tmp/venv,rw \
-    uv sync
+# hadolint ignore=DL3045
+COPY pyproject.toml .
+
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv pip install -r pyproject.toml --group dev
 
 ENTRYPOINT ["/bin/bash"]

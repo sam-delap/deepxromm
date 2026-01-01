@@ -119,6 +119,27 @@ deepxromm.create_training_dataset()
 
 > **Quality assessment:** After analysis, use the methods in [Advanced Analysis Methods](#advanced-analysis-methods) to validate your results.
 
+## Converting DLC predictions back to XMAlab format
+
+After analyzing your videos with the trained network, you may want to convert the DeepLabCut predictions back to XMAlab-compatible CSV format for import into XMAlab.
+
+To convert predictions for all analyzed trials, run:
+
+```python
+deepxromm.dlc_to_xma()
+```
+
+This will create `*-Predicted2DPoints.csv` files in each trial's iteration directory (e.g., `trials/trial_name/it0/trial_name-Predicted2DPoints.csv`). These files contain the network's predictions formatted with cam1/cam2 columns that XMAlab can import.
+
+**When to use this:**
+- After running `analyze_videos()` to get XMAlab-compatible output
+- When you want to visualize network predictions in XMAlab
+- Before importing predicted points into XMAlab for validation
+
+> **Note:** This step is automatically performed when using `train_many_projects()` for batch processing.
+
+You can then import these CSV files into XMAlab using the same import settings shown in the [Using a trained network](#using-a-trained-network-to-track-your-trials) section above.
+
 ## Batch Training Multiple Projects
 
 For labs with multiple DeepXROMM projects, you can automate the entire training pipeline using the `train_many_projects()` static method.
