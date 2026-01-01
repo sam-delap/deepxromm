@@ -181,10 +181,8 @@ class TestRGBTrialProcess(unittest.TestCase):
     def setUp(self):
         """Create trial with test data"""
         self.working_dir = Path.cwd() / "tmp"
-        self.trial_csv, self.deepxromm_proj.proj = set_up_project(
-            self.working_dir, "rgb"
-        )
-        self.deepxromm_proj.proj.xma_to_dlc()
+        self.trial_csv, self.deepxromm_proj = set_up_project(self.working_dir, "rgb")
+        self.deepxromm_proj.xma_to_dlc()
 
     def test_first_frame_matches_in_dlc_csv(self):
         """When I run xma_to_dlc, does the DLC CSV have the same data as my original file?"""
@@ -299,8 +297,9 @@ class TestDlcToXmaRGB(unittest.TestCase):
         """Create RGB project and generate mock DLC analysis output"""
         self.working_dir = Path.cwd() / "tmp"
         self.trial_csv, self.deepxromm_proj = set_up_project(self.working_dir, "rgb")
+        self.deepxromm_proj.xma_to_dlc()
         self.mock_rgb_h5 = _copy_mock_dlc_data(self.working_dir)
-        self.deepxromm_proj.proj.xma_to_dlc()
+        self.deepxromm_proj.dlc_to_xma()
 
     def test_dlc_to_xma_creates_xmalab_format_files(self):
         """

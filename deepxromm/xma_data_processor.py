@@ -125,19 +125,6 @@ class XMADataProcessor:
             )
             self._splice_xma_to_dlc(trial_path, list_of_frames)
 
-    def find_cam_file(self, path: Path, identifier: str):
-        """Searches a file for a given cam video in the trail folder."""
-        files = list(path.glob(f"*{identifier}*.avi"))
-        logger.debug(files)
-        if files:
-            result = files[0]
-            logger.debug(f"Found file {result} for {identifier}")
-            return files[0]
-        else:
-            raise FileNotFoundError(
-                f"No video file found containing '{identifier}' in {path}"
-            )
-
     def split_rgb(self, trial_path: Path, codec=None):
         """Takes a RGB video with different grayscale data written to the R, G, and B channels and splits it back into its component source videos."""
         # Use provided codec, otherwise fall back to config value
@@ -443,7 +430,6 @@ class XMADataProcessor:
         Returns:
             List of selected frame indices for each trial
         """
-        picked_frames = []
 
         # Check if we have enough frames
         if sum(len(x) for x in idx) < nframes:
@@ -452,6 +438,7 @@ class XMADataProcessor:
         # Pick frames to extract (NOTE this is random currently)
         # current code iteratively picks one frame at a time from each shuffled trial until # of picked_frames hits nframes
         count = 0
+        picked_frames = []
         while sum(len(x) for x in picked_frames) < nframes:
             for trialnum in range(len(idx)):
                 if sum(len(x) for x in picked_frames) < nframes:
