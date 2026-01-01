@@ -111,30 +111,6 @@ class XMADataProcessor:
                 tracked_hdf, "df_with_missing", format="table", mode="w", nan_rep="NaN"
             )
 
-    def find_trial_csv(self, trial_path: Path, identifier: str | None = None) -> Path:
-        """
-        Takes the path to a trial and returns the path to a trial CSV.
-        Errors if there is not exactly 1 trial CSV in a trial folder.
-        """
-        if identifier is not None:
-            csv_path = list(trial_path.glob(f"*{identifier}*.csv"))
-        else:
-            csv_path = list(trial_path.glob("*.csv"))
-
-        if len(csv_path) > 1:
-            logger.error(csv_path)
-            raise FileExistsError(
-                f"Found more than 1 CSV file with identifier {identifier} for trial: {trial_path}"
-            )
-        if len(csv_path) <= 0:
-            logger.debug(f"Current files in {str(trial_path)}")
-            logger.debug(list(trial_path.glob("*")))
-            raise FileNotFoundError(
-                f"Couldn't find a CSV file with identifier {identifier} for trial: {trial_path}"
-            )
-
-        return csv_path[0]
-
     def xma_to_dlc_rgb(self, suffix: str, picked_frames: list[list[int]]):
         """Convert XMAlab input into RGB-ready DLC input"""
         trials = self.project.list_trials(suffix=suffix)

@@ -26,6 +26,9 @@ class TestRGBMarkerCombos(unittest.TestCase):
         self.deepxromm = DeepXROMM.create_new_project(
             self.working_dir, mode="rgb", codec=DEEPXROMM_TEST_CODEC
         )
+        self.deepxromm.project.dlc_config.video_codec = DEEPXROMM_TEST_CODEC
+        self.deepxromm.project.update_config_file()
+
         frame = cv2.imread(str(SAMPLE_FRAME))
 
         # Make a trial directory
@@ -69,12 +72,10 @@ class TestRGBMarkerCombos(unittest.TestCase):
         df.to_csv(str(csv_path), index=False)
         cv2.destroyAllWindows()
 
-    def test_bodyparts_add_synthetic(self):
+    def test_bodyparts_add_swapped(self):
         """Can we add swapped markers?"""
-        tmp = load_config_file(self.working_dir / "project_config.yaml")
-        tmp["mode"] = "rgb"
-        tmp["swapped_markers"] = True
-        save_config_file(tmp, self.working_dir / "project_config.yaml")
+        self.deepxromm.project.dlc_config.swapped_markers = True
+        self.deepxromm.project.update_config_file()
         DeepXROMM.load_project(self.working_dir)
 
         config_obj = load_config_file(

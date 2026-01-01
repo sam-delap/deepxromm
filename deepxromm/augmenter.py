@@ -148,7 +148,7 @@ class Augmenter:
     def _extract_outlier_frames_rgb(self, trial_path: Path, **kwargs):
         """Extract outlier frames for RGB projects"""
         trial = Trial(trial_path)
-        cam_file = trial.find_cam_file(suffix=f"it{self._iteration}", identifier="rgb")
+        cam_file = trial.find_cam_file(identifier="rgb")
         analysis_path = trial_path / f"it{self._iteration}"
         outliers = self._get_outliers_for_camera(
             cam_file, self.path_config_file, **kwargs

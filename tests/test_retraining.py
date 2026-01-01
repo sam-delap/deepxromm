@@ -26,10 +26,8 @@ def generic_snapshot_updated_in_pose_config(deepxromm_proj: DeepXROMM, trial_csv
     deepxromm_proj = DeepXROMM.load_project(deepxromm_proj.project.working_dir)
 
     # Remove old labeled data
-    shutil.rmtree(
-        deepxromm_proj.project.dlc_config.path_config_file.parent
-        / "labeled-data"
-        / deepxromm_proj.project.dataset_name
+    deepxromm_proj.project.dlc_config.clear_labeled_data(
+        deepxromm_proj.project.dataset_name
     )
 
     # Create new labeled data
@@ -208,8 +206,8 @@ class TestRetrainingPerCam(unittest.TestCase):
             self.deepxromm_proj, self.trial_csv
         )
         pose_config_path_2 = self.deepxromm_proj._network._find_pose_cfg(
-            self.deepxromm_proj.project.path_config_file,
-            self.deepxromm_proj.project.dlc_iteration,
+            self.deepxromm_proj.project.dlc_config.path_config_file_2,
+            self.deepxromm_proj.project.dlc_config.iteration,
         )
         pose_config = load_config_file(pose_config_path_2)
         assert "resnet_v1_50.ckpt" not in pose_config["init_weights"]

@@ -6,6 +6,7 @@ from abc import ABC, abstractmethod
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
+import shutil
 
 import deeplabcut
 
@@ -78,6 +79,10 @@ class DlcConfig(ABC):
     def train_network(self, **kwargs) -> None:
         """Train a DeepLabCut network"""
         deeplabcut.train_network(self.path_config_file, **kwargs)
+
+    def clear_labeled_data(self, dataset_name: str) -> None:
+        """Clear the labeled data folder to make way for new labeled data"""
+        shutil.rmtree(self.path_config_file.parent / "labeled-data" / dataset_name)
 
     # Private methods
     def _configure_it_folder(self, trial: Trial) -> bool:
@@ -271,6 +276,15 @@ class DlcConfigPerCam(DlcConfig):
             destfolder=trial.trial_path / f"it{self.iteration}",
             save_as_csv=True,
             **kwargs,
+        )
+
+    def clear_labeled_data(self, dataset_name: str) -> None:
+        """Clear the labeled data folder of deepxromm data to make way for new labeled data"""
+        shutil.rmtree(
+            self.path_config_file.parent / "labeled-data" / f"{dataset_name}_cam1"
+        )
+        shutil.rmtree(
+            self.path_config_file_2.parent / "labeled-data" / f"{dataset_name}_cam2"
         )
 
 
