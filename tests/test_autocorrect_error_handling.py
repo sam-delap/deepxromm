@@ -3,7 +3,6 @@ Test error handling in autocorrect for empty frames and GaussianBlur failures
 """
 
 from pathlib import Path
-import shutil
 import unittest
 
 import cv2
@@ -11,7 +10,7 @@ import numpy as np
 import pandas as pd
 
 from deepxromm import DeepXROMM
-from .utils import DEEPXROMM_TEST_CODEC
+from .utils import tear_down_project, DEEPXROMM_TEST_CODEC
 
 SAMPLE_FRAME = Path(__file__).parent / "sample_frame.jpg"
 
@@ -204,5 +203,4 @@ class TestAutocorrectErrorHandling(unittest.TestCase):
 
     def tearDown(self):
         """Remove the created temp project"""
-        if self.working_dir.exists():
-            shutil.rmtree(self.working_dir)
+        tear_down_project(self.working_dir)

@@ -159,7 +159,7 @@ class Autocorrector:
         # For each marker in the frame
         if self.autocorrect_settings.test_autocorrect:
             parts_unique = [self.autocorrect_settings.marker]
-            logger.warning(f"Testing autocorrect with part: {parts_unique}")
+            logger.debug(f"Testing autocorrect with part: {parts_unique}")
         else:
             dlc = load_config_file(self._dlc_config_path)
             iteration = dlc["iteration"]
@@ -167,7 +167,7 @@ class Autocorrector:
                 suffix=f"it{iteration}", identifier="Predicted2DPoints"
             )
             parts_unique = get_marker_names(trial_csv_path)
-            logger.warning(f"Correcting image for parts: {parts_unique}")
+            logger.debug(f"Correcting image for parts: {parts_unique}")
         for part in parts_unique:
             # Find point and offsets
             x_float = csv.loc[frame_index, f"{part}_{cam}_X"]

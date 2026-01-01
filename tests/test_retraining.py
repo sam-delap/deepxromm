@@ -5,7 +5,7 @@ from pathlib import Path
 from deepxromm import DeepXROMM
 from deepxromm.config_utilities import load_config_file, save_config_file
 
-from .utils import set_up_project
+from .utils import set_up_project, tear_down_project
 
 
 def generic_snapshot_updated_in_pose_config(deepxromm_proj: DeepXROMM, trial_csv: Path):
@@ -160,8 +160,7 @@ class TestRetraining2D(unittest.TestCase):
 
     def tearDown(self):
         """Tear down the project"""
-        if self.working_dir.exists():
-            shutil.rmtree(self.working_dir)
+        tear_down_project(self.working_dir)
 
 
 class TestRetrainingPerCam(unittest.TestCase):
@@ -214,8 +213,7 @@ class TestRetrainingPerCam(unittest.TestCase):
 
     def tearDown(self):
         """Tear down the project"""
-        if self.working_dir.exists():
-            shutil.rmtree(self.working_dir)
+        tear_down_project(self.working_dir)
 
 
 class TestRetrainingRGB(unittest.TestCase):
@@ -262,5 +260,4 @@ class TestRetrainingRGB(unittest.TestCase):
 
     def tearDown(self):
         """Tear down the project"""
-        if self.working_dir.exists():
-            shutil.rmtree(self.working_dir)
+        tear_down_project(self.working_dir)

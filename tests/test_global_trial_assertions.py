@@ -13,6 +13,8 @@ from pandas.testing import assert_frame_equal
 
 from deepxromm import DeepXROMM
 
+from .utils import tear_down_project
+
 SAMPLE_FRAME = Path(__file__).parent / "sample_frame.jpg"
 SAMPLE_FRAME_INPUT = Path(__file__).parent / "sample_frame_input.csv"
 SAMPLE_AUTOCORRECT_OUTPUT = Path(__file__).parent / "sample_autocorrect_output.csv"
@@ -194,5 +196,4 @@ class TestSampleFrame(unittest.TestCase):
 
     def tearDown(self):
         """Remove the created temp project"""
-        project_path = Path.cwd() / "tmp"
-        shutil.rmtree(project_path)
+        tear_down_project(self.working_dir)
