@@ -127,43 +127,28 @@ See the [Augmenter Settings](#augmenter-settings) section below for detailed inf
 ## Augmenter Settings
 
 Controls how DeepXROMM identifies and extracts outlier frames during the retraining workflow. These settings are nested under the `augmenter` key in `project_config.yaml`.
-
-**Example configuration in project_config.yaml:**
 ```yaml
+# How the settings will appear in your project_config.yaml
 augmenter:
-  outlier_algorithm: jump
-  extraction_algorithm: kmeans
+    outlier_algorithm: jump
+    extraction_algorithm: kmeans
 ```
-
-These settings control how DeepXROMM identifies problematic frames during the retraining workflow.
 
 **augmenter.outlier_algorithm**: Algorithm used to detect outlier frames. **Default:** `jump`
 
 **Available algorithms:**
 
-- `jump` - Detects frames with sudden jumps in predicted marker positions
-  - **Best for:** Most use cases, especially tracking fast movements
-  - **Use when:** You want to identify frames where markers moved unexpectedly
+- `jump` - Detects frames with sudden jumps in predicted marker positions (recommended for most cases)
 - `fitting` - Identifies frames that don't fit the expected trajectory model
-  - **Best for:** Smooth, predictable movements
-  - **Use when:** Your data has consistent motion patterns
 - `uncertain` - Selects frames where the network has low confidence predictions
-  - **Best for:** Assessing network confidence
-  - **Use when:** You want to retrain on frames the network struggles with
-- `list` - Use a manually specified list of frames
-  - **Best for:** Advanced users with specific frame requirements
-  - **Use when:** You've identified specific problematic frames (requires passing `frames2use` parameter to `extract_outlier_frames()`)
+- `list` - Use a manually specified list of frames (requires passing `frames2use` parameter to `extract_outlier_frames()`)
 
 **augmenter.extraction_algorithm**: Algorithm used to select which outlier frames to extract. **Default:** `kmeans`
 
 **Available algorithms:**
 
 - `kmeans` - Uses k-means clustering to select diverse representative frames from outliers
-  - **Best for:** Most use cases
-  - **Use when:** You want maximum diversity in your training data
 - `uniform` - Extracts frames uniformly distributed across the video
-  - **Best for:** Ensuring temporal coverage
-  - **Use when:** You want even sampling across the entire video duration
 
 **When these settings are used:**
 
