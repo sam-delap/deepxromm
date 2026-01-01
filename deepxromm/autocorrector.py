@@ -2,7 +2,6 @@
 
 from dataclasses import dataclass
 import math
-from pathlib import Path
 
 import cv2
 import matplotlib.pyplot as plt
@@ -106,7 +105,7 @@ class Autocorrector:
 
             # For each camera
             for cam in cams:
-                csv = self._autocorrect_video(cam, trial_path, csv)
+                csv = self._autocorrect_video(cam, trial, csv)
 
             # Print when autocorrect finishes
             if not self.autocorrect_settings.test_autocorrect:
@@ -116,13 +115,14 @@ class Autocorrector:
         # Print summary report
         self._print_skip_summary()
 
-    def _autocorrect_video(self, cam: str, trial_path: Path, csv: pd.DataFrame):
+    def _autocorrect_video(self, cam: str, trial: Trial, csv: pd.DataFrame):
         """Run the autocorrect function on a single video within a single trial"""
         # Find the raw video
-        trial = Trial(trial_path)
         video = cv2.VideoCapture(trial.find_cam_file(identifier=cam))
         if not video.isOpened():
-            raise FileNotFoundError(f"Couldn't find a video at file path: {trial_path}")
+            raise FileNotFoundError(
+                f"Couldn't find a video at file path: {trial.trial_path}"
+            )
 
         if self.autocorrect_settings.test_autocorrect:
             video.set(1, self.autocorrect_settings.frame_num - 1)
@@ -130,7 +130,7 @@ class Autocorrector:
             if ret is False:
                 raise IOError("Error reading video frame")
             self._autocorrect_frame(
-                trial_path, frame, cam, self.autocorrect_settings.frame_num, csv
+                trial, frame, cam, self.autocorrect_settings.frame_num, csv
             )
             return csv
 
@@ -144,23 +144,22 @@ class Autocorrector:
             ret, frame = video.read()
             if ret is False:
                 raise IOError("Error reading video frame")
-            csv = self._autocorrect_frame(trial_path, frame, cam, frame_index, csv)
+            csv = self._autocorrect_frame(trial, frame, cam, frame_index, csv)
         return csv
 
     def _autocorrect_frame(
         self,
-        trial_path,
+        trial: Trial,
         frame,
         cam,
         frame_index,
         csv,
-    ):
-        """Run the autocorrect function for a single frame (no output)"""
+    ) -> pd.DataFrame:
+        """Run the autocorrect function for a single frame"""
         # For each marker in the frame
-        trial = Trial(trial_path)
         if self.autocorrect_settings.test_autocorrect:
             parts_unique = [self.autocorrect_settings.marker]
-            logger.debug(f"Testing autocorrect with part: {parts_unique}")
+            logger.warning(f"Testing autocorrect with part: {parts_unique}")
         else:
             dlc = load_config_file(self._dlc_config_path)
             iteration = dlc["iteration"]
@@ -168,7 +167,7 @@ class Autocorrector:
                 suffix=f"it{iteration}", identifier="Predicted2DPoints"
             )
             parts_unique = get_marker_names(trial_csv_path)
-            logger.debug(f"Correcting image for parts: {parts_unique}")
+            logger.warning(f"Correcting image for parts: {parts_unique}")
         for part in parts_unique:
             # Find point and offsets
             x_float = csv.loc[frame_index, f"{part}_{cam}_X"]
@@ -187,7 +186,7 @@ class Autocorrector:
                     f"Empty subimage for marker '{part}' at ({x_float:.1f}, {y_float:.1f}) "
                     f"in frame {frame_index + 1} on {cam}. Skipping autocorrect."
                 )
-                self._increment_skip_count(trial_path.name)
+                self._increment_skip_count(trial.trial_name)
                 continue
 
             try:
@@ -214,7 +213,7 @@ class Autocorrector:
                     f"on {cam} at ({x_float:.1f}, {y_float:.1f}) (main blur) "
                     f"[subimage: {subimage.shape}]: {str(e)}"
                 )
-                self._increment_skip_count(trial_path.name)
+                self._increment_skip_count(trial.trial_name)
                 continue
 
             subimage_diff
@@ -251,7 +250,7 @@ class Autocorrector:
                     f"Skipping autocorrect for marker '{part}' in frame {frame_index} "
                     f"on {cam} at ({x_float:.1f}, {y_float:.1f}) (threshold blur): {str(e)}"
                 )
-                self._increment_skip_count(trial_path.name)
+                self._increment_skip_count(trial.trial_name)
                 continue
 
             # Find contours
