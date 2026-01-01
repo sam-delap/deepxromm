@@ -9,7 +9,7 @@ import cv2
 
 from deepxromm import DeepXROMM
 from deepxromm.config_utilities import load_config_file, save_config_file
-from .utils import set_up_project
+from .utils import set_up_project, copy_mock_dlc_data_rgb
 
 SAMPLE_FRAME = Path(__file__).parent / "sample_frame.jpg"
 SAMPLE_FRAME_INPUT = Path(__file__).parent / "sample_frame_input.csv"
@@ -298,7 +298,7 @@ class TestDlcToXmaRGB(unittest.TestCase):
         self.working_dir = Path.cwd() / "tmp"
         self.trial_csv, self.deepxromm_proj = set_up_project(self.working_dir, "rgb")
         self.deepxromm_proj.xma_to_dlc()
-        self.mock_rgb_h5 = _copy_mock_dlc_data(self.working_dir)
+        self.mock_rgb_h5 = copy_mock_dlc_data_rgb(self.working_dir)
         self.deepxromm_proj.dlc_to_xma()
 
     def test_dlc_to_xma_creates_xmalab_format_files(self):
@@ -422,7 +422,7 @@ class TestAutocorrectRGB(unittest.TestCase):
         """Create RGB project and generate mock DLC analysis output"""
         self.working_dir = Path.cwd() / "tmp"
         self.trial_csv, self.deepxromm_proj = set_up_project(self.working_dir, "rgb")
-        self.mock_rgb_h5 = _copy_mock_dlc_data(self.working_dir)
+        self.mock_rgb_h5 = copy_mock_dlc_data_rgb(self.working_dir)
 
     def run_autocorrect(self):
         """Run autocorrect using the provided deepxromm project"""
@@ -432,19 +432,3 @@ class TestAutocorrectRGB(unittest.TestCase):
         """Remove the created temp project"""
         if self.working_dir.exists():
             shutil.rmtree(self.working_dir)
-
-
-def _copy_mock_dlc_data(project_dir: Path) -> Path:
-    """Copy in mock DLC data for analysis to avoid running train/analysis steps"""
-    # Copy in mock DLC data
-    rgb_df = pd.read_hdf("trial_rgbdlc.h5")
-    output_dir = project_dir / "trials/test/it0"
-    output_dir.mkdir(parents=True, exist_ok=True)
-    mock_rgb_h5 = output_dir / "test_rgbDLC_resnet50_test_projectDec1shuffle1_100000.h5"
-    mock_rgb_csv = (
-        output_dir / "test_rgbDLC_resnet50_test_projectDec1shuffle1_100000.csv"
-    )
-    rgb_df.to_hdf(mock_rgb_h5, key="df_with_missing", mode="w")
-    rgb_df.to_csv(mock_rgb_csv, na_rep="NaN")
-
-    return mock_rgb_h5
