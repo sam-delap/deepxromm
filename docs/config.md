@@ -24,6 +24,70 @@
 **crossed_markers**: Set to ‘true’ to create artificial markers that are the result of multiplying the x/y positions of cam1 and cam2 together (cx_cam1_cam2_x = cam1_x * cam2_x). Only valid for the rgb mode.  
 
 
+## Migrating from Older Versions
+
+### Deprecated `tracking_mode` Parameter
+
+**Important:** The `tracking_mode` configuration key has been deprecated as of version 0.2.5 and will be removed in version 1.0.
+
+**What changed:**
+- Old key: `tracking_mode`
+- New key: `mode`
+- Functionality remains identical
+
+**Automatic migration:**
+When you load a project with the old `tracking_mode` key, DeepXROMM will automatically:
+1. Read the `tracking_mode` value
+2. Use it as the `mode` value
+3. Log a deprecation warning
+
+**How to update your config manually:**
+
+Simply rename the key in your `project_config.yaml` file:
+
+**Before (deprecated):**
+```yaml
+tracking_mode: 2D
+```
+
+**After (current):**
+```yaml
+mode: 2D
+```
+
+**Conflict detection:**
+If your config file contains both `tracking_mode` and `mode` keys, DeepXROMM will log a warning and use the `mode` value, ignoring `tracking_mode`.
+
+> **Recommendation:** Update your configuration files proactively to avoid issues when upgrading to version 1.0.
+
+---
+
+### Required Augmenter Settings
+
+**Important:** As of recent versions, DeepXROMM requires `augmenter` settings to be present in your `project_config.yaml` file. If your configuration file was created with an older version and lacks these settings, you will encounter errors when using retraining features.
+
+**Required configuration structure:**
+
+Add the following to your `project_config.yaml` file if it's not already present:
+
+```yaml
+augmenter:
+  outlier_algorithm: jump
+  extraction_algorithm: kmeans
+```
+
+**Where to add it:**
+Place the `augmenter` section anywhere in your `project_config.yaml` file (typically near other algorithm-related settings like `mode`).
+
+**What these settings do:**
+- `outlier_algorithm`: Controls how DeepXROMM detects problematic frames during retraining (default: `jump`)
+- `extraction_algorithm`: Controls how frames are selected for retraining (default: `kmeans`)
+
+See the [Augmenter Settings](#augmenter-settings) section below for detailed information about available algorithms and when to use them.
+
+> **Note:** These settings are only used during the retraining workflow (`extract_outlier_frames()` and `merge_datasets()`). If you're not using the retraining features, the default values will work fine, but the keys must still be present in your config file.
+
+
 ## Video Codec Settings
 **video_codec**: Specifies the video codec used for all video operations including video conversion, RGB splitting/merging, and test video generation. **Default:** `avc1`
 
@@ -63,34 +127,49 @@
 ## Augmenter Settings
 
 Controls how DeepXROMM identifies and extracts outlier frames during the retraining workflow. These settings are nested under the `augmenter` key in `project_config.yaml`.
+
+**Example configuration in project_config.yaml:**
 ```yaml
-# How the settings will appear in your project_config.yaml
 augmenter:
-    outlier_algorithm: jump
-    extraction_algorithm: kmeans
+  outlier_algorithm: jump
+  extraction_algorithm: kmeans
 ```
+
+These settings control how DeepXROMM identifies problematic frames during the retraining workflow.
 
 **augmenter.outlier_algorithm**: Algorithm used to detect outlier frames. **Default:** `jump`
 
 **Available algorithms:**
 
-- `jump` - Detects frames with sudden jumps in predicted marker positions (recommended for most cases)
+- `jump` - Detects frames with sudden jumps in predicted marker positions
+  - **Best for:** Most use cases, especially tracking fast movements
+  - **Use when:** You want to identify frames where markers moved unexpectedly
 - `fitting` - Identifies frames that don't fit the expected trajectory model
+  - **Best for:** Smooth, predictable movements
+  - **Use when:** Your data has consistent motion patterns
 - `uncertain` - Selects frames where the network has low confidence predictions
-- `list` - Use a manually specified list of frames (requires passing `frames2use` parameter to `extract_outlier_frames()`)
+  - **Best for:** Assessing network confidence
+  - **Use when:** You want to retrain on frames the network struggles with
+- `list` - Use a manually specified list of frames
+  - **Best for:** Advanced users with specific frame requirements
+  - **Use when:** You've identified specific problematic frames (requires passing `frames2use` parameter to `extract_outlier_frames()`)
 
 **augmenter.extraction_algorithm**: Algorithm used to select which outlier frames to extract. **Default:** `kmeans`
 
 **Available algorithms:**
 
 - `kmeans` - Uses k-means clustering to select diverse representative frames from outliers
+  - **Best for:** Most use cases
+  - **Use when:** You want maximum diversity in your training data
 - `uniform` - Extracts frames uniformly distributed across the video
+  - **Best for:** Ensuring temporal coverage
+  - **Use when:** You want even sampling across the entire video duration
 
 **When these settings are used:**
 
 - `extract_outlier_frames()` - Uses both settings to identify and extract problematic frames from analyzed trials
 
-**Cross-reference:** See [Retraining the Model](usage.md#retraining-the-model) in the usage guide for the complete retraining workflow.
+**Cross-reference:** See [Retraining the Model](usage.md#retraining-the-model) in the usage guide for the complete retraining workflow and step-by-step instructions on using these settings.
 
 ## Image Processing
 **search_area**: The area, in pixels, around which autocorrect() will search for a marker. The minimum is 10, the default is 15.  
