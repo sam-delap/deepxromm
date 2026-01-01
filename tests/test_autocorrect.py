@@ -1,8 +1,7 @@
 import unittest
 from pathlib import Path
-import shutil
 
-from .utils import set_up_project, copy_mock_dlc_data_2cam
+from .utils import set_up_project, tear_down_project, copy_mock_dlc_data_2cam
 
 
 class TestTestAutocorrect(unittest.TestCase):
@@ -28,5 +27,4 @@ class TestTestAutocorrect(unittest.TestCase):
 
     def tearDown(self):
         """Destroy the project"""
-        if self.working_dir.exists():
-            shutil.rmtree(self.working_dir)
+        tear_down_project(self.working_dir)

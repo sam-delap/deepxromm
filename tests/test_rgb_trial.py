@@ -1,6 +1,5 @@
 import os
 from pathlib import Path
-import shutil
 import unittest
 import random
 
@@ -9,7 +8,7 @@ import cv2
 
 from deepxromm import DeepXROMM
 from deepxromm.config_utilities import load_config_file, save_config_file
-from .utils import set_up_project, copy_mock_dlc_data_rgb
+from .utils import set_up_project, tear_down_project, copy_mock_dlc_data_rgb
 
 SAMPLE_FRAME = Path(__file__).parent / "sample_frame.jpg"
 SAMPLE_FRAME_INPUT = Path(__file__).parent / "sample_frame_input.csv"
@@ -171,8 +170,7 @@ class TestRGBMarkerCombos(unittest.TestCase):
 
     def tearDown(self):
         """Clean up once tests are done running"""
-        if self.working_dir.exists():
-            shutil.rmtree(self.working_dir)
+        tear_down_project(self.working_dir)
 
 
 class TestRGBTrialProcess(unittest.TestCase):
@@ -286,8 +284,7 @@ class TestRGBTrialProcess(unittest.TestCase):
 
     def tearDown(self):
         """Remove the created temp project"""
-        project_path = Path.cwd() / "tmp"
-        shutil.rmtree(project_path)
+        tear_down_project(self.working_dir)
 
 
 class TestDlcToXmaRGB(unittest.TestCase):
@@ -410,9 +407,7 @@ class TestDlcToXmaRGB(unittest.TestCase):
 
     def tearDown(self):
         """Remove the created temp project"""
-        project_path = Path.cwd() / "tmp"
-        if project_path.exists():
-            shutil.rmtree(project_path)
+        tear_down_project(self.working_dir)
 
 
 class TestAutocorrectRGB(unittest.TestCase):
@@ -430,5 +425,4 @@ class TestAutocorrectRGB(unittest.TestCase):
 
     def tearDown(self):
         """Remove the created temp project"""
-        if self.working_dir.exists():
-            shutil.rmtree(self.working_dir)
+        tear_down_project(self.working_dir)

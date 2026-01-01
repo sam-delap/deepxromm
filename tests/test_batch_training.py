@@ -4,10 +4,9 @@ Test of the 'train_many_projects' batch training pipeline
 
 import unittest
 from pathlib import Path
-import shutil
 
 from deepxromm import DeepXROMM
-from .utils import set_up_project
+from .utils import set_up_project, tear_down_project
 
 
 class TestBatchTrainer(unittest.TestCase):
@@ -36,5 +35,4 @@ class TestBatchTrainer(unittest.TestCase):
 
     def tearDown(self):
         """Remove the created temp project"""
-        if self.working_dir.exists():
-            shutil.rmtree(self.working_dir)
+        tear_down_project(self.working_dir)

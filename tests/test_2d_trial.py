@@ -1,11 +1,10 @@
 from pathlib import Path
-import shutil
 import unittest
 import random
 
 import pandas as pd
 
-from .utils import set_up_project, copy_mock_dlc_data_2cam
+from .utils import set_up_project, tear_down_project, copy_mock_dlc_data_2cam
 
 SAMPLE_FRAME = Path(__file__).parent / "sample_frame.jpg"
 SAMPLE_FRAME_INPUT = Path(__file__).parent / "sample_frame_input.csv"
@@ -153,8 +152,7 @@ class Test2DTrialProcess(unittest.TestCase):
 
     def tearDown(self):
         """Remove the created temp project"""
-        project_path = Path.cwd() / "tmp"
-        shutil.rmtree(project_path)
+        tear_down_project(self.working_dir)
 
 
 class TestDlcToXma2D(unittest.TestCase):
@@ -316,8 +314,7 @@ class TestDlcToXma2D(unittest.TestCase):
 
     def tearDown(self):
         """Remove the created temp project"""
-        if self.working_dir.exists():
-            shutil.rmtree(self.working_dir)
+        tear_down_project(self.working_dir)
 
 
 class TestAutocorrect2D(unittest.TestCase):
@@ -337,5 +334,4 @@ class TestAutocorrect2D(unittest.TestCase):
 
     def tearDown(self):
         """Remove the created temp project"""
-        if self.working_dir.exists():
-            shutil.rmtree(self.working_dir)
+        tear_down_project(self.working_dir)

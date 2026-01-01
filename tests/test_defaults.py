@@ -3,7 +3,6 @@ Verify that default behaviors of deepxromm remains the same
 """
 
 from pathlib import Path
-import shutil
 import unittest
 
 import cv2
@@ -11,6 +10,8 @@ import pandas as pd
 
 from deepxromm import DeepXROMM
 from deepxromm.config_utilities import load_config_file, save_config_file
+
+from .utils import tear_down_project
 
 SAMPLE_FRAME = Path(__file__).parent / "sample_frame.jpg"
 SAMPLE_FRAME_INPUT = Path(__file__).parent / "sample_frame_input.csv"
@@ -182,4 +183,4 @@ class TestDefaultsPerformance(unittest.TestCase):
 
     def tearDown(self):
         """Remove the created temp project"""
-        shutil.rmtree(self.working_dir)
+        tear_down_project(self.working_dir)
