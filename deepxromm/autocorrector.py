@@ -99,7 +99,7 @@ class Autocorrector:
             )
 
             if self.autocorrect_settings.test_autocorrect:
-                cams = self.project.cam
+                cams = self.autocorrect_settings.cam
             else:
                 cams = ["cam1", "cam2"]  # Assumes 2-camera setup
 
@@ -111,7 +111,7 @@ class Autocorrector:
 
             # Print when autocorrect finishes
             if not self.autocorrect_settings.test_autocorrect:
-                print(f"Done! Saving to {out_name}")
+                logger.info(f"Done! Saving to {out_name}")
                 csv.to_csv(out_name, index=False)
 
         # Print summary report
@@ -143,12 +143,12 @@ class Autocorrector:
             return csv
 
         # For each frame of video
-        print(f"Total frames in video: {video.get(cv2.CAP_PROP_FRAME_COUNT)}")
+        logger.debug(f"Total frames in video: {video.get(cv2.CAP_PROP_FRAME_COUNT)}")
 
         for frame_index in range(int(video.get(cv2.CAP_PROP_FRAME_COUNT))):
             # Load frame
             if frame_index % 50 == 0:
-                print(f"Current Frame: {frame_index + 1}")
+                logger.info(f"Current Frame: {frame_index + 1}")
             ret, frame = video.read()
             if ret is False:
                 raise IOError("Error reading video frame")
@@ -328,7 +328,7 @@ class Autocorrector:
                 csv.loc[frame_index, part + "_" + cam + "_X"] = detected_center[0]
                 csv.loc[frame_index, part + "_" + cam + "_Y"] = detected_center[1]
             else:
-                print(
+                logger.debug(
                     f"Couldn't find better contour for {part} in {cam} video at {frame_index + 1} frame"
                 )
         return csv
@@ -403,12 +403,12 @@ class Autocorrector:
         if total_skipped == 0:
             return  # Silent when no issues
 
-        print("\n=== Autocorrect Summary ===")
-        print(f"Total markers skipped: {total_skipped}")
+        logger.info("\n=== Autocorrect Summary ===")
+        logger.info(f"Total markers skipped: {total_skipped}")
 
         if len(self._skip_stats) > 0:
-            print("Breakdown by trial:")
+            logger.debug("Breakdown by trial:")
             for trial_name, count in self._skip_stats.items():
-                print(f"  - {trial_name}: {count} marker(s) skipped")
+                logger.debug(f"  - {trial_name}: {count} marker(s) skipped")
 
-        print("Check autocorrecter.log for details")
+        logger.info("Check XDG_STATE_DIR/deepxromm/deepxromm.log for details")
