@@ -16,6 +16,8 @@ from deepxromm.video_encoding import validate_codec
 from deepxromm.trial import Trial
 from deepxromm.xrommtools import get_marker_names, get_marker_and_cam_names
 
+DEFAULT_BODYPARTS = ["bodypart1", "bodypart2", "bodypart3", "objectA"]
+
 
 # Abstract class
 @dataclass(kw_only=True)
@@ -84,21 +86,8 @@ class DlcConfig(ABC):
 
     def check_dlc_bodyparts(self, trial_csv_path: Path) -> None:
         """Do error checking on DLC bodyparts"""
-        default_bodyparts = ["bodypart1", "bodypart2", "bodypart3", "objectA"]
         bodyparts = self.get_bodyparts(trial_csv_path)
-
-        dlc_yaml = load_config_file(self.path_config_file)
-        dlc_bodyparts = dlc_yaml["bodyparts"]
-        logger.debug(f"DLC bodyparts: {dlc_bodyparts}")
-
-        if dlc_yaml["bodyparts"] == default_bodyparts:
-            dlc_yaml["bodyparts"] = bodyparts
-        elif dlc_yaml["bodyparts"] != bodyparts:
-            raise SyntaxError(
-                "XMAlab CSV marker names are different than DLC bodyparts."
-            )
-
-        save_config_file(dlc_yaml, self.path_config_file)
+        update_dlc_bodyparts(self.path_config_file, bodyparts)
 
     # Private methods
     def _configure_it_folder(self, trial: Trial) -> bool:
@@ -302,32 +291,9 @@ class DlcConfigPerCam(DlcConfig):
 
     def check_dlc_bodyparts(self, trial_csv_path: Path):
         """Do error checking on DLC bodyparts"""
-        # Check DLC bodyparts (marker names) for config 2 if needed
-        default_bodyparts = ["bodypart1", "bodypart2", "bodypart3", "objectA"]
         bodyparts = self.get_bodyparts(trial_csv_path)
-
-        dlc_yaml = load_config_file(self.path_config_file)
-        dlc_bodyparts = dlc_yaml["bodyparts"]
-        logger.debug(f"DLC bodyparts: {dlc_bodyparts}")
-
-        if dlc_yaml["bodyparts"] == default_bodyparts:
-            dlc_yaml["bodyparts"] = bodyparts
-        elif dlc_yaml["bodyparts"] != bodyparts:
-            raise SyntaxError(
-                "XMAlab CSV marker names are different than DLC bodyparts."
-            )
-
-        save_config_file(dlc_yaml, self.path_config_file)
-
-        dlc_yaml = load_config_file(self.path_config_file_2)
-        if dlc_yaml["bodyparts"] == default_bodyparts:
-            dlc_yaml["bodyparts"] = bodyparts
-        elif dlc_yaml["bodyparts"] != bodyparts:
-            raise SyntaxError(
-                "XMAlab CSV marker names are different than DLC bodyparts."
-            )
-
-        save_config_file(dlc_yaml, self.path_config_file_2)
+        update_dlc_bodyparts(self.path_config_file, bodyparts)
+        update_dlc_bodyparts(self.path_config_file_2, bodyparts)
 
 
 DEFAULT_CODEC = "avc1"
@@ -378,3 +344,14 @@ class DlcConfigRGB(DlcConfig):
             save_as_csv=True,
             **kwargs,
         )
+
+
+def update_dlc_bodyparts(path_config_file: Path, xma_bodyparts: list[str]):
+    """Update DLC bodyparts based on info from XMA CSV"""
+    dlc_yaml = load_config_file(path_config_file)
+    if dlc_yaml["bodyparts"] == DEFAULT_BODYPARTS:
+        dlc_yaml["bodyparts"] = xma_bodyparts
+    elif dlc_yaml["bodyparts"] != xma_bodyparts:
+        raise SyntaxError("XMAlab CSV marker names are different than DLC bodyparts.")
+
+    save_config_file(dlc_yaml, path_config_file)
