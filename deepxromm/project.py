@@ -358,34 +358,7 @@ class ProjectFactory:
             )
 
         # Check DLC bodyparts (marker names)
-        default_bodyparts = ["bodypart1", "bodypart2", "bodypart3", "objectA"]
-        bodyparts = project.dlc_config.get_bodyparts(trial_csv_path)
-
-        dlc_yaml = load_config_file(project.dlc_config.path_config_file)
-        dlc_bodyparts = dlc_yaml["bodyparts"]
-        logger.debug(f"DLC bodyparts: {dlc_bodyparts}")
-
-        if dlc_yaml["bodyparts"] == default_bodyparts:
-            dlc_yaml["bodyparts"] = bodyparts
-        elif dlc_yaml["bodyparts"] != bodyparts:
-            raise SyntaxError(
-                "XMAlab CSV marker names are different than DLC bodyparts."
-            )
-
-        save_config_file(dlc_yaml, project.dlc_config.path_config_file)
-
-        # Check DLC bodyparts (marker names) for config 2 if needed
-        if project.dlc_config.mode == "per_cam":
-            dlc_yaml = load_config_file(project.dlc_config.path_config_file_2)
-            # Better conditional logic could definitely be had to reduce function calls here
-            if dlc_yaml["bodyparts"] == default_bodyparts:
-                dlc_yaml["bodyparts"] = bodyparts
-            elif dlc_yaml["bodyparts"] != bodyparts:
-                raise SyntaxError(
-                    "XMAlab CSV marker names are different than DLC bodyparts."
-                )
-
-            save_config_file(dlc_yaml, project.dlc_config.path_config_file_2)
+        project.dlc_config.check_dlc_bodyparts(trial_csv_path)
 
         project.update_config_file()
 

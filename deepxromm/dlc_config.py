@@ -84,6 +84,11 @@ class DlcConfig(ABC):
         """Clear the labeled data folder to make way for new labeled data"""
         shutil.rmtree(self.path_config_file.parent / "labeled-data" / dataset_name)
 
+    def check_dlc_bodyparts(self, trial_csv_path: Path) -> None:
+        """Do error checking on DLC bodyparts"""
+        bodyparts = self.get_bodyparts(trial_csv_path)
+        update_dlc_bodyparts(self.path_config_file, bodyparts)
+
     # Private methods
     def _configure_it_folder(self, trial: Trial) -> bool:
         """Configure it{iteration} folder for storing analysis info. Also checks for existing PredPoints CSV"""
@@ -149,9 +154,6 @@ class DlcConfigFactory:
     def load_existing_config(
         cls, mode: str, path_config_file: Path, path_config_file_2: Path | None = None
     ) -> DlcConfig:
-        # Load existing config file
-        dlc_config = load_config_file(path_config_file)
-
         # Extract all class properties
         dlc_config = cls._instantiate_dlc_config(
             mode, path_config_file, path_config_file_2
@@ -287,6 +289,12 @@ class DlcConfigPerCam(DlcConfig):
             self.path_config_file_2.parent / "labeled-data" / f"{dataset_name}_cam2"
         )
 
+    def check_dlc_bodyparts(self, trial_csv_path: Path):
+        """Do error checking on DLC bodyparts"""
+        bodyparts = self.get_bodyparts(trial_csv_path)
+        update_dlc_bodyparts(self.path_config_file, bodyparts)
+        update_dlc_bodyparts(self.path_config_file_2, bodyparts)
+
 
 DEFAULT_CODEC = "avc1"
 
@@ -336,3 +344,14 @@ class DlcConfigRGB(DlcConfig):
             save_as_csv=True,
             **kwargs,
         )
+
+
+def update_dlc_bodyparts(path_config_file: Path, xma_bodyparts: list[str]):
+    """Update DLC bodyparts based on info from XMA CSV"""
+    dlc_yaml = load_config_file(path_config_file)
+    if dlc_yaml["bodyparts"] == DEFAULT_BODYPARTS:
+        dlc_yaml["bodyparts"] = xma_bodyparts
+    elif dlc_yaml["bodyparts"] != xma_bodyparts:
+        raise SyntaxError("XMAlab CSV marker names are different than DLC bodyparts.")
+
+    save_config_file(dlc_yaml, path_config_file)
