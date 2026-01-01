@@ -3,14 +3,11 @@ Test of the 'train_many_projects' batch training pipeline
 """
 
 import unittest
-import os
 from pathlib import Path
 import shutil
 
 from deepxromm import DeepXROMM
 from .utils import set_up_project
-
-DEEPXROMM_TEST_CODEC = os.environ.get("DEEPXROMM_TEST_CODEC", "avc1")
 
 
 class TestBatchTrainer(unittest.TestCase):

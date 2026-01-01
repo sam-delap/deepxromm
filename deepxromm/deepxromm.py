@@ -35,7 +35,6 @@ class DeepXROMM:
         working_dir: str | Path = Path.cwd(),
         experimenter="NA",
         mode="2D",
-        codec="avc1",
     ):
         """Create a new deepxromm project"""
         deepxromm = DeepXROMM.__new__(DeepXROMM)

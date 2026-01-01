@@ -2,7 +2,6 @@
 Test error handling in autocorrect for empty frames and GaussianBlur failures
 """
 
-import os
 from pathlib import Path
 import shutil
 import unittest
@@ -14,9 +13,9 @@ import numpy as np
 import pandas as pd
 
 from deepxromm import DeepXROMM
+from .utils import DEEPXROMM_TEST_CODEC
 
 SAMPLE_FRAME = Path(__file__).parent / "sample_frame.jpg"
-DEEPXROMM_TEST_CODEC = os.environ.get("DEEPXROMM_TEST_CODEC", "avc1")
 
 
 class TestAutocorrectErrorHandling(unittest.TestCase):
@@ -25,9 +24,7 @@ class TestAutocorrectErrorHandling(unittest.TestCase):
     def setUp(self):
         """Create trial with markers positioned to cause errors"""
         self.working_dir = Path.cwd() / "tmp_error_test"
-        self.deepxromm = DeepXROMM.create_new_project(
-            self.working_dir, codec=DEEPXROMM_TEST_CODEC
-        )
+        self.deepxromm = DeepXROMM.create_new_project(self.working_dir)
         frame = cv2.imread(str(SAMPLE_FRAME))
 
         # Make a trial directory

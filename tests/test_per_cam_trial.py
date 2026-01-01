@@ -25,9 +25,7 @@ class TestPerCamTrialProcess(unittest.TestCase):
     def setUp(self):
         """Create trial with test data"""
         self.working_dir = Path.cwd() / "tmp"
-        self.deepxromm = DeepXROMM.create_new_project(
-            self.working_dir, mode="per_cam", codec=DEEPXROMM_TEST_CODEC
-        )
+        self.deepxromm = DeepXROMM.create_new_project(self.working_dir, mode="per_cam")
 
         # Make a trial directory
         trial_dir = self.working_dir / "trainingdata/test"
@@ -197,9 +195,7 @@ class TestPerCamTrialProcess(unittest.TestCase):
 
 def set_up_project(working_dir: Path):
     """Per cam method to set up a project that already has xma_to_dlc and dlc_to_xma run on it"""
-    DeepXROMM.create_new_project(
-        working_dir, mode="per_cam", codec=DEEPXROMM_TEST_CODEC
-    )
+    DeepXROMM.create_new_project(working_dir, mode="per_cam")
 
     # Copy trial slice data
     trial_dir = working_dir / "trainingdata/test"

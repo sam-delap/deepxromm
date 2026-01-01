@@ -2,7 +2,6 @@
 Verify that default behaviors of deepxromm remains the same
 """
 
-import os
 from pathlib import Path
 import shutil
 import unittest
@@ -17,8 +16,6 @@ SAMPLE_FRAME = Path(__file__).parent / "sample_frame.jpg"
 SAMPLE_FRAME_INPUT = Path(__file__).parent / "sample_frame_input.csv"
 SAMPLE_AUTOCORRECT_OUTPUT = Path(__file__).parent / "sample_autocorrect_output.csv"
 
-DEEPXROMM_TEST_CODEC = os.environ.get("DEEPXROMM_TEST_CODEC", "avc1")
-
 
 class TestDefaultsPerformance(unittest.TestCase):
     """Test that the config will still be configured properly if the user only provides XMAlab input"""
@@ -26,9 +23,7 @@ class TestDefaultsPerformance(unittest.TestCase):
     def setUp(self):
         """Create a sample project where the user only inputs XMAlab data"""
         self.working_dir = Path.cwd() / "tmp"
-        self.deepxromm = DeepXROMM.create_new_project(
-            self.working_dir, codec=DEEPXROMM_TEST_CODEC
-        )
+        self.deepxromm = DeepXROMM.create_new_project(self.working_dir)
         frame = cv2.imread(str(SAMPLE_FRAME))
 
         # Make a trial directory

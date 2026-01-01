@@ -9,6 +9,7 @@ import cv2
 
 from deepxromm import DeepXROMM
 from deepxromm.config_utilities import load_config_file, save_config_file
+from .utils import set_up_project
 
 SAMPLE_FRAME = Path(__file__).parent / "sample_frame.jpg"
 SAMPLE_FRAME_INPUT = Path(__file__).parent / "sample_frame_input.csv"
@@ -23,11 +24,9 @@ class TestRGBMarkerCombos(unittest.TestCase):
     def setUp(self):
         """Configure a project that has just been created"""
         self.working_dir = Path.cwd() / "tmp"
-        self.deepxromm = DeepXROMM.create_new_project(
-            self.working_dir, mode="rgb", codec=DEEPXROMM_TEST_CODEC
-        )
-        self.deepxromm.project.dlc_config.video_codec = DEEPXROMM_TEST_CODEC
-        self.deepxromm.project.update_config_file()
+        self.deepxromm_proj = DeepXROMM.create_new_project(self.working_dir, mode="rgb")
+        self.deepxromm_proj.project.dlc_config.video_codec = DEEPXROMM_TEST_CODEC
+        self.deepxromm_proj.project.update_config_file()
 
         frame = cv2.imread(str(SAMPLE_FRAME))
 
@@ -74,12 +73,12 @@ class TestRGBMarkerCombos(unittest.TestCase):
 
     def test_bodyparts_add_swapped(self):
         """Can we add swapped markers?"""
-        self.deepxromm.project.dlc_config.swapped_markers = True
-        self.deepxromm.project.update_config_file()
+        self.deepxromm_proj.project.dlc_config.swapped_markers = True
+        self.deepxromm_proj.project.update_config_file()
         DeepXROMM.load_project(self.working_dir)
 
         config_obj = load_config_file(
-            self.deepxromm.project.dlc_config.path_config_file
+            self.deepxromm_proj.project.dlc_config.path_config_file
         )
 
         self.assertEqual(
@@ -104,7 +103,7 @@ class TestRGBMarkerCombos(unittest.TestCase):
         """If the user wants to do 3D tracking, we output the desired list of bodyparts"""
         DeepXROMM.load_project(self.working_dir)
         config_obj = load_config_file(
-            self.deepxromm.project.dlc_config.path_config_file
+            self.deepxromm_proj.project.dlc_config.path_config_file
         )
         self.assertEqual(
             config_obj["bodyparts"],
@@ -120,7 +119,7 @@ class TestRGBMarkerCombos(unittest.TestCase):
         DeepXROMM.load_project(self.working_dir)
 
         config_obj = load_config_file(
-            self.deepxromm.project.dlc_config.path_config_file
+            self.deepxromm_proj.project.dlc_config.path_config_file
         )
 
         self.assertEqual(
@@ -152,7 +151,7 @@ class TestRGBMarkerCombos(unittest.TestCase):
         DeepXROMM.load_project(self.working_dir)
 
         config_obj = load_config_file(
-            self.deepxromm.project.dlc_config.path_config_file
+            self.deepxromm_proj.project.dlc_config.path_config_file
         )
 
         self.assertEqual(
@@ -182,25 +181,10 @@ class TestRGBTrialProcess(unittest.TestCase):
     def setUp(self):
         """Create trial with test data"""
         self.working_dir = Path.cwd() / "tmp"
-        DeepXROMM.create_new_project(
-            self.working_dir, mode="rgb", codec=DEEPXROMM_TEST_CODEC
+        self.trial_csv, self.deepxromm_proj.proj = set_up_project(
+            self.working_dir, "rgb"
         )
-
-        # Make a trial directory
-        trial_dir = self.working_dir / "trainingdata/test"
-        trial_dir.mkdir(parents=True, exist_ok=True)
-
-        # Make vars for pathing to find files easily
-        self.trial_csv = trial_dir / "test.csv"
-        self.rgb_path = trial_dir / "test_cam1.avi"
-        self.cam2_path = trial_dir / "test_cam2.avi"
-
-        # Move sample frame input to trainingdata
-        shutil.copy("trial_slice.csv", str(self.trial_csv))
-        shutil.copy("trial_cam1_slice.avi", str(self.rgb_path))
-        shutil.copy("trial_cam2_slice.avi", str(self.cam2_path))
-        self.deepxromm = DeepXROMM.load_project(self.working_dir)
-        self.deepxromm.xma_to_dlc()
+        self.deepxromm_proj.proj.xma_to_dlc()
 
     def test_first_frame_matches_in_dlc_csv(self):
         """When I run xma_to_dlc, does the DLC CSV have the same data as my original file?"""
@@ -209,7 +193,7 @@ class TestRGBTrialProcess(unittest.TestCase):
         xmalab_first_row = xmalab_data.loc[0, :]
 
         # Load DLC data
-        dlc_config = Path(self.deepxromm.project.dlc_config.path_config_file)
+        dlc_config = Path(self.deepxromm_proj.project.dlc_config.path_config_file)
         labeled_data_path = dlc_config.parent / "labeled-data/MyData"
         dlc_data = pd.read_hdf(labeled_data_path / "CollectedData_NA.h5")
 
@@ -228,14 +212,14 @@ class TestRGBTrialProcess(unittest.TestCase):
 
     def test_last_frame_matches_in_dlc_csv(self):
         """When I run xma_to_dlc, does the DLC CSV have the same data as my original file?"""
-        self.deepxromm = DeepXROMM.load_project(self.working_dir)
-        self.deepxromm.xma_to_dlc()
+        self.deepxromm_proj = DeepXROMM.load_project(self.working_dir)
+        self.deepxromm_proj.xma_to_dlc()
 
         # Load XMAlab data
         xmalab_data = pd.read_csv(self.trial_csv)
 
         # Load DLC data
-        dlc_config = Path(self.deepxromm.project.dlc_config.path_config_file)
+        dlc_config = Path(self.deepxromm_proj.project.dlc_config.path_config_file)
         labeled_data_path = dlc_config.parent / "labeled-data/MyData"
         dlc_data = pd.read_hdf(labeled_data_path / "CollectedData_NA.h5")
 
@@ -264,14 +248,14 @@ class TestRGBTrialProcess(unittest.TestCase):
 
     def test_random_frame_matches_in_dlc_csv(self):
         """When I run xma_to_dlc, does the DLC CSV have the same data as my original file?"""
-        self.deepxromm = DeepXROMM.load_project(self.working_dir)
-        self.deepxromm.xma_to_dlc()
+        self.deepxromm_proj = DeepXROMM.load_project(self.working_dir)
+        self.deepxromm_proj.xma_to_dlc()
 
         # Load XMAlab data
         xmalab_data = pd.read_csv(self.trial_csv)
 
         # Load DLC data
-        dlc_config = Path(self.deepxromm.project.dlc_config.path_config_file)
+        dlc_config = Path(self.deepxromm_proj.project.dlc_config.path_config_file)
         labeled_data_path = dlc_config.parent / "labeled-data/MyData"
         dlc_data = pd.read_hdf(labeled_data_path / "CollectedData_NA.h5")
 
@@ -300,47 +284,12 @@ class TestRGBTrialProcess(unittest.TestCase):
 
     def test_create_training_dataset_succeeds(self):
         """Test that this project will create a dataset correctly"""
-        self.deepxromm.create_training_dataset()
+        self.deepxromm_proj.create_training_dataset()
 
     def tearDown(self):
         """Remove the created temp project"""
         project_path = Path.cwd() / "tmp"
         shutil.rmtree(project_path)
-
-
-def set_up_project(working_dir: Path):
-    """RGB setup method to set up a project that's got xma_to_dlc and dlc_to_xma run on it"""
-    DeepXROMM.create_new_project(working_dir, mode="rgb", codec=DEEPXROMM_TEST_CODEC)
-
-    # Copy trial slice data
-    trial_dir = working_dir / "trainingdata/test"
-    trial_dir.mkdir(parents=True, exist_ok=True)
-    trial_csv = trial_dir / "test.csv"
-    rgb_path = trial_dir / "test_cam1.avi"
-    cam2_path = trial_dir / "test_cam2.avi"
-
-    shutil.copy("trial_slice.csv", str(trial_csv))
-    shutil.copy("trial_cam1_slice.avi", str(rgb_path))
-    shutil.copy("trial_cam2_slice.avi", str(cam2_path))
-
-    # Run xma_to_dlc to create training dataset
-    deepxromm = DeepXROMM.load_project(working_dir)
-    deepxromm.xma_to_dlc()
-
-    # Copy in mock DLC data
-    rgb_df = pd.read_hdf("trial_rgbdlc.h5")
-    output_dir = working_dir / "trials/test/it0"
-    output_dir.mkdir(parents=True, exist_ok=True)
-    mock_rgb_h5 = output_dir / "test_rgbDLC_resnet50_test_projectDec1shuffle1_100000.h5"
-    mock_rgb_csv = (
-        output_dir / "test_rgbDLC_resnet50_test_projectDec1shuffle1_100000.csv"
-    )
-    rgb_df.to_hdf(mock_rgb_h5, key="df_with_missing", mode="w")
-    rgb_df.to_csv(mock_rgb_csv, na_rep="NaN")
-
-    # Run DLC to XMA
-    deepxromm.dlc_to_xma()
-    return mock_rgb_h5, deepxromm
 
 
 class TestDlcToXmaRGB(unittest.TestCase):
@@ -349,7 +298,9 @@ class TestDlcToXmaRGB(unittest.TestCase):
     def setUp(self):
         """Create RGB project and generate mock DLC analysis output"""
         self.working_dir = Path.cwd() / "tmp"
-        self.mock_rgb_h5, self.deepxromm = set_up_project(self.working_dir)
+        self.trial_csv, self.deepxromm_proj = set_up_project(self.working_dir, "rgb")
+        self.mock_rgb_h5 = _copy_mock_dlc_data(self.working_dir)
+        self.deepxromm_proj.proj.xma_to_dlc()
 
     def test_dlc_to_xma_creates_xmalab_format_files(self):
         """
@@ -471,13 +422,30 @@ class TestAutocorrectRGB(unittest.TestCase):
     def setUp(self):
         """Create RGB project and generate mock DLC analysis output"""
         self.working_dir = Path.cwd() / "tmp"
-        self.mock_rgb_h5, self.deepxromm = set_up_project(self.working_dir)
+        self.trial_csv, self.deepxromm_proj = set_up_project(self.working_dir, "rgb")
+        self.mock_rgb_h5 = _copy_mock_dlc_data(self.working_dir)
 
     def run_autocorrect(self):
         """Run autocorrect using the provided deepxromm project"""
-        self.deepxromm.autocorrect_trials()
+        self.deepxromm_proj.autocorrect_trials()
 
     def tearDown(self):
         """Remove the created temp project"""
         if self.working_dir.exists():
             shutil.rmtree(self.working_dir)
+
+
+def _copy_mock_dlc_data(project_dir: Path) -> Path:
+    """Copy in mock DLC data for analysis to avoid running train/analysis steps"""
+    # Copy in mock DLC data
+    rgb_df = pd.read_hdf("trial_rgbdlc.h5")
+    output_dir = project_dir / "trials/test/it0"
+    output_dir.mkdir(parents=True, exist_ok=True)
+    mock_rgb_h5 = output_dir / "test_rgbDLC_resnet50_test_projectDec1shuffle1_100000.h5"
+    mock_rgb_csv = (
+        output_dir / "test_rgbDLC_resnet50_test_projectDec1shuffle1_100000.csv"
+    )
+    rgb_df.to_hdf(mock_rgb_h5, key="df_with_missing", mode="w")
+    rgb_df.to_csv(mock_rgb_csv, na_rep="NaN")
+
+    return mock_rgb_h5
