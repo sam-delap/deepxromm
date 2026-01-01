@@ -35,5 +35,3 @@ loggers:
     level: "INFO"
     handlers:
       - "stdout"
-      - "stderr"
-      - "file"
