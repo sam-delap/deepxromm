@@ -2,6 +2,7 @@
 
 from dataclasses import dataclass
 import math
+from pathlib import Path
 
 import cv2
 import matplotlib.pyplot as plt
@@ -99,15 +100,13 @@ class Autocorrector:
             )
 
             if self.autocorrect_settings.test_autocorrect:
-                cams = self.autocorrect_settings.cam
+                cams = [self.autocorrect_settings.cam]
             else:
                 cams = ["cam1", "cam2"]  # Assumes 2-camera setup
 
             # For each camera
             for cam in cams:
-                csv = self._autocorrect_video(
-                    cam, trial_path, csv, self.autocorrect_settings
-                )
+                csv = self._autocorrect_video(cam, trial_path, csv)
 
             # Print when autocorrect finishes
             if not self.autocorrect_settings.test_autocorrect:
@@ -117,9 +116,7 @@ class Autocorrector:
         # Print summary report
         self._print_skip_summary()
 
-    def _autocorrect_video(
-        self, cam, trial_path, csv, autocorrect_settings: AutocorrectParams
-    ):
+    def _autocorrect_video(self, cam: str, trial_path: Path, csv: pd.DataFrame):
         """Run the autocorrect function on a single video within a single trial"""
         # Find the raw video
         trial = Trial(trial_path)
@@ -127,18 +124,13 @@ class Autocorrector:
         if not video.isOpened():
             raise FileNotFoundError(f"Couldn't find a video at file path: {trial_path}")
 
-        if autocorrect_settings.test_autocorrect:
+        if self.autocorrect_settings.test_autocorrect:
             video.set(1, self.autocorrect_settings.frame_num - 1)
             ret, frame = video.read()
             if ret is False:
                 raise IOError("Error reading video frame")
             self._autocorrect_frame(
-                trial_path,
-                frame,
-                cam,
-                autocorrect_settings.frame_num,
-                csv,
-                autocorrect_settings,
+                trial_path, frame, cam, self.autocorrect_settings.frame_num, csv
             )
             return csv
 
@@ -152,9 +144,7 @@ class Autocorrector:
             ret, frame = video.read()
             if ret is False:
                 raise IOError("Error reading video frame")
-            csv = self._autocorrect_frame(
-                trial_path, frame, cam, frame_index, csv, autocorrect_settings
-            )
+            csv = self._autocorrect_frame(trial_path, frame, cam, frame_index, csv)
         return csv
 
     def _autocorrect_frame(
@@ -164,13 +154,13 @@ class Autocorrector:
         cam,
         frame_index,
         csv,
-        autocorrect_settings: AutocorrectParams,
     ):
         """Run the autocorrect function for a single frame (no output)"""
         # For each marker in the frame
         trial = Trial(trial_path)
-        if autocorrect_settings.test_autocorrect:
-            parts_unique = [autocorrect_settings.marker]
+        if self.autocorrect_settings.test_autocorrect:
+            parts_unique = [self.autocorrect_settings.marker]
+            logger.debug(f"Testing autocorrect with part: {parts_unique}")
         else:
             dlc = load_config_file(self._dlc_config_path)
             iteration = dlc["iteration"]
@@ -178,11 +168,12 @@ class Autocorrector:
                 suffix=f"it{iteration}", identifier="Predicted2DPoints"
             )
             parts_unique = get_marker_names(trial_csv_path)
+            logger.debug(f"Correcting image for parts: {parts_unique}")
         for part in parts_unique:
             # Find point and offsets
             x_float = csv.loc[frame_index, f"{part}_{cam}_X"]
             y_float = csv.loc[frame_index, f"{part}_{cam}_Y"]
-            search_area_with_offset = autocorrect_settings.search_area + 0.5
+            search_area_with_offset = self.autocorrect_settings.search_area + 0.5
             x_start = int(x_float - search_area_with_offset)
             y_start = int(y_float - search_area_with_offset)
             x_end = int(x_float + search_area_with_offset)
@@ -202,11 +193,11 @@ class Autocorrector:
             try:
                 subimage_filtered = self._filter_image(
                     subimage,
-                    autocorrect_settings.krad,
-                    autocorrect_settings.gsigma,
-                    autocorrect_settings.img_wt,
-                    autocorrect_settings.blur_wt,
-                    autocorrect_settings.gamma,
+                    self.autocorrect_settings.krad,
+                    self.autocorrect_settings.gsigma,
+                    self.autocorrect_settings.img_wt,
+                    self.autocorrect_settings.blur_wt,
+                    self.autocorrect_settings.gamma,
                 )
 
                 subimage_float = subimage_filtered.astype(np.float32)
@@ -246,7 +237,7 @@ class Autocorrector:
             thres = (
                 0.5 * min_val
                 + 0.5 * np.mean(subimage_median_threshold)
-                + autocorrect_settings.threshold * 0.01 * 255
+                + self.autocorrect_settings.threshold * 0.01 * 255
             )
             _, subimage_threshold = cv2.threshold(
                 subimage_median_threshold, thres, 255, cv2.THRESH_BINARY_INV
@@ -288,7 +279,7 @@ class Autocorrector:
                     dist = dist_tmp
 
             # Fix how this displays, because this logic does not track
-            if autocorrect_settings.test_autocorrect:
+            if self.autocorrect_settings.test_autocorrect:
                 print("Raw")
                 self._show_crop(subimage, 15)
 

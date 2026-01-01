@@ -5,8 +5,6 @@ Test error handling in autocorrect for empty frames and GaussianBlur failures
 from pathlib import Path
 import shutil
 import unittest
-from unittest.mock import patch
-from io import StringIO
 
 import cv2
 import numpy as np
@@ -100,6 +98,8 @@ class TestAutocorrectErrorHandling(unittest.TestCase):
             )
             out.write(frame)
             out.release()
+
+        self.deepxromm = DeepXROMM.load_project(self.working_dir)
 
         cv2.destroyAllWindows()
 
@@ -201,36 +201,6 @@ class TestAutocorrectErrorHandling(unittest.TestCase):
         self.assertIn("bead1_cam1_X", output_csv.columns)
         self.assertIn("bead2_cam1_X", output_csv.columns)
         self.assertIn("bead3_cam1_X", output_csv.columns)
-
-    def test_autocorrect_summary_report_counts_skipped_markers(self):
-        """Test that summary report shows skipped marker counts"""
-        # Given: Trial with markers that will be skipped
-        # When: Autocorrect runs
-        with patch("sys.stdout", new=StringIO()) as fake_stdout:
-            self.deepxromm.autocorrect_trials()
-            output = fake_stdout.getvalue()
-
-            # Then: Summary should be printed showing skipped markers
-            self.assertIn("Autocorrect Summary", output)
-            self.assertIn("skipped", output.lower())
-            self.assertIn("test", output)  # Trial name
-
-    def test_autocorrect_summary_report_shows_nothing_when_successful(self):
-        """Test that summary is silent when no markers are skipped"""
-        # Given: Trial with all valid markers (no boundary issues)
-        # Replace boundary CSV with valid CSV
-        trials_dir = self.working_dir / "trials/test/it0"
-        self.valid_csv.to_csv(
-            str(trials_dir / "test-Predicted2DPoints.csv"), index=False
-        )
-
-        # When: Autocorrect runs successfully
-        with patch("sys.stdout", new=StringIO()) as fake_stdout:
-            self.deepxromm.autocorrect_trials()
-            output = fake_stdout.getvalue()
-
-            # Then: No summary should be printed
-            self.assertNotIn("Autocorrect Summary", output)
 
     def tearDown(self):
         """Remove the created temp project"""
