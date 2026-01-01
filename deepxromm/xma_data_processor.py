@@ -432,23 +432,44 @@ class XMADataProcessor:
         """
 
         # Check if we have enough frames
-        if sum(len(x) for x in idx) < nframes:
+        total_tracked_frames = sum(len(trial_frames) for trial_frames in idx)
+        if total_tracked_frames < nframes:
             raise ValueError("nframes is bigger than number of detected frames")
 
         # Pick frames to extract (NOTE this is random currently)
-        # current code iteratively picks one frame at a time from each shuffled trial until # of picked_frames hits nframes
-        count = 0
-        picked_frames = []
-        while sum(len(x) for x in picked_frames) < nframes:
-            for trialnum in range(len(idx)):
-                if sum(len(x) for x in picked_frames) < nframes:
-                    if count == 0:
-                        picked_frames.insert(trialnum, [idx[trialnum][count]])
-                    elif count < len(idx[trialnum]):
-                        picked_frames[trialnum] = picked_frames[trialnum] + [
-                            idx[trialnum][count]
-                        ]
-                count += 1
+        picked_frames: list[list] = []
+        frames_picked_per_trial = 0
+        total_picked_frames = 0
+        # While we still need frames
+        while total_picked_frames < nframes:
+            # Loop through each trial
+            for trialnum, trial_frames in enumerate(idx):
+                # If we don't need any more frames
+                if total_picked_frames >= nframes:
+                    # Break out of the loop
+                    break
+                # If we can't pick any more frames from this trial
+                if frames_picked_per_trial >= len(trial_frames):
+                    # Move to the next trial
+                    continue
+                # If it's our first frame
+                if frames_picked_per_trial == 0:
+                    # Add a new list at index {trialnum} to picked_frames
+                    picked_frames.insert(
+                        trialnum, [trial_frames[frames_picked_per_trial]]
+                    )
+                # Otherwise, if there's still more frames we can pick from this trial
+                elif frames_picked_per_trial < len(trial_frames):
+                    # Take the next frame
+                    picked_frames[trialnum].append(
+                        trial_frames[frames_picked_per_trial]
+                    )
+
+                # If we hit this code path, we have added another frame
+                total_picked_frames = total_picked_frames + 1
+
+            # Let's do another round!
+            frames_picked_per_trial = frames_picked_per_trial + 1
 
         return picked_frames
 
