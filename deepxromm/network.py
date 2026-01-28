@@ -1,4 +1,5 @@
 from pathlib import Path
+import random
 
 import deeplabcut
 import pandas as pd
@@ -33,9 +34,52 @@ class Network:
         """Convert XMAlab data to DLC format"""
         mode = self.mode
         trials = self.project.list_trials("trainingdata")
-        dfs, idx, pointnames = self._data_processor.read_trial_csv_with_validation(
-            trials
-        )
+        dfs = []
+        idx = []
+        pnames = []
+
+        for trial_path in trials:
+            # Find CSV file
+            trial = Trial(trial_path)
+            filename = trial.find_trial_csv()
+
+            # Read CSV with header=None to match xrommtools pattern
+            df1 = pd.read_csv(filename, sep=",", header=None)
+
+            # Extract point names from header row (every 4th column, strip suffix)
+            pointnames = df1.loc[0, ::4].astype(str).str[:-7].tolist()
+            pnames.append(pointnames)
+
+            # Remove header row
+            df1 = df1.loc[1:,].reset_index(drop=True)
+
+            # Find valid frames (rows where >= 50% of columns are non-NaN)
+            ncol = df1.shape[1]
+            temp_idx = list(df1.index.values[(~pd.isnull(df1)).sum(axis=1) >= ncol / 2])
+
+            # Randomize frames within each trial
+            random.shuffle(temp_idx)
+            idx.append(temp_idx)
+            dfs.append(df1)
+
+        # Validate consistent point names across trials
+        if any(pnames[0] != x for x in pnames):
+            # Build detailed error message showing differences
+            differences = []
+            for i, pname_list in enumerate(pnames):
+                if pname_list != pnames[0]:
+                    trial_name = trials[i].name
+                    diff_points = set(pname_list) ^ set(pnames[0])
+                    differences.append(f"  {trial_name}: differs by {diff_points}")
+
+            error_msg = (
+                "Point names are not consistent across trials.\n"
+                f"Reference trial ({trials[0].name}): {pnames[0]}\n"
+                "Differences found in:\n" + "\n".join(differences)
+            )
+            raise ValueError(error_msg)
+
+        pointnames = pnames[0]
 
         # Validate we have enough frames
         total_frames = sum(len(x) for x in idx)

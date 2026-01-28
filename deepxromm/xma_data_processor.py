@@ -10,7 +10,6 @@ import cv2
 from PIL import Image
 import numpy as np
 import pandas as pd
-import random
 import yaml
 
 from deepxromm.xrommtools import dlc_to_xma, get_marker_names, get_marker_and_cam_names
@@ -777,80 +776,6 @@ class XMADataProcessor:
 
         dataFrame.to_hdf(h5_save_path, key="df_with_missing", mode="w")
         dataFrame.to_csv(csv_save_path, na_rep="NaN")
-
-    def read_trial_csv_with_validation(
-        self,
-        trialnames: list[Path],
-    ) -> tuple[list[pd.DataFrame], list[list[int]], list[str]]:
-        """
-        Read trial CSVs and validate point name consistency.
-
-        Args:
-            trialnames: List of trial directory paths
-
-        Returns:
-            Tuple of (dataframes, valid_frame_indices, pointnames)
-            - dataframes: List of DataFrames (one per trial, header row removed)
-            - valid_frame_indices: List of lists containing valid frame indices per trial
-            - pointnames: List of point/marker names
-
-        Raises:
-            ValueError: If CSVs have inconsistent point names or structure
-            FileNotFoundError: If CSV file is missing or multiple CSVs found
-        """
-
-        dfs = []
-        idx = []
-        pnames = []
-
-        for trial in trialnames:
-            # Find CSV file
-            contents = list(trial.glob("*.csv"))
-            if len(contents) != 1:
-                csv_list = [f.name for f in contents]
-                raise FileNotFoundError(
-                    f"Expected exactly 1 CSV file in {trial.name}, "
-                    f"but found {len(contents)}: {csv_list}"
-                )
-            filename = contents[0]
-
-            # Read CSV with header=None to match xrommtools pattern
-            df1 = pd.read_csv(filename, sep=",", header=None)
-
-            # Extract point names from header row (every 4th column, strip suffix)
-            pointnames = df1.loc[0, ::4].astype(str).str[:-7].tolist()
-            pnames.append(pointnames)
-
-            # Remove header row
-            df1 = df1.loc[1:,].reset_index(drop=True)
-
-            # Find valid frames (rows where >= 50% of columns are non-NaN)
-            ncol = df1.shape[1]
-            temp_idx = list(df1.index.values[(~pd.isnull(df1)).sum(axis=1) >= ncol / 2])
-
-            # Randomize frames within each trial
-            random.shuffle(temp_idx)
-            idx.append(temp_idx)
-            dfs.append(df1)
-
-        # Validate consistent point names across trials
-        if any(pnames[0] != x for x in pnames):
-            # Build detailed error message showing differences
-            differences = []
-            for i, pname_list in enumerate(pnames):
-                if pname_list != pnames[0]:
-                    trial_name = trialnames[i].name
-                    diff_points = set(pname_list) ^ set(pnames[0])
-                    differences.append(f"  {trial_name}: differs by {diff_points}")
-
-            error_msg = (
-                "Point names are not consistent across trials.\n"
-                f"Reference trial ({trialnames[0].name}): {pnames[0]}\n"
-                "Differences found in:\n" + "\n".join(differences)
-            )
-            raise ValueError(error_msg)
-
-        return dfs, idx, pnames[0]
 
     def extract_2d_points_for_camera(
         self,
