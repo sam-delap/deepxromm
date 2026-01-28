@@ -1,0 +1,902 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+      
+      
+        <link rel="canonical" href="https://sam-delap.github.io/deepxromm/config/">
+      
+      
+        <link rel="prev" href="../usage/">
+      
+      
+        <link rel="next" href="../CONTRIBUTING/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.1">
+    
+    
+      
+        <title>Config File Reference - DeepLabCut Integration for XROMM (DeepXROMM) Docs</title>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../extra.css">
+    
+    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="blue" data-md-color-accent="orange">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#deepxromm-config-file-reference" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href=".." title="DeepLabCut Integration for XROMM (DeepXROMM) Docs" class="md-header__button md-logo" aria-label="DeepLabCut Integration for XROMM (DeepXROMM) Docs" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            DeepLabCut Integration for XROMM (DeepXROMM) Docs
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Config File Reference
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="default" data-md-color-primary="blue" data-md-color-accent="orange"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M17 6H7c-3.31 0-6 2.69-6 6s2.69 6 6 6h10c3.31 0 6-2.69 6-6s-2.69-6-6-6m0 10H7c-2.21 0-4-1.79-4-4s1.79-4 4-4h10c2.21 0 4 1.79 4 4s-1.79 4-4 4M7 9c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="slate" data-md-color-primary="blue" data-md-color-accent="orange"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M17 7H7a5 5 0 0 0-5 5 5 5 0 0 0 5 5h10a5 5 0 0 0 5-5 5 5 0 0 0-5-5m0 8a3 3 0 0 1-3-3 3 3 0 0 1 3-3 3 3 0 0 1 3 3 3 3 0 0 1-3 3"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+            
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href=".." class="md-tabs__link">
+        
+  
+  
+    
+  
+  Home
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../install/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Installation
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../usage/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Usage
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+    
+  
+  
+    <li class="md-tabs__item md-tabs__item--active">
+      <a href="./" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Config File Reference
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../CONTRIBUTING/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Contributing Guide
+
+      </a>
+    </li>
+  
+
+      
+    </ul>
+  </div>
+</nav>
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+  
+
+<nav class="md-nav md-nav--primary md-nav--lifted md-nav--integrated" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href=".." title="DeepLabCut Integration for XROMM (DeepXROMM) Docs" class="md-nav__button md-logo" aria-label="DeepLabCut Integration for XROMM (DeepXROMM) Docs" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    DeepLabCut Integration for XROMM (DeepXROMM) Docs
+  </label>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href=".." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../install/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Installation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../usage/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Usage
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Config File Reference
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Config File Reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#project-settings" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Project Settings
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#neural-network-customization" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Neural Network Customization
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#migrating-from-older-versions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Migrating from Older Versions
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Migrating from Older Versions">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#deprecated-tracking_mode-parameter" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Deprecated tracking_mode Parameter
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#required-augmenter-settings" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Required Augmenter Settings
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#video-codec-settings" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Video Codec Settings
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#video-similarity-analysis" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Video Similarity Analysis
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#augmenter-settings" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Augmenter Settings
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#image-processing" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Image Processing
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#autocorrect-function-visualization" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Autocorrect() Function Visualization
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../CONTRIBUTING/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Contributing Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+
+<h1 id="deepxromm-config-file-reference">DeepXROMM Config File Reference</h1>
+<h2 id="project-settings">Project Settings</h2>
+<p><strong>task</strong>: The animal/behavior you’re trying to study. Pulled from the name given to your project folder<br />
+<strong>experimenter</strong>: Your initials<br />
+<strong>working_dir</strong>: The full directory path to your project folder<br />
+<strong>path_config_file</strong>: The full directory path to the DeepLabCut config for your project<br />
+<strong>dataset_name</strong>: An arbitary name for your dataset. Used when generating training data for DeepLabCut, which can be found in the <code>labeled-data</code> folder inside of your DLC project folder. </p>
+<h2 id="neural-network-customization">Neural Network Customization</h2>
+<p><strong>nframes</strong>: The number of frames of video that you tracked before giving the network to DeepLabCut. <strong>Default:</strong> 0 (automatically determined from CSVs)<br />
+<strong>maxiters</strong>: The maximum number of iterations to train the network for before automatically stopping training. <strong>Default:</strong> 150,000<br />
+<strong>tracking_threshold</strong>: Fraction of the total video frames to include in the training sample. Used to warn if the network detects too many/too few frames when extracting frames to be passed to the network. <strong>Default:</strong> 0.1<br />
+<strong>mode</strong>: Determines how DeepXROMM structures your training data and neural networks. <strong>Default:</strong> <code>2D</code></p>
+<ul>
+<li><strong>2D</strong> - Combines both camera views into a single DeepLabCut project with shared bodypart names. Both cameras train together in one network.</li>
+<li><strong>per_cam</strong> - Creates separate DeepLabCut projects and networks for cam1 and cam2. Each camera trains independently.</li>
+<li><strong>rgb</strong> - Merges cam1 and cam2 into a single RGB video (cam1 → red channel, cam2 → green channel, blank → blue channel). Bodyparts are labeled with camera suffixes (e.g., "marker_cam1", "marker_cam2").  </li>
+</ul>
+<blockquote>
+<p><strong>Deprecation Notice</strong>: The <code>tracking_mode</code> key is deprecated as of version 0.2.5 and will be removed in version 1.0. 
+Existing configs using <code>tracking_mode</code> will be automatically migrated to <code>mode</code> when loaded. 
+Please update your config files to use <code>mode</code> instead.</p>
+</blockquote>
+<p><strong>swapped_markers</strong>: Set to ‘true’ to create artificial markers with swapped y coordinates (y coordinates of swapped-cam1 will be cam2’s y coordinates). Only valid for the rgb mode<br />
+<strong>crossed_markers</strong>: Set to ‘true’ to create artificial markers that are the result of multiplying the x/y positions of cam1 and cam2 together (cx_cam1_cam2_x = cam1_x * cam2_x). Only valid for the rgb mode.  </p>
+<h2 id="migrating-from-older-versions">Migrating from Older Versions</h2>
+<h3 id="deprecated-tracking_mode-parameter">Deprecated <code>tracking_mode</code> Parameter</h3>
+<p><strong>Important:</strong> The <code>tracking_mode</code> configuration key has been deprecated as of version 0.2.5 and will be removed in version 1.0.</p>
+<p><strong>What changed:</strong>
+- Old key: <code>tracking_mode</code>
+- New key: <code>mode</code>
+- Functionality remains identical</p>
+<p><strong>Automatic migration:</strong>
+When you load a project with the old <code>tracking_mode</code> key, DeepXROMM will automatically:
+1. Read the <code>tracking_mode</code> value
+2. Use it as the <code>mode</code> value
+3. Log a deprecation warning</p>
+<p><strong>How to update your config manually:</strong></p>
+<p>Simply rename the key in your <code>project_config.yaml</code> file:</p>
+<p><strong>Before (deprecated):</strong>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nt">tracking_mode</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">2D</span>
+</code></pre></div></p>
+<p><strong>After (current):</strong>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="nt">mode</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">2D</span>
+</code></pre></div></p>
+<p><strong>Conflict detection:</strong>
+If your config file contains both <code>tracking_mode</code> and <code>mode</code> keys, DeepXROMM will log a warning and use the <code>mode</code> value, ignoring <code>tracking_mode</code>.</p>
+<blockquote>
+<p><strong>Recommendation:</strong> Update your configuration files proactively to avoid issues when upgrading to version 1.0.</p>
+</blockquote>
+<hr />
+<h3 id="required-augmenter-settings">Required Augmenter Settings</h3>
+<p><strong>Important:</strong> As of recent versions, DeepXROMM requires <code>augmenter</code> settings to be present in your <code>project_config.yaml</code> file. If your configuration file was created with an older version and lacks these settings, you will encounter errors when using retraining features.</p>
+<p><strong>Required configuration structure:</strong></p>
+<p>Add the following to your <code>project_config.yaml</code> file if it's not already present:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="nt">augmenter</span><span class="p">:</span>
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="w">  </span><span class="nt">outlier_algorithm</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">jump</span>
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="w">  </span><span class="nt">extraction_algorithm</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">kmeans</span>
+</code></pre></div>
+<p><strong>Where to add it:</strong>
+Place the <code>augmenter</code> section anywhere in your <code>project_config.yaml</code> file (typically near other algorithm-related settings like <code>mode</code>).</p>
+<p><strong>What these settings do:</strong>
+- <code>outlier_algorithm</code>: Controls how DeepXROMM detects problematic frames during retraining (default: <code>jump</code>)
+- <code>extraction_algorithm</code>: Controls how frames are selected for retraining (default: <code>kmeans</code>)</p>
+<p>See the <a href="#augmenter-settings">Augmenter Settings</a> section below for detailed information about available algorithms and when to use them.</p>
+<blockquote>
+<p><strong>Note:</strong> These settings are only used during the retraining workflow (<code>extract_outlier_frames()</code> and <code>merge_datasets()</code>). If you're not using the retraining features, the default values will work fine, but the keys must still be present in your config file.</p>
+</blockquote>
+<h2 id="video-codec-settings">Video Codec Settings</h2>
+<p><strong>video_codec</strong>: Specifies the video codec used for all video operations including video conversion, RGB splitting/merging, and test video generation. <strong>Default:</strong> <code>avc1</code></p>
+<p><strong>Available options:</strong></p>
+<ul>
+<li><code>avc1</code> - H.264 codec, provides good balance of quality and compatibility</li>
+<li><code>XVID</code> - Xvid MPEG-4 codec</li>
+<li><code>DIVX</code> - DivX MPEG-4 codec</li>
+<li><code>mp4v</code> - MPEG-4 Part 2 codec</li>
+<li><code>MJPG</code> - Motion JPEG codec</li>
+<li><code>uncompressed</code> - No compression (very large file sizes)</li>
+</ul>
+<blockquote>
+<p><strong>⚠️ Warning:</strong> Codec availability depends on your OpenCV build and operating system. DeepXROMM will raise a <code>RuntimeError</code> if the specified codec is not available on your system.</p>
+</blockquote>
+<p><strong>When this setting is used:</strong></p>
+<ul>
+<li>Creating RGB videos in <code>rgb</code> mode</li>
+<li>Splitting RGB videos with <code>split_rgb()</code> method</li>
+<li>Any video conversion operations during testing</li>
+<li>Frame extraction for training</li>
+</ul>
+<h2 id="video-similarity-analysis">Video Similarity Analysis</h2>
+<p><strong>cam1s_are_the_same_view</strong>: Controls assumptions made during project-level video similarity analysis. <strong>Default:</strong> <code>true</code></p>
+<p><strong>Values:</strong>
+- <code>true</code> - Assumes all cam1 videos across trials capture the same view, and all cam2 videos capture the same view. Analysis compares cam1 across trials and cam2 across trials.
+- <code>false</code> - Assumes cam1 and cam2 capture different subjects or completely different experimental setups across trials.</p>
+<p><strong>When this setting matters:</strong>
+- <code>analyze_video_similarity_project()</code> - Uses this setting to determine comparison strategy
+- <code>analyze_marker_similarity_project()</code> - Applies similar assumptions to marker trajectory analysis</p>
+<blockquote>
+<p><strong>Note:</strong> This setting does NOT affect trial-level analysis methods (<code>analyze_video_similarity_trial()</code>, <code>analyze_marker_similarity_trial()</code>), which always compare cam1 vs cam2 within a single trial.</p>
+</blockquote>
+<p><strong>Cross-reference:</strong> See <a href="../usage/#advanced-analysis-methods">Advanced Analysis Methods</a> in the usage guide for detailed information about video and marker similarity analysis.</p>
+<h2 id="augmenter-settings">Augmenter Settings</h2>
+<p>Controls how DeepXROMM identifies and extracts outlier frames during the retraining workflow. These settings are nested under the <code>augmenter</code> key in <code>project_config.yaml</code>.
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="c1"># How the settings will appear in your project_config.yaml</span>
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="nt">augmenter</span><span class="p">:</span>
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="w">    </span><span class="nt">outlier_algorithm</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">jump</span>
+<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="w">    </span><span class="nt">extraction_algorithm</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">kmeans</span>
+</code></pre></div></p>
+<p><strong>augmenter.outlier_algorithm</strong>: Algorithm used to detect outlier frames. <strong>Default:</strong> <code>jump</code></p>
+<p><strong>Available algorithms:</strong></p>
+<ul>
+<li><code>jump</code> - Detects frames with sudden jumps in predicted marker positions (recommended for most cases)</li>
+<li><code>fitting</code> - Identifies frames that don't fit the expected trajectory model</li>
+<li><code>uncertain</code> - Selects frames where the network has low confidence predictions</li>
+<li><code>list</code> - Use a manually specified list of frames (requires passing <code>frames2use</code> parameter to <code>extract_outlier_frames()</code>)</li>
+</ul>
+<p><strong>augmenter.extraction_algorithm</strong>: Algorithm used to select which outlier frames to extract. <strong>Default:</strong> <code>kmeans</code></p>
+<p><strong>Available algorithms:</strong></p>
+<ul>
+<li><code>kmeans</code> - Uses k-means clustering to select diverse representative frames from outliers</li>
+<li><code>uniform</code> - Extracts frames uniformly distributed across the video</li>
+</ul>
+<p><strong>When these settings are used:</strong></p>
+<ul>
+<li><code>extract_outlier_frames()</code> - Uses both settings to identify and extract problematic frames from analyzed trials</li>
+</ul>
+<p><strong>Cross-reference:</strong> See <a href="../usage/#retraining-the-model">Retraining the Model</a> in the usage guide for the complete retraining workflow and step-by-step instructions on using these settings.</p>
+<h2 id="image-processing">Image Processing</h2>
+<p><strong>search_area</strong>: The area, in pixels, around which autocorrect() will search for a marker. The minimum is 10, the default is 15.<br />
+<strong>threshold</strong>: Grayscale value for image thresholding. Pixels with a value above this number are turned black, while pixels with a value below this number are turned <span style="color:white;background-color:black;">white</span>. The default is 8 (grayscale values range from 0=black to 255=white).<br />
+<strong>krad</strong>: The size of the kernel used for Gaussian filtering of the image. The larger the kernel, the higher the filtered radius of a marker. The default is 17 (left) vs. a krad of 3 (right).  </p>
+<div align="center">
+    <img src="../krad_17.png" alt="Krad of 17" />
+    <img src="../krad_3.png" alt="Krad of 3" />
+</div>
+
+<p><strong>gsigma</strong>: Responsible for small differences in image contrast. Can be modified as a last resort, but for the most part I would leave this alone. The default is 10.<br />
+<strong>img_wt</strong>: Relative weight of the image when it is blended together with a blur. Typically you’ll want this to be significantly higher than the blur, and the default will work well for most X-ray images. The default is 3.6.<br />
+<strong>blur_wt</strong>: Relative weight of the blur when it is blended together with an image. Typically you’ll want this to be significantly lower than the image, and the default will work well for most X-ray images. The default is -2.9.<br />
+<strong>gamma</strong>: The level of contrast in the image. Higher gamma = lower contrast. The default is 0.1 (left) vs. gamma = 0.9 (right). Try to run with a level of gamma that avoids filtering out marker data, while not taking away valuable information from the image processing itself.</p>
+<div align="center">
+    <img src="../krad_17.png" alt="Gamma of 0.1" />
+    <img src="../gamma_0.9.png" alt="Gamma of 0.9" />
+</div>
+
+<h2 id="autocorrect-function-visualization">Autocorrect() Function Visualization</h2>
+<p><strong>trial_name</strong>: The trial to use for testing<br />
+<strong>cam</strong>: The camera view to use for testing<br />
+<strong>frame_num</strong>: The frame to use for testing  <br />
+<strong>marker</strong>: The marker to use for testing<br />
+<strong>test_autocorrect</strong>: Set to ‘true’ if you want to see/troubleshoot all of the post-processing steps that autocorrect goes through for a certain trial/cam/marker/frame combination  </p>
+<ul>
+<li>Requires a way to visualize image output like Jupyter Notebook</li>
+<li>You can also use the provided jupyter_test_autocorrect.ipynb file from the repo</li>
+</ul>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+  <script>var tabs=__md_get("__tabs");if(Array.isArray(tabs))e:for(var set of document.querySelectorAll(".tabbed-set")){var labels=set.querySelector(".tabbed-labels");for(var tab of tabs)for(var label of labels.getElementsByTagName("label"))if(label.innerText.trim()===tab){var input=document.getElementById(label.htmlFor);input.checked=!0;continue e}}</script>
+
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+        
+<div class="md-social">
+  
+    
+    
+    
+    
+      
+      
+    
+    <a href="https://github.com/sam-delap/sdlc_xmalab" target="_blank" rel="noopener" title="github.com" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M202.1 328.7c0 20.9-10.9 55.1-36.7 55.1s-36.7-34.2-36.7-55.1 10.9-55.1 36.7-55.1 36.7 34.2 36.7 55.1M496 278.2c0 31.9-3.2 65.7-17.5 95-37.9 76.6-142.1 74.8-216.7 74.8-75.8 0-186.2 2.7-225.6-74.8-14.6-29-20.2-63.1-20.2-95 0-41.9 13.9-81.5 41.5-113.6-5.2-15.8-7.7-32.4-7.7-48.8 0-21.5 4.9-32.3 14.6-51.8 45.3 0 74.3 9 108.8 36 29-6.9 58.8-10 88.7-10 27 0 54.2 2.9 80.4 9.2 34-26.7 63-35.2 107.8-35.2 9.8 19.5 14.6 30.3 14.6 51.8 0 16.4-2.6 32.7-7.7 48.2 27.5 32.4 39 72.3 39 114.2m-64.3 50.5c0-43.9-26.7-82.6-73.5-82.6-18.9 0-37 3.4-56 6-14.9 2.3-29.8 3.2-45.1 3.2-15.2 0-30.1-.9-45.1-3.2-18.7-2.6-37-6-56-6-46.8 0-73.5 38.7-73.5 82.6 0 87.8 80.4 101.3 150.4 101.3h48.2c70.3 0 150.6-13.4 150.6-101.3m-82.6-55.1c-25.8 0-36.7 34.2-36.7 55.1s10.9 55.1 36.7 55.1 36.7-34.2 36.7-55.1-10.9-55.1-36.7-55.1"/></svg>
+    </a>
+  
+    
+    
+    
+    
+      
+      
+    
+    <a href="https://www.linkedin.com/in/sam-delap/" target="_blank" rel="noopener" title="www.linkedin.com" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M416 32H31.9C14.3 32 0 46.5 0 64.3v383.4C0 465.5 14.3 480 31.9 480H416c17.6 0 32-14.5 32-32.3V64.3c0-17.8-14.4-32.3-32-32.3M135.4 416H69V202.2h66.5V416zM102.2 96a38.5 38.5 0 1 1 0 77 38.5 38.5 0 1 1 0-77m282.1 320h-66.4V312c0-24.8-.5-56.7-34.5-56.7-34.6 0-39.9 27-39.9 54.9V416h-66.4V202.2h63.7v29.2h.9c8.9-16.8 30.6-34.5 62.9-34.5 67.2 0 79.7 44.3 79.7 101.9z"/></svg>
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": ["navigation.tabs", "navigation.sections", "toc.integrate", "navigation.top", "search.suggest", "search.highlight", "content.tabs.link", "content.code.annotation", "content.code.copy"], "search": "../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
+</html>
