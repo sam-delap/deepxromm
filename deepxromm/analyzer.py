@@ -40,7 +40,9 @@ class Analyzer:
         cameras = ["cam1", "cam2"]
         videos = {
             (trial_path, cam): cv2.VideoCapture(
-                Trial(trial_path).find_cam_file(identifier=cam)
+                Trial(trial_path).find_cam_file(
+                    identifier=self._project.camera_search_name(cam)
+                )
             )
             for trial_path in trials
             for cam in cameras
@@ -141,8 +143,12 @@ class Analyzer:
     def get_max_dissimilarity_for_trial(self, trial_path: Path, window):
         """Calculate the dissimilarity within the trial given the frame sliding window."""
         trial = Trial(trial_path)
-        video1 = cv2.VideoCapture(trial.find_cam_file(identifier="cam1"))
-        video2 = cv2.VideoCapture(trial.find_cam_file(identifier="cam2"))
+        video1 = cv2.VideoCapture(
+            trial.find_cam_file(identifier=self._project.camera_search_name("cam1"))
+        )
+        video2 = cv2.VideoCapture(
+            trial.find_cam_file(identifier=self._project.camera_search_name("cam2"))
+        )
 
         hashes1 = self._hash_trial_video(video1)
         hashes2 = self._hash_trial_video(video2)

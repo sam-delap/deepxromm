@@ -35,6 +35,9 @@ class Project:
         default_factory=OutlierExtractionParams
     )
     cam1s_are_the_same_view: bool = True
+    camera_names: dict[str, str] = field(
+        default_factory=lambda: {"cam1": "cam1", "cam2": "cam2"}
+    )
 
     # Magic method modifications
     def __post_init__(self):
@@ -75,6 +78,10 @@ class Project:
         return self._experimenter
 
     # Public methods
+    def camera_search_name(self, cam: str) -> str:
+        """Resolve a builtin camera slot (cam1/cam2) to its user-configured video search string."""
+        return self.camera_names.get(cam, cam)
+
     def list_trials(self, suffix: str = "trials") -> list[Path]:
         """List all trials for the project"""
         # Security validation: prevent directory traversal
@@ -167,6 +174,18 @@ class Project:
         # Video similarity
         self.cam1s_are_the_same_view = config_data["cam1s_are_the_same_view"]
 
+        # Custom camera search names (optional; defaults to builtin cam1/cam2)
+        self.camera_names = config_data.get("camera_names") or {
+            "cam1": "cam1",
+            "cam2": "cam2",
+        }
+        if self.camera_names["cam1"] == self.camera_names["cam2"]:
+            raise ValueError(
+                f"camera_names for cam1 and cam2 must be distinct, but both "
+                f"resolve to '{self.camera_names['cam1']}'. Ambiguous names make "
+                "video lookup fail."
+            )
+
         # Retraining
         self.augmenter_settings.outlier_algorithm = config_data["augmenter"][
             "outlier_algorithm"
@@ -224,6 +243,9 @@ class Project:
 
         # Video similarity
         config_data["cam1s_are_the_same_view"] = self.cam1s_are_the_same_view
+
+        # Custom camera search names
+        config_data["camera_names"] = self.camera_names
 
         # Retraining
         config_data["augmenter"]["outlier_algorithm"] = (
@@ -345,7 +367,7 @@ class ProjectFactory:
             )
 
         # Check the current nframes against the threshold value * the number of frames in the cam1 video
-        cam1_video_path = trial.find_cam_file("cam1")
+        cam1_video_path = trial.find_cam_file(project.camera_search_name("cam1"))
         video = cv2.VideoCapture(cam1_video_path)
 
         if (

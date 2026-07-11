@@ -1,12 +1,13 @@
-task: "{task}"
-experimenter: "{experimenter}"
-working_dir: "{working_dir}"
-path_config_file: "{path_config_file}"
-dataset_name: "MyData"
-nframes: 0
-maxiters: 150000
+task: tmp
+experimenter: NA
+working_dir: /var/home/delaps/code/deepxromm/tmp
+path_config_file: 
+  /var/home/delaps/code/deepxromm/tmp/tmp-NA-2026-07-10/config.yaml
+dataset_name: MyData
+nframes: 50
+maxiters: 5
 tracking_threshold: 0.1 # Fraction of total frames included in training sample
-mode: "{mode}"
+mode: 2D
 
 # Image Processing Vars
 search_area: 15
@@ -18,10 +19,10 @@ blur_wt: -2.9
 gamma: 0.1
 
 # Autocorrect() Testing Vars
-trial_name: "your_trial_here"
-cam: "cam1"
+trial_name: your_trial_here
+cam: cam1
 frame_num: 1
-marker: "your_marker_here"
+marker: your_marker_here
 test_autocorrect: false # Set to true if you want to see autocorrect's output in Jupyter
 
 # Video Similarity Analysis Vars
@@ -32,15 +33,11 @@ cam1s_are_the_same_view: true
 # (e.g. "C001"/"C002" instead of the builtin "cam1"/"cam2").
 # Does not affect internal/generated file naming. The two names must be distinct.
 camera_names:
-  cam1: "cam1"
-  cam2: "cam2"
-
-# Video Codec Settings
-# Codec availability depends on your OpenCV build and system
-# Common options: "avc1" (H.264), "DIVX", "XVID", "mp4v", "MJPG", "uncompressed"
-video_codec: "avc1"  # Codec for all video operations (split, merge, tests)
+  cam1: cam1
+  cam2: cam2
+video_codec: avc1    # Codec for all video operations (split, merge, tests)
 
 # Retraining/augmentation settings
 augmenter:
-  outlier_algorithm: "jump" # Outlier algorithm for DLC to detect outliers
-  extraction_algorithm: "kmeans" # Extraction algorithm for DLC to extract outliers
+  outlier_algorithm: jump   # Outlier algorithm for DLC to detect outliers
+  extraction_algorithm: kmeans   # Extraction algorithm for DLC to extract outliers

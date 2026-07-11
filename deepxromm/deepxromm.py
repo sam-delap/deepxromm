@@ -85,7 +85,9 @@ class DeepXROMM:
         trials = self.project.list_trials()
         for trial_path in trials:
             trial = Trial(trial_path)
-            self.project.dlc_config.analyze_videos(trial, **kwargs)
+            self.project.dlc_config.analyze_videos(
+                trial, camera_names=self.project.camera_names, **kwargs
+            )
 
     def dlc_to_xma(self):
         """Convert DLC output from training to XMA format"""

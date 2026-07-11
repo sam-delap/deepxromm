@@ -184,3 +184,101 @@ class TestDefaultsPerformance(unittest.TestCase):
     def tearDown(self):
         """Remove the created temp project"""
         tear_down_project(self.working_dir)
+
+
+class TestCameraNames(unittest.TestCase):
+    """Test the optional custom camera search names feature"""
+
+    def setUp(self):
+        """Create a sample project with custom-named camera videos"""
+        self.working_dir = Path.cwd() / "tmp"
+        self.deepxromm = DeepXROMM.create_new_project(self.working_dir)
+        frame = cv2.imread(str(SAMPLE_FRAME))
+
+        (self.working_dir / "trainingdata/dummy").mkdir(parents=True, exist_ok=True)
+
+        # Videos named with a custom camera convention (C001/C002)
+        for cam in ("C001", "C002"):
+            video_path = self.working_dir / f"trainingdata/dummy/dummy_{cam}.avi"
+            out = cv2.VideoWriter(
+                str(video_path), cv2.VideoWriter_fourcc(*"DIVX"), 15, (1024, 512)
+            )
+            out.write(frame)
+            out.release()
+
+        df = pd.DataFrame(
+            {
+                "foo_cam1_X": 0,
+                "foo_cam1_Y": 0,
+                "foo_cam2_X": 0,
+                "foo_cam2_Y": 0,
+            },
+            index=[1],
+        )
+        csv_path = self.working_dir / "trainingdata/dummy/dummy.csv"
+        df.to_csv(str(csv_path), index=False)
+        cv2.destroyAllWindows()
+
+    def _set_camera_names(self, cam1: str, cam2: str):
+        """Helper to write custom camera_names into the project config"""
+        config = load_config_file(self.working_dir / "project_config.yaml")
+        config["camera_names"] = {"cam1": cam1, "cam2": cam2}
+        save_config_file(config, self.working_dir / "project_config.yaml")
+
+    def test_default_camera_names(self):
+        """A fresh project defaults to cam1/cam2 search names"""
+        project = self.deepxromm.project
+        self.assertEqual(project.camera_names, {"cam1": "cam1", "cam2": "cam2"})
+        self.assertEqual(project.camera_search_name("cam1"), "cam1")
+        self.assertEqual(project.camera_search_name("cam2"), "cam2")
+
+    def test_camera_names_round_trip(self):
+        """Custom camera_names persist through write/read"""
+        self._set_camera_names("C001", "C002")
+        project = DeepXROMM.load_project(self.working_dir).project
+        self.assertEqual(project.camera_search_name("cam1"), "C001")
+        self.assertEqual(project.camera_search_name("cam2"), "C002")
+
+        # Confirm it is written back out unchanged
+        config = load_config_file(self.working_dir / "project_config.yaml")
+        self.assertEqual(config["camera_names"], {"cam1": "C001", "cam2": "C002"})
+
+    def test_custom_camera_names_locate_videos(self):
+        """Custom names let DeepXROMM find videos that don't contain cam1/cam2"""
+        from deepxromm.trial import Trial
+
+        self._set_camera_names("C001", "C002")
+        project = DeepXROMM.load_project(self.working_dir).project
+        trial = Trial(self.working_dir / "trainingdata/dummy")
+
+        cam1_video = trial.find_cam_file(project.camera_search_name("cam1"))
+        cam2_video = trial.find_cam_file(project.camera_search_name("cam2"))
+        self.assertTrue(cam1_video.name.endswith("C001.avi"))
+        self.assertTrue(cam2_video.name.endswith("C002.avi"))
+
+    def test_missing_camera_names_defaults(self):
+        """A config without camera_names (older projects) defaults to cam1/cam2"""
+        config = load_config_file(self.working_dir / "project_config.yaml")
+        if "camera_names" in config:
+            del config["camera_names"]
+        save_config_file(config, self.working_dir / "project_config.yaml")
+
+        # Rename videos to the builtin convention so load succeeds
+        for old, new in (("C001", "cam1"), ("C002", "cam2")):
+            (self.working_dir / f"trainingdata/dummy/dummy_{old}.avi").rename(
+                self.working_dir / f"trainingdata/dummy/dummy_{new}.avi"
+            )
+
+        project = DeepXROMM.load_project(self.working_dir).project
+        self.assertEqual(project.camera_names, {"cam1": "cam1", "cam2": "cam2"})
+
+    def test_duplicate_camera_names_raises_error(self):
+        """Identical cam1/cam2 search names raise a ValueError on load"""
+        self._set_camera_names("C001", "C001")
+        with self.assertRaises(ValueError) as context:
+            DeepXROMM.load_project(self.working_dir)
+        self.assertIn("must be distinct", str(context.exception))
+
+    def tearDown(self):
+        """Remove the created temp project"""
+        tear_down_project(self.working_dir)

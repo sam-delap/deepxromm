@@ -36,7 +36,13 @@ class Trial:
         """
         return self._find_file(".csv", identifier=identifier, suffix=suffix)
 
-    def make_rgb_video(self, codec: str, third_channel_mode: str = "difference"):
+    def make_rgb_video(
+        self,
+        codec: str,
+        third_channel_mode: str = "difference",
+        cam1_name: str = "cam1",
+        cam2_name: str = "cam2",
+    ):
         """
         Takes the path to a trial subfolder and exports a single new video with
         cam1 video written to the red channel and cam2 video written to the
@@ -49,10 +55,10 @@ class Trial:
         if rgb_video_path.exists():
             logger.warning("RGB video already created. Skipping.")
             return
-        cam1_video_path = self.find_cam_file(identifier="cam1")
+        cam1_video_path = self.find_cam_file(identifier=cam1_name)
         cam1_video = cv2.VideoCapture(cam1_video_path)
 
-        cam2_video_path = self.find_cam_file(identifier="cam2")
+        cam2_video_path = self.find_cam_file(identifier=cam2_name)
         cam2_video = cv2.VideoCapture(cam2_video_path)
 
         frame_width = int(cam1_video.get(3))

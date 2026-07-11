@@ -60,6 +60,7 @@ class TestProjectCreation(unittest.TestCase):
             "marker",
             "test_autocorrect",
             "cam1s_are_the_same_view",
+            "camera_names",
         ]
 
         config_path = self.project_dir / "project_config.yaml"

@@ -161,7 +161,9 @@ class Augmenter:
         analysis_path = trial_path / f"it{self._iteration}"
         outliers = {}
         for camera in ["cam1", "cam2"]:
-            cam_file = trial.find_cam_file(identifier=camera)
+            cam_file = trial.find_cam_file(
+                identifier=self.project.camera_search_name(camera)
+            )
             if camera == "cam2" and self.path_config_file_2 is not None:
                 outliers[camera] = self._get_outliers_for_camera(
                     cam_file, self.path_config_file_2, **kwargs
@@ -239,8 +241,12 @@ class Augmenter:
             rgb_cam_file = trial.find_cam_file(identifier="rgb")
             shutil.copy(str(rgb_cam_file), str(training_trial_path / rgb_cam_file.name))
         else:
-            cam1_cam_file = trial.find_cam_file(identifier="cam1")
-            cam2_cam_file = trial.find_cam_file(identifier="cam2")
+            cam1_cam_file = trial.find_cam_file(
+                identifier=self.project.camera_search_name("cam1")
+            )
+            cam2_cam_file = trial.find_cam_file(
+                identifier=self.project.camera_search_name("cam2")
+            )
             shutil.copy(
                 str(cam1_cam_file), str(training_trial_path / cam1_cam_file.name)
             )
