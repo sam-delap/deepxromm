@@ -331,9 +331,13 @@ class DlcConfigRGB(DlcConfig):
             trial_csv_path, self.swapped_markers, self.crossed_markers
         )
 
-    def analyze_videos(self, trial: Trial, **kwargs):
+    def analyze_videos(self, trial: Trial, camera_names: dict = {}, **kwargs):
         """Analyze videos for a trial with an existing DeepLabCut network"""
-        trial.make_rgb_video(codec=self.video_codec, **kwargs)
+        trial.make_rgb_video(
+            codec=self.video_codec,
+            cam1_name=camera_names.get("cam1", "cam1"),
+            cam2_name=camera_names.get("cam2", "cam2"),
+        )
         current_files = trial.trial_path.glob("*")
         logger.debug(f"Current files in directory {current_files}")
         video_path = trial.trial_path / f"{trial.trial_name}_rgb.avi"
