@@ -118,7 +118,9 @@ class Autocorrector:
     def _autocorrect_video(self, cam: str, trial: Trial, csv: pd.DataFrame):
         """Run the autocorrect function on a single video within a single trial"""
         # Find the raw video
-        video = cv2.VideoCapture(trial.find_cam_file(identifier=cam))
+        video = cv2.VideoCapture(
+            trial.find_cam_file(identifier=self.project.camera_search_name(cam))
+        )
         if not video.isOpened():
             raise FileNotFoundError(
                 f"Couldn't find a video at file path: {trial.trial_path}"

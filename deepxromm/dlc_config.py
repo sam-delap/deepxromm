@@ -199,7 +199,7 @@ class DlcConfig2D(DlcConfig):
         """Convert XMA-formatted data into DeepLabCut input"""
         pass
 
-    def analyze_videos(self, trial: Trial, **kwargs):
+    def analyze_videos(self, trial: Trial, camera_names: dict = {}, **kwargs):
         """Analyze videos with an existing DeepLabCut network"""
         csv_exists = self._configure_it_folder(trial)
         if csv_exists:
@@ -211,7 +211,9 @@ class DlcConfig2D(DlcConfig):
         cameras = [1, 2]
         for camera in cameras:
             # Error handling handled by find_cam_file helper
-            video = trial.find_cam_file(identifier=f"cam{camera}")
+            slot = f"cam{camera}"
+            identifier = camera_names.get(slot, slot)
+            video = trial.find_cam_file(identifier=identifier)
             deeplabcut.analyze_videos(
                 str(self.path_config_file),
                 [
@@ -248,7 +250,7 @@ class DlcConfigPerCam(DlcConfig):
         deeplabcut.train_network(self.path_config_file, **kwargs)
         deeplabcut.train_network(self.path_config_file_2, **kwargs)
 
-    def analyze_videos(self, trial: Trial, **kwargs):
+    def analyze_videos(self, trial: Trial, camera_names: dict = {}, **kwargs):
         """Analyze videos with an existing DeepLabCut network"""
         csv_exists = self._configure_it_folder(trial)
         if csv_exists:
@@ -258,7 +260,7 @@ class DlcConfigPerCam(DlcConfig):
             return
 
         # Error handling handled by find_cam_file helper
-        cam1_video = trial.find_cam_file(identifier="cam1")
+        cam1_video = trial.find_cam_file(identifier=camera_names.get("cam1", "cam1"))
         deeplabcut.analyze_videos(
             str(self.path_config_file),
             [
@@ -269,7 +271,7 @@ class DlcConfigPerCam(DlcConfig):
             **kwargs,
         )
 
-        cam2_video = trial.find_cam_file("cam2")
+        cam2_video = trial.find_cam_file(identifier=camera_names.get("cam2", "cam2"))
         deeplabcut.analyze_videos(
             str(self.path_config_file_2),
             [
@@ -329,9 +331,13 @@ class DlcConfigRGB(DlcConfig):
             trial_csv_path, self.swapped_markers, self.crossed_markers
         )
 
-    def analyze_videos(self, trial: Trial, **kwargs):
+    def analyze_videos(self, trial: Trial, camera_names: dict = {}, **kwargs):
         """Analyze videos for a trial with an existing DeepLabCut network"""
-        trial.make_rgb_video(codec=self.video_codec, **kwargs)
+        trial.make_rgb_video(
+            codec=self.video_codec,
+            cam1_name=camera_names.get("cam1", "cam1"),
+            cam2_name=camera_names.get("cam2", "cam2"),
+        )
         current_files = trial.trial_path.glob("*")
         logger.debug(f"Current files in directory {current_files}")
         video_path = trial.trial_path / f"{trial.trial_name}_rgb.avi"

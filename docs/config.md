@@ -124,6 +124,36 @@ See the [Augmenter Settings](#augmenter-settings) section below for detailed inf
 
 **Cross-reference:** See [Advanced Analysis Methods](usage.md#advanced-analysis-methods) in the usage guide for detailed information about video and marker similarity analysis.
 
+## Camera Names
+
+Controls the filename substrings DeepXROMM uses to **locate each camera's input video** within a trial folder. By default DeepXROMM searches for videos containing `cam1` and `cam2` in their names. These settings are nested under the `camera_names` key in `project_config.yaml`.
+
+```yaml
+# How the settings will appear in your project_config.yaml
+camera_names:
+    cam1: cam1
+    cam2: cam2
+```
+
+**camera_names.cam1**: Substring used to find the first camera's video. **Default:** `cam1`
+
+**camera_names.cam2**: Substring used to find the second camera's video. **Default:** `cam2`
+
+For example, if your videos are named `trial01_C001.avi` and `trial01_C002.avi`, set:
+
+```yaml
+camera_names:
+    cam1: C001
+    cam2: C002
+```
+
+**Notes:**
+
+- This setting only affects how DeepXROMM *finds* your input videos. All internal and DeepXROMM-generated file naming (2D Points CSV columns, prediction `.h5` files, DeepLabCut dataset folders, etc.) continues to use the builtin `cam1`/`cam2` convention.
+- The two names must be distinct. DeepXROMM raises a `ValueError` when loading a config where `cam1` and `cam2` resolve to the same string, since ambiguous names make video lookup fail.
+- Configs created before this setting existed continue to work and default to `cam1`/`cam2`.
+
+
 ## Augmenter Settings
 
 Controls how DeepXROMM identifies and extracts outlier frames during the retraining workflow. These settings are nested under the `augmenter` key in `project_config.yaml`.

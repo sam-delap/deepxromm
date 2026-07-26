@@ -27,6 +27,14 @@ test_autocorrect: false # Set to true if you want to see autocorrect's output in
 # Video Similarity Analysis Vars
 cam1s_are_the_same_view: true
 
+# Custom camera video search names (optional).
+# Override the filename substring used to LOCATE each camera's input video
+# (e.g. "C001"/"C002" instead of the builtin "cam1"/"cam2").
+# Does not affect internal/generated file naming. The two names must be distinct.
+camera_names:
+  cam1: "cam1"
+  cam2: "cam2"
+
 # Video Codec Settings
 # Codec availability depends on your OpenCV build and system
 # Common options: "avc1" (H.264), "DIVX", "XVID", "mp4v", "MJPG", "uncompressed"

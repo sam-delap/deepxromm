@@ -110,7 +110,11 @@ class Network:
         elif mode == "rgb":
             logger.debug("We've selected an RGB video")
             [
-                Trial(trial_path).make_rgb_video(self.project.dlc_config.video_codec)
+                Trial(trial_path).make_rgb_video(
+                    self.project.dlc_config.video_codec,
+                    cam1_name=self.project.camera_search_name("cam1"),
+                    cam2_name=self.project.camera_search_name("cam2"),
+                )
                 for trial_path in self.project.list_trials("trainingdata")
             ]
             self._data_processor.xma_to_dlc_rgb("trainingdata", picked_frames)
@@ -208,7 +212,7 @@ class Network:
             for trialnum, trial_path in enumerate(trials):
                 # Find the camera video/image source
                 trial = Trial(trial_path)
-                cam_identifier = f"cam{camera}"
+                cam_identifier = self.project.camera_search_name(f"cam{camera}")
                 source_path = trial.find_cam_file(cam_identifier)
 
                 # Sort frames to extract for given trial
@@ -290,7 +294,7 @@ class Network:
             # Extract frames using unified interface
             frames = sorted(picked_frames[trialnum])
             # Find the camera video/image source
-            cam_identifier = f"cam{camera}"
+            cam_identifier = self.project.camera_search_name(f"cam{camera}")
             source_path = trial.find_cam_file(cam_identifier)
 
             trial_relnames = self._data_processor.extract_frames_from_video(
